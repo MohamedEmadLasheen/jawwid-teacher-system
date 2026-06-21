@@ -98,8 +98,11 @@ html, body {
   box-sizing: border-box;
 }
 
-/* Ensure inputs are touch-friendly (min 44px tap target) */
-input, select, textarea, button {
+/* Ensure text inputs are touch-friendly. NOTE: do not include `button`
+   here — Radix checkboxes/switches/radios and icon-only buttons render as
+   <button> and a blanket min-height stretches them into tall pills.
+   Buttons get their height from the Button component's size variants. */
+input:not([type="checkbox"]):not([type="radio"]), select, textarea {
   min-height: 36px;
 }
 
