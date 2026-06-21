@@ -1,0 +1,23 @@
+{
+  "name": "أكاديمية جوِّد",
+  "short_name": "جوِّد",
+  "description": "منصة إدارة المعلمين والإشراف والجودة",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0E5A6B",
+  "theme_color": "#0E5A6B",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "/assets/jawwid-logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "/assets/jawwid-logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}
