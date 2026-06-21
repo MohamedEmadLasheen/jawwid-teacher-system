@@ -50,6 +50,22 @@ export async function signOut() {
 }
 
 /**
+ * Verifies a password for the given email WITHOUT disturbing the
+ * currently logged-in session. Uses the non-persisting supabaseAdmin
+ * client so the main session is untouched. Returns true if correct.
+ *
+ * Used to gate sensitive actions (e.g. editing permissions) behind a
+ * real re-authentication instead of a cosmetic length check.
+ */
+export async function verifyPassword(email: string, password: string): Promise<boolean> {
+  if (!email || !password) return false;
+  const { error } = await supabaseAdmin.auth.signInWithPassword({ email, password });
+  // Clear the throwaway session created on the admin client, regardless.
+  await supabaseAdmin.auth.signOut();
+  return !error;
+}
+
+/**
  * Creates the initial super admin user.
  * Profile is created automatically by the on_auth_user_created trigger
  * (migration 002), so no explicit profiles.insert() is needed here —

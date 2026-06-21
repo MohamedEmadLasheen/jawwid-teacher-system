@@ -21,6 +21,7 @@ import {
 } from '@/components/ui/select';
 import { useAuthStore } from '@/store/authStore';
 import { useLogStore } from '@/store/logStore';
+import { verifyPassword } from '@/services/auth.service';
 import {
   ROLE_PERMISSIONS,
   SUPER_ADMIN_ONLY_PERMISSIONS,
@@ -45,13 +46,22 @@ function EmergencyConfirmDialog({ open, onConfirm, onCancel, actionLabel }: Emer
   const [pw, setPw] = useState('');
   const [showPw, setShowPw] = useState(false);
   const [error, setError] = useState('');
+  const [verifying, setVerifying] = useState(false);
 
-  const handleConfirm = () => {
-    if (pw.length < 4) {
+  const handleConfirm = async () => {
+    if (!pw) {
       setError(isAr ? 'كلمة المرور مطلوبة' : 'Password is required');
       return;
     }
-    setPw(''); setError('');
+    setVerifying(true);
+    setError('');
+    const ok = await verifyPassword(currentUser?.email ?? '', pw);
+    setVerifying(false);
+    if (!ok) {
+      setError(isAr ? 'كلمة المرور غير صحيحة' : 'Incorrect password');
+      return;
+    }
+    setPw('');
     onConfirm();
   };
 
@@ -92,10 +102,10 @@ function EmergencyConfirmDialog({ open, onConfirm, onCancel, actionLabel }: Emer
           <p className="text-xs text-muted-foreground">{isAr ? `المستخدم: ${currentUser?.name}` : `User: ${currentUser?.name}`}</p>
         </div>
         <DialogFooter className="flex-col sm:flex-row gap-2">
-          <Button variant="outline" onClick={() => { setPw(''); setError(''); onCancel(); }} className="w-full sm:w-auto">{isAr ? 'إلغاء' : 'Cancel'}</Button>
-          <Button onClick={handleConfirm} className="bg-red-600 hover:bg-red-700 text-white w-full sm:w-auto">
+          <Button variant="outline" disabled={verifying} onClick={() => { setPw(''); setError(''); onCancel(); }} className="w-full sm:w-auto">{isAr ? 'إلغاء' : 'Cancel'}</Button>
+          <Button onClick={handleConfirm} disabled={verifying} className="bg-red-600 hover:bg-red-700 text-white w-full sm:w-auto">
             <Shield className="h-4 w-4 me-2" />
-            {isAr ? 'تأكيد' : 'Confirm'}
+            {verifying ? (isAr ? 'جارٍ التحقق...' : 'Verifying...') : (isAr ? 'تأكيد' : 'Confirm')}
           </Button>
         </DialogFooter>
       </DialogContent>
