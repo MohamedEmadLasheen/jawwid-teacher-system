@@ -225,13 +225,14 @@ export function computePerformanceScore(
     ? teacherEvals.reduce((sum, e) => sum + e.overallScore, 0) / teacherEvals.length
     : 75;
 
-  const evalScore = (avgEval / 100) * 40;
-  const attendanceScore = 20;
-  const complaintScore = Math.max(0, 15 - teacherComplaints.length * 5);
-  const adminScore = Math.max(0, 15 - recentDeds.length * 3);
+  // Weights total 100. (Attendance was previously a fake constant 20 — removed;
+  // its weight is redistributed to the real, measured components.)
+  const evalScore = (avgEval / 100) * 50;
+  const complaintScore = Math.max(0, 20 - teacherComplaints.length * 5);
+  const adminScore = Math.max(0, 20 - recentDeds.length * 4);
   const planScore = Math.max(0, 10 - openPlans.length * 5);
 
-  const total = Math.min(100, Math.max(0, Math.round(evalScore + attendanceScore + complaintScore + adminScore + planScore)));
+  const total = Math.min(100, Math.max(0, Math.round(evalScore + complaintScore + adminScore + planScore)));
 
   let category = 'at_risk';
   if (total >= 90) category = 'elite';

@@ -8,6 +8,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useLogStore } from '@/store/logStore';
 import { useBrandingStore } from '@/store/brandingStore';
 import { AcademyLogo } from '@/components/ui/AcademyLogo';
+import { userCan, ROUTE_PERMISSIONS } from '@/lib/access';
 import { cn } from '@/lib/utils';
 
 interface NavItem {
@@ -27,7 +28,7 @@ export function Sidebar({ onClose }: SidebarProps) {
   const { addLog } = useLogStore();
   const { branding } = useBrandingStore();
 
-  const navItems: NavItem[] = [
+  const allNavItems: NavItem[] = [
     { to: '/dashboard', icon: <LayoutDashboard className="h-5 w-5 shrink-0" />, label: t('nav.dashboard') },
     { to: '/teachers', icon: <Users className="h-5 w-5 shrink-0" />, label: t('nav.teachers') },
     { to: '/supervisors', icon: <UserCheck className="h-5 w-5 shrink-0" />, label: t('nav.supervisors') },
@@ -37,6 +38,9 @@ export function Sidebar({ onClose }: SidebarProps) {
     { to: '/activity-log', icon: <Activity className="h-5 w-5 shrink-0" />, label: t('nav.activityLog') },
     { to: '/settings', icon: <Settings className="h-5 w-5 shrink-0" />, label: t('nav.settings') },
   ];
+
+  // Only show nav items the current user is allowed to access.
+  const navItems = allNavItems.filter((item) => userCan(currentUser, ROUTE_PERMISSIONS[item.to]));
 
   const handleLogout = () => {
     if (currentUser) {

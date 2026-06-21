@@ -260,10 +260,9 @@ export function TeacherProfilePage() {
                 </div>
                 <Progress value={perfScore} className="h-3" />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                  <ScoreBar label={t('performance.evaluationsWeight')} value={Math.round((avgEval / 100) * 40)} max={40} color="bg-blue-500" />
-                  <ScoreBar label={t('performance.attendanceWeight')} value={20} max={20} color="bg-green-500" />
-                  <ScoreBar label={t('performance.complaintsWeight')} value={Math.max(0, 15 - teacherComplaints.filter((c) => c.status !== 'closed').length * 5)} max={15} color="bg-orange-500" />
-                  <ScoreBar label={t('performance.adminWeight')} value={Math.max(0, 15 - teacherDeductions.length * 3)} max={15} color="bg-purple-500" />
+                  <ScoreBar label={t('performance.evaluationsWeight')} value={Math.round((avgEval / 100) * 50)} max={50} color="bg-blue-500" />
+                  <ScoreBar label={t('performance.complaintsWeight')} value={Math.max(0, 20 - teacherComplaints.filter((c) => c.status !== 'closed').length * 5)} max={20} color="bg-orange-500" />
+                  <ScoreBar label={t('performance.adminWeight')} value={Math.max(0, 20 - teacherDeductions.length * 4)} max={20} color="bg-purple-500" />
                   <ScoreBar label={t('performance.plansWeight')} value={Math.max(0, 10 - teacherPlans.filter((p) => p.status === 'open' || p.status === 'in_progress').length * 5)} max={10} color="bg-yellow-500" />
                 </div>
               </CardContent>

@@ -130,11 +130,10 @@ export function DashboardPage() {
         <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
           {t('dashboard.qualityMetrics')}
         </h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
           <MetricCard label={t('dashboard.avgEvalScore')} value={`${avgEvalScore}%`} color={avgEvalScore >= 80 ? 'text-green-600' : avgEvalScore >= 60 ? 'text-yellow-600' : 'text-red-600'} />
           <MetricCard label={t('dashboard.complaintResolutionRate')} value={`${resolutionRate}%`} color={resolutionRate >= 80 ? 'text-green-600' : 'text-yellow-600'} />
-          <MetricCard label={t('dashboard.attendanceRate')} value="95%" color="text-green-600" />
-          <MetricCard label={t('dashboard.teacherRetentionRate')} value={`${Math.round((activeTeachers.length / Math.max(teachers.filter((t) => !t.isDeleted).length, 1)) * 100)}%`} color="text-blue-600" />
+          <MetricCard label={t('dashboard.activeTeachers')} value={`${activeTeachers.length}`} color="text-blue-600" />
         </div>
       </div>
 

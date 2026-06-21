@@ -1,9 +1,12 @@
-﻿import { useTranslation } from 'react-i18next';
+﻿import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Menu, Bell, User, Settings, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { LanguageSwitcher } from './LanguageSwitcher';
 import { useAuthStore } from '@/store/authStore';
 import { useNotificationStore } from '@/store/notificationStore';
+import { useTeacherStore } from '@/store/teacherStore';
+import { buildNotifications } from '@/lib/notifications';
 import { useBrandingStore } from '@/store/brandingStore';
 import { AcademyLogo } from '@/components/ui/AcademyLogo';
 import { Button } from '@/components/ui/button';
@@ -27,10 +30,18 @@ interface HeaderProps {
 export function Header({ onMenuToggle, title }: HeaderProps) {
   const { t, i18n } = useTranslation();
   const { currentUser, logout } = useAuthStore();
-  const { notifications, markAsRead, markAllAsRead } = useNotificationStore();
+  const { readIds, dismissedIds, markAsRead, markAllAsRead } = useNotificationStore();
+  const { teachers, bonuses, complaints, improvementPlans, evaluations, deductions } = useTeacherStore();
   const { branding } = useBrandingStore();
   const navigate = useNavigate();
   const isAr = i18n.language === 'ar';
+
+  // Notifications are derived from live data; read/dismissed state is per-user (persisted).
+  const notifications = useMemo(() => {
+    return buildNotifications({ teachers, bonuses, complaints, improvementPlans, evaluations, deductions })
+      .filter((n) => !dismissedIds.includes(n.id))
+      .map((n) => ({ ...n, isRead: readIds.includes(n.id) }));
+  }, [teachers, bonuses, complaints, improvementPlans, evaluations, deductions, readIds, dismissedIds]);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
   const recentNotifs = notifications.slice(0, 6);
@@ -95,7 +106,7 @@ export function Header({ onMenuToggle, title }: HeaderProps) {
               <AcademyLogo size={18} />
               <span className="flex-1 text-sm">{t('notification.title')}</span>
               {unreadCount > 0 && (
-                <button onClick={markAllAsRead} className="text-xs text-primary hover:underline">
+                <button onClick={() => markAllAsRead(notifications.map((n) => n.id))} className="text-xs text-primary hover:underline">
                   {t('notification.markAllRead')}
                 </button>
               )}

@@ -21,6 +21,8 @@ import { useBrandingStore } from '@/store/brandingStore';
 import { useTeacherStore } from '@/store/teacherStore';
 import { useSupervisorStore } from '@/store/supervisorStore';
 import { AcademyLogo } from '@/components/ui/AcademyLogo';
+import { userCan, ROUTE_PERMISSIONS } from '@/lib/access';
+import type { Permission } from '@/lib/types';
 
 function DirectionSetter() {
   const { i18n } = useTranslation();
@@ -39,6 +41,14 @@ function RootRedirect() {
   const { isAuthenticated } = useAuthStore();
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   return <Navigate to="/dashboard" replace />;
+}
+
+// Per-route permission guard. Redirects to /dashboard if the current
+// user lacks the permission for this route.
+function Guard({ anyOf, children }: { anyOf?: Permission[] | null; children: React.ReactNode }) {
+  const { currentUser } = useAuthStore();
+  if (!userCan(currentUser, anyOf)) return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
 }
 
 // Global data loader — runs once after auth is confirmed
@@ -95,13 +105,13 @@ export default function App() {
         >
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="teachers" element={<TeachersPage />} />
-          <Route path="teachers/:id" element={<TeacherProfilePage />} />
-          <Route path="supervisors" element={<SupervisorsPage />} />
-          <Route path="action-center" element={<ActionCenterPage />} />
-          <Route path="deductions" element={<DeductionsPage />} />
-          <Route path="bonuses" element={<BonusesPage />} />
-          <Route path="activity-log" element={<ActivityLogPage />} />
+          <Route path="teachers" element={<Guard anyOf={ROUTE_PERMISSIONS['/teachers']}><TeachersPage /></Guard>} />
+          <Route path="teachers/:id" element={<Guard anyOf={ROUTE_PERMISSIONS['/teachers']}><TeacherProfilePage /></Guard>} />
+          <Route path="supervisors" element={<Guard anyOf={ROUTE_PERMISSIONS['/supervisors']}><SupervisorsPage /></Guard>} />
+          <Route path="action-center" element={<Guard anyOf={ROUTE_PERMISSIONS['/action-center']}><ActionCenterPage /></Guard>} />
+          <Route path="deductions" element={<Guard anyOf={ROUTE_PERMISSIONS['/deductions']}><DeductionsPage /></Guard>} />
+          <Route path="bonuses" element={<Guard anyOf={ROUTE_PERMISSIONS['/bonuses']}><BonusesPage /></Guard>} />
+          <Route path="activity-log" element={<Guard anyOf={ROUTE_PERMISSIONS['/activity-log']}><ActivityLogPage /></Guard>} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="profile" element={<ProfilePage />} />
         </Route>
