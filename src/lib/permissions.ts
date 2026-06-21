@@ -138,6 +138,9 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'view_evaluations',
     'view_reports',
   ],
+  // Supervisors get no permissions by default — they are granted
+  // individually via the Supervisors → Permissions dialog.
+  supervisor: [],
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

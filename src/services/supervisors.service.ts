@@ -13,6 +13,7 @@ function toSupervisor(row: Row): Supervisor {
     department: row.department,
     status: row.status as Supervisor['status'],
     permissions: row.permissions as Permission[],
+    userId: row.user_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -39,6 +40,7 @@ export async function createSupervisor(
       department: s.department,
       status: s.status,
       permissions: s.permissions as string[],
+      user_id: s.userId ?? null,
     })
     .select()
     .single();

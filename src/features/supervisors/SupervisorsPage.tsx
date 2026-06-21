@@ -30,7 +30,8 @@ const ALL_PERMISSIONS: Permission[] = [
 ];
 
 export function SupervisorsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isAr = i18n.language === 'ar';
   const {
     supervisors, addSupervisor, updateSupervisor, deleteSupervisor,
     disableSupervisor, updateSupervisorPermissions,
@@ -51,17 +52,18 @@ export function SupervisorsPage() {
   const [form, setForm] = useState({
     name: '', email: '', phone: '', department: '',
     status: 'active' as 'active' | 'inactive',
+    password: '', createLogin: true,
   });
 
   const openAdd = () => {
     setEditing(null);
-    setForm({ name: '', email: '', phone: '', department: '', status: 'active' });
+    setForm({ name: '', email: '', phone: '', department: '', status: 'active', password: '', createLogin: true });
     setFormOpen(true);
   };
 
   const openEdit = (s: Supervisor) => {
     setEditing(s);
-    setForm({ name: s.name, email: s.email, phone: s.phone, department: s.department, status: s.status });
+    setForm({ name: s.name, email: s.email, phone: s.phone, department: s.department, status: s.status, password: '', createLogin: false });
     setFormOpen(true);
   };
 
@@ -71,20 +73,25 @@ export function SupervisorsPage() {
     setPermOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editing) {
-      updateSupervisor(editing.id, form);
-      if (currentUser) {
-        addLog({ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role, action: 'edit_supervisor', target: form.name, details: `تعديل مشرف: ${form.name}` });
+    const { password, createLogin, ...fields } = form;
+    try {
+      if (editing) {
+        await updateSupervisor(editing.id, fields);
+        if (currentUser) {
+          addLog({ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role, action: 'edit_supervisor', target: fields.name, details: `تعديل مشرف: ${fields.name}` });
+        }
+      } else {
+        await addSupervisor({ ...fields, permissions: [] }, createLogin ? password : undefined);
+        if (currentUser) {
+          addLog({ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role, action: 'add_supervisor', target: fields.name, details: `إضافة مشرف: ${fields.name}` });
+        }
       }
-    } else {
-      addSupervisor({ ...form, permissions: [] });
-      if (currentUser) {
-        addLog({ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role, action: 'add_supervisor', target: form.name, details: `إضافة مشرف: ${form.name}` });
-      }
+      setFormOpen(false);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : (isAr ? 'فشل الحفظ' : 'Failed to save'));
     }
-    setFormOpen(false);
   };
 
   const handleDelete = (id: string) => {
@@ -238,6 +245,39 @@ export function SupervisorsPage() {
               <Label className="text-sm">{t('supervisors.email')} *</Label>
               <Input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className="h-10" required />
             </div>
+            {!editing && (
+              <>
+                <div className="flex items-center gap-2 pt-1">
+                  <Checkbox
+                    id="createLogin"
+                    checked={form.createLogin}
+                    onCheckedChange={(v) => setForm((f) => ({ ...f, createLogin: !!v, password: v ? f.password : '' }))}
+                  />
+                  <label htmlFor="createLogin" className="text-sm text-gray-700 cursor-pointer">
+                    {isAr ? 'إنشاء حساب دخول لهذا المشرف' : 'Create a login account for this supervisor'}
+                  </label>
+                </div>
+                {form.createLogin && (
+                  <div className="space-y-1.5">
+                    <Label className="text-sm">{isAr ? 'كلمة المرور' : 'Password'} *</Label>
+                    <Input
+                      type="password"
+                      value={form.password}
+                      onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                      className="h-10"
+                      minLength={8}
+                      required={form.createLogin}
+                      placeholder={isAr ? '8 أحرف على الأقل' : 'At least 8 characters'}
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      {isAr
+                        ? 'سيتمكن المشرف من تسجيل الدخول بهذا البريد وكلمة المرور، وفق الصلاحيات الممنوحة.'
+                        : 'The supervisor can log in with this email and password, scoped to the permissions you grant.'}
+                    </p>
+                  </div>
+                )}
+              </>
+            )}
             <div className="space-y-1.5">
               <Label className="text-sm">{t('supervisors.phone')}</Label>
               <Input value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} className="h-10" />

@@ -197,6 +197,7 @@ export interface Database {
           department: string;
           status: string;
           permissions: string[];
+          user_id: string | null;
           created_at: string;
           updated_at: string;
         };

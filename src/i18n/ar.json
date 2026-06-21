@@ -484,7 +484,8 @@
     "super_admin": "المشرف العام",
     "admin": "مشرف النظام",
     "operation_admin": "مشرف العمليات",
-    "quality_admin": "مشرف الجودة"
+    "quality_admin": "مشرف الجودة",
+    "supervisor": "مشرف"
   },
   "permissions": {
     "create_admin": "إنشاء مشرف نظام",

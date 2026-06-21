@@ -1,4 +1,4 @@
-export type UserRole = 'super_admin' | 'admin' | 'operation_admin' | 'quality_admin';
+export type UserRole = 'super_admin' | 'admin' | 'operation_admin' | 'quality_admin' | 'supervisor';
 
 export type TeacherLevel = 'silver' | 'gold' | 'platinum';
 export type TeacherStatus = 'active' | 'inactive';
@@ -256,6 +256,8 @@ export interface Supervisor {
   department: string;
   status: 'active' | 'inactive';
   permissions: Permission[];
+  /** Linked auth user id when the supervisor has a login account. */
+  userId?: string | null;
   createdAt: string;
   updatedAt: string;
 }

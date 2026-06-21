@@ -484,7 +484,8 @@
     "super_admin": "Super Admin",
     "admin": "Admin",
     "operation_admin": "Operations Admin",
-    "quality_admin": "Quality Admin"
+    "quality_admin": "Quality Admin",
+    "supervisor": "Supervisor"
   },
   "permissions": {
     "create_admin": "Create Admin",
