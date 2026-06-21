@@ -11,7 +11,6 @@ import {
   updateProfile,
   updateLastLogin,
   changeOwnPassword,
-  checkNeedsSetup,
   disableUser,
   fetchAllUsers,
 } from '../services/auth.service';
@@ -51,10 +50,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
   initialize: async () => {
     try {
-      const [needsSetup, session] = await Promise.all([
-        checkNeedsSetup(),
-        getSession(),
-      ]);
+      const session = await getSession();
 
       if (session?.user) {
         const profile = await getProfileById(session.user.id);
@@ -65,9 +61,9 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         }
       }
 
-      set({ needsSetup, loading: false });
+      set({ loading: false });
     } catch {
-      set({ loading: false, needsSetup: true });
+      set({ loading: false });
     }
   },
 

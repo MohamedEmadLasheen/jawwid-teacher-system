@@ -6,7 +6,6 @@ import '@/i18n/index';
 import { AppShell } from '@/components/layout/AppShell';
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute';
 import { LoginPage } from '@/features/auth/LoginPage';
-import { SetupPage } from '@/features/auth/SetupPage';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { TeachersPage } from '@/features/teachers/TeachersPage';
 import { TeacherProfilePage } from '@/features/teachers/TeacherProfilePage';
@@ -37,8 +36,7 @@ function DirectionSetter() {
 }
 
 function RootRedirect() {
-  const { needsSetup, isAuthenticated } = useAuthStore();
-  if (needsSetup) return <Navigate to="/setup" replace />;
+  const { isAuthenticated } = useAuthStore();
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   return <Navigate to="/dashboard" replace />;
 }
@@ -72,7 +70,7 @@ function AppLoadingScreen() {
 }
 
 export default function App() {
-  const { initialize, loading, needsSetup } = useAuthStore();
+  const { initialize, loading } = useAuthStore();
 
   // Run once on mount — resolves session & checks needsSetup
   useEffect(() => {
@@ -86,10 +84,6 @@ export default function App() {
       <DirectionSetter />
       <DataLoader />
       <Routes>
-        <Route
-          path="/setup"
-          element={needsSetup ? <SetupPage /> : <Navigate to="/login" replace />}
-        />
         <Route path="/login" element={<LoginPage />} />
         <Route
           path="/"
