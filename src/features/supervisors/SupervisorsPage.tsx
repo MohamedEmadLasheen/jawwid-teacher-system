@@ -52,18 +52,18 @@ export function SupervisorsPage() {
   const [form, setForm] = useState({
     name: '', email: '', phone: '', department: '',
     status: 'active' as 'active' | 'inactive',
-    password: '', createLogin: true,
+    password: '',
   });
 
   const openAdd = () => {
     setEditing(null);
-    setForm({ name: '', email: '', phone: '', department: '', status: 'active', password: '', createLogin: true });
+    setForm({ name: '', email: '', phone: '', department: '', status: 'active', password: '' });
     setFormOpen(true);
   };
 
   const openEdit = (s: Supervisor) => {
     setEditing(s);
-    setForm({ name: s.name, email: s.email, phone: s.phone, department: s.department, status: s.status, password: '', createLogin: false });
+    setForm({ name: s.name, email: s.email, phone: s.phone, department: s.department, status: s.status, password: '' });
     setFormOpen(true);
   };
 
@@ -75,7 +75,7 @@ export function SupervisorsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { password, createLogin, ...fields } = form;
+    const { password, ...fields } = form;
     try {
       if (editing) {
         await updateSupervisor(editing.id, fields);
@@ -83,7 +83,7 @@ export function SupervisorsPage() {
           addLog({ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role, action: 'edit_supervisor', target: fields.name, details: `تعديل مشرف: ${fields.name}` });
         }
       } else {
-        await addSupervisor({ ...fields, permissions: [] }, createLogin ? password : undefined);
+        await addSupervisor({ ...fields, permissions: [] }, password);
         if (currentUser) {
           addLog({ userId: currentUser.id, userName: currentUser.name, userRole: currentUser.role, action: 'add_supervisor', target: fields.name, details: `إضافة مشرف: ${fields.name}` });
         }
@@ -246,37 +246,23 @@ export function SupervisorsPage() {
               <Input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} className="h-10" required />
             </div>
             {!editing && (
-              <>
-                <div className="flex items-center gap-2 pt-1">
-                  <Checkbox
-                    id="createLogin"
-                    checked={form.createLogin}
-                    onCheckedChange={(v) => setForm((f) => ({ ...f, createLogin: !!v, password: v ? f.password : '' }))}
-                  />
-                  <label htmlFor="createLogin" className="text-sm text-gray-700 cursor-pointer">
-                    {isAr ? 'إنشاء حساب دخول لهذا المشرف' : 'Create a login account for this supervisor'}
-                  </label>
-                </div>
-                {form.createLogin && (
-                  <div className="space-y-1.5">
-                    <Label className="text-sm">{isAr ? 'كلمة المرور' : 'Password'} *</Label>
-                    <Input
-                      type="password"
-                      value={form.password}
-                      onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-                      className="h-10"
-                      minLength={8}
-                      required={form.createLogin}
-                      placeholder={isAr ? '8 أحرف على الأقل' : 'At least 8 characters'}
-                    />
-                    <p className="text-[11px] text-muted-foreground">
-                      {isAr
-                        ? 'سيتمكن المشرف من تسجيل الدخول بهذا البريد وكلمة المرور، وفق الصلاحيات الممنوحة.'
-                        : 'The supervisor can log in with this email and password, scoped to the permissions you grant.'}
-                    </p>
-                  </div>
-                )}
-              </>
+              <div className="space-y-1.5">
+                <Label className="text-sm">{isAr ? 'كلمة المرور' : 'Password'} *</Label>
+                <Input
+                  type="password"
+                  value={form.password}
+                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                  className="h-10"
+                  minLength={8}
+                  required
+                  placeholder={isAr ? '8 أحرف على الأقل' : 'At least 8 characters'}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  {isAr
+                    ? 'سيسجّل المشرف الدخول بهذا البريد وكلمة المرور، وفق الصلاحيات الممنوحة له.'
+                    : 'The supervisor logs in with this email and password, scoped to the permissions you grant.'}
+                </p>
+              </div>
             )}
             <div className="space-y-1.5">
               <Label className="text-sm">{t('supervisors.phone')}</Label>
