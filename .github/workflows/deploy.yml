@@ -1,0 +1,59 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Prevent two deploys from racing; a newer push cancels an in-flight one.
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: npm run build
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Deploy (atomic release)
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          BASE: ${{ secrets.DEPLOY_PATH }}
+        run: |
+          set -e
+          TS=$(date +%Y%m%d_%H%M%S)
+          REL="$BASE/releases/$TS"
+          SSH="ssh -i ~/.ssh/id_ed25519 $SSH_USER@$SSH_HOST"
+
+          # 1. Create the new release directory
+          $SSH "mkdir -p $REL"
+
+          # 2. Upload the freshly built static files
+          rsync -az -e "ssh -i ~/.ssh/id_ed25519" --delete dist/ "$SSH_USER@$SSH_HOST:$REL/"
+
+          # 3. Flip the 'current' symlink atomically, then keep only the 5 newest releases
+          $SSH "ln -sfn $REL $BASE/current && ls -1dt $BASE/releases/*/ | tail -n +6 | xargs -r rm -rf"
+
+          echo "Deployed release $TS"
