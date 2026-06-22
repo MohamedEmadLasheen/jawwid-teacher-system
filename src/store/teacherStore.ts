@@ -35,12 +35,15 @@ interface TeacherState {
   restoreTeacher: (id: string) => Promise<void>;
 
   addEvaluation: (evaluation: Omit<SessionEvaluation, 'id' | 'createdAt'>) => Promise<void>;
+  deleteEvaluation: (id: string) => Promise<void>;
 
   addComplaint: (complaint: Omit<Complaint, 'id' | 'createdAt' | 'actions'>) => Promise<void>;
   advanceComplaintStatus: (id: string, newStatus: ComplaintStatus, note: string, byUser: string) => Promise<void>;
+  deleteComplaint: (id: string) => Promise<void>;
 
   addImprovementPlan: (plan: Omit<ImprovementPlan, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   updateImprovementPlan: (id: string, updates: Partial<ImprovementPlan>) => Promise<void>;
+  deleteImprovementPlan: (id: string) => Promise<void>;
 
   addDeduction: (deduction: Omit<Deduction, 'id' | 'createdAt'>) => Promise<void>;
   deleteDeduction: (id: string) => Promise<void>;
@@ -51,8 +54,10 @@ interface TeacherState {
 
   addRecommendation: (rec: Omit<AdminRecommendation, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   updateRecommendationStatus: (id: string, status: RecommendationStatus) => Promise<void>;
+  deleteRecommendation: (id: string) => Promise<void>;
 
   addAdminNote: (note: Omit<AdminNote, 'id' | 'createdAt'>) => Promise<void>;
+  deleteAdminNote: (id: string) => Promise<void>;
 
   addSalaryRecord: (record: Omit<SalaryRecord, 'id' | 'createdAt'>) => Promise<void>;
 }
@@ -128,6 +133,11 @@ export const useTeacherStore = create<TeacherState>()((set, get) => ({
     set((state) => ({ evaluations: [newEval, ...state.evaluations] }));
   },
 
+  deleteEvaluation: async (id) => {
+    await evalSvc.deleteEvaluation(id);
+    set((state) => ({ evaluations: state.evaluations.filter((e) => e.id !== id) }));
+  },
+
   addComplaint: async (complaint) => {
     const newComplaint = await complaintSvc.createComplaint(complaint);
     set((state) => ({ complaints: [newComplaint, ...state.complaints] }));
@@ -143,6 +153,11 @@ export const useTeacherStore = create<TeacherState>()((set, get) => ({
     }));
   },
 
+  deleteComplaint: async (id) => {
+    await complaintSvc.deleteComplaint(id);
+    set((state) => ({ complaints: state.complaints.filter((c) => c.id !== id) }));
+  },
+
   addImprovementPlan: async (plan) => {
     const newPlan = await planSvc.createPlan(plan);
     set((state) => ({ improvementPlans: [newPlan, ...state.improvementPlans] }));
@@ -153,6 +168,11 @@ export const useTeacherStore = create<TeacherState>()((set, get) => ({
     set((state) => ({
       improvementPlans: state.improvementPlans.map((p) => (p.id === id ? updated : p)),
     }));
+  },
+
+  deleteImprovementPlan: async (id) => {
+    await planSvc.deletePlan(id);
+    set((state) => ({ improvementPlans: state.improvementPlans.filter((p) => p.id !== id) }));
   },
 
   addDeduction: async (deduction) => {
@@ -196,9 +216,19 @@ export const useTeacherStore = create<TeacherState>()((set, get) => ({
     }));
   },
 
+  deleteRecommendation: async (id) => {
+    await recSvc.deleteRecommendation(id);
+    set((state) => ({ recommendations: state.recommendations.filter((r) => r.id !== id) }));
+  },
+
   addAdminNote: async (note) => {
     const newNote = await recSvc.createAdminNote(note);
     set((state) => ({ adminNotes: [newNote, ...state.adminNotes] }));
+  },
+
+  deleteAdminNote: async (id) => {
+    await recSvc.deleteAdminNote(id);
+    set((state) => ({ adminNotes: state.adminNotes.filter((n) => n.id !== id) }));
   },
 
   addSalaryRecord: async (record) => {

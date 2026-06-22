@@ -108,3 +108,9 @@ export async function advanceComplaintStatus(
     action: toAction(actionRes.data),
   };
 }
+
+export async function deleteComplaint(id: string): Promise<void> {
+  // complaint_actions rows are removed automatically (FK ON DELETE CASCADE).
+  const { error } = await supabase.from('complaints').delete().eq('id', id);
+  if (error) throw error;
+}

@@ -90,3 +90,13 @@ export async function createAdminNote(
   if (error) throw error;
   return toNote(data);
 }
+
+export async function deleteRecommendation(id: string): Promise<void> {
+  const { error } = await supabase.from('admin_recommendations').delete().eq('id', id);
+  if (error) throw error;
+}
+
+export async function deleteAdminNote(id: string): Promise<void> {
+  const { error } = await supabase.from('admin_notes').delete().eq('id', id);
+  if (error) throw error;
+}

@@ -74,3 +74,8 @@ export async function updatePlan(
   if (error) throw error;
   return toPlan(data);
 }
+
+export async function deletePlan(id: string): Promise<void> {
+  const { error } = await supabase.from('improvement_plans').delete().eq('id', id);
+  if (error) throw error;
+}

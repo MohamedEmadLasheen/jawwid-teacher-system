@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, ChevronRight } from 'lucide-react';
+import { Plus, ChevronRight, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,6 +8,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -57,12 +61,49 @@ export function ActionCenterPage() {
     addImprovementPlan, updateImprovementPlan,
     addRecommendation, updateRecommendationStatus,
     addAdminNote,
+    deleteEvaluation, deleteComplaint, deleteImprovementPlan, deleteRecommendation, deleteAdminNote,
   } = useTeacherStore();
   const { currentUser } = useAuthStore();
   const { addLog } = useLogStore();
 
   const activeTeachers = teachers.filter((t) => !t.isDeleted);
   const getTeacherName = (id: string) => activeTeachers.find((t) => t.id === id)?.fullName || id;
+
+  // Only admin-level users can delete (matches the DB RLS policy).
+  const canDelete = currentUser?.role === 'super_admin' || currentUser?.role === 'admin';
+
+  type DeleteKind = 'evaluation' | 'complaint' | 'plan' | 'recommendation' | 'note';
+  const [deleteTarget, setDeleteTarget] = useState<{ kind: DeleteKind; id: string } | null>(null);
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const { kind, id } = deleteTarget;
+    try {
+      if (kind === 'evaluation') await deleteEvaluation(id);
+      else if (kind === 'complaint') await deleteComplaint(id);
+      else if (kind === 'plan') await deleteImprovementPlan(id);
+      else if (kind === 'recommendation') await deleteRecommendation(id);
+      else if (kind === 'note') await deleteAdminNote(id);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : (lang === 'ar' ? 'فشل الحذف' : 'Delete failed'));
+    } finally {
+      setDeleteTarget(null);
+    }
+  };
+
+  // Small icon-only delete button shown on each row for admin-level users.
+  const DeleteBtn = ({ kind, id }: { kind: DeleteKind; id: string }) =>
+    canDelete ? (
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-6 w-6 text-red-500 hover:bg-red-50 shrink-0"
+        aria-label={lang === 'ar' ? 'حذف' : 'Delete'}
+        onClick={() => setDeleteTarget({ kind, id })}
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </Button>
+    ) : null;
 
   // Evaluation form
   const [evalOpen, setEvalOpen] = useState(false);
@@ -182,6 +223,7 @@ export function ActionCenterPage() {
                           'bg-red-100 text-red-700'
                         }>{t(`evaluation.${ev.grade}`)}</Badge>
                         <Badge className="bg-primary text-primary-foreground">{ev.overallScore}</Badge>
+                        <DeleteBtn kind="evaluation" id={ev.id} />
                       </div>
                     </div>
                   ))}
@@ -224,10 +266,13 @@ export function ActionCenterPage() {
                             ))}
                           </div>
                         </div>
-                        <div className="flex flex-col gap-1 flex-shrink-0">
-                          <Badge variant="outline" className={COMPLAINT_STATUS_COLORS[c.status]}>
-                            {t(`complaint.${c.status}`)}
-                          </Badge>
+                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                          <div className="flex items-center gap-1">
+                            <Badge variant="outline" className={COMPLAINT_STATUS_COLORS[c.status]}>
+                              {t(`complaint.${c.status}`)}
+                            </Badge>
+                            <DeleteBtn kind="complaint" id={c.id} />
+                          </div>
                           {c.status !== 'closed' && (
                             <Button
                               variant="ghost" size="sm"
@@ -283,13 +328,16 @@ export function ActionCenterPage() {
                             {plan.followUpDate && ` · ${t('plan.followUpDate')}: ${formatDate(plan.followUpDate, lang)}`}
                           </p>
                         </div>
-                        <div className="flex flex-col gap-1 flex-shrink-0">
-                          <Badge variant="outline" className={
-                            plan.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
-                            plan.status === 'failed' ? 'bg-red-100 text-red-700' :
-                            plan.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
-                            'bg-amber-100 text-amber-700'
-                          }>{t(`plan.${plan.status}`)}</Badge>
+                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                          <div className="flex items-center gap-1">
+                            <Badge variant="outline" className={
+                              plan.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                              plan.status === 'failed' ? 'bg-red-100 text-red-700' :
+                              plan.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                              'bg-amber-100 text-amber-700'
+                            }>{t(`plan.${plan.status}`)}</Badge>
+                            <DeleteBtn kind="plan" id={plan.id} />
+                          </div>
                           {plan.status === 'open' && (
                             <Button variant="ghost" size="sm" className="h-6 text-xs px-2 text-blue-600" onClick={() => updateImprovementPlan(plan.id, { status: 'in_progress' as ImprovementPlanStatus })}>
                               {t('plan.in_progress')}
@@ -335,8 +383,11 @@ export function ActionCenterPage() {
                           <p className="text-xs text-gray-600">{rec.content}</p>
                           <p className="text-xs text-gray-400 mt-1">{rec.createdBy} · {formatDate(rec.createdAt, lang)}</p>
                         </div>
-                        <div className="flex flex-col gap-1 flex-shrink-0">
-                          <Badge className={REC_STATUS_COLORS[rec.status]}>{t(`recommendation.${rec.status}`)}</Badge>
+                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                          <div className="flex items-center gap-1">
+                            <Badge className={REC_STATUS_COLORS[rec.status]}>{t(`recommendation.${rec.status}`)}</Badge>
+                            <DeleteBtn kind="recommendation" id={rec.id} />
+                          </div>
                           {rec.status === 'pending' && (
                             <div className="flex gap-1">
                               <Button variant="ghost" size="sm" className="h-6 text-xs px-1.5 text-emerald-600" onClick={() => updateRecommendationStatus(rec.id, 'approved' as RecommendationStatus)}>
@@ -372,10 +423,13 @@ export function ActionCenterPage() {
               ) : (
                 <div className="space-y-3">
                   {adminNotes.map((note) => (
-                    <div key={note.id} className="p-3 bg-gray-50 rounded-lg">
-                      <p className="text-sm font-medium text-gray-800">{getTeacherName(note.teacherId)}</p>
-                      <p className="text-xs text-gray-600 mt-0.5">{note.content}</p>
-                      <p className="text-xs text-gray-400 mt-1">{note.createdBy} · {formatDateTime(note.createdAt, lang)}</p>
+                    <div key={note.id} className="p-3 bg-gray-50 rounded-lg flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-800">{getTeacherName(note.teacherId)}</p>
+                        <p className="text-xs text-gray-600 mt-0.5">{note.content}</p>
+                        <p className="text-xs text-gray-400 mt-1">{note.createdBy} · {formatDateTime(note.createdAt, lang)}</p>
+                      </div>
+                      <DeleteBtn kind="note" id={note.id} />
                     </div>
                   ))}
                 </div>
@@ -531,6 +585,29 @@ export function ActionCenterPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Delete confirmation (shared across all Action Center items) */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent className="w-[calc(100vw-32px)] max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{lang === 'ar' ? 'تأكيد الحذف' : 'Confirm Delete'}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {lang === 'ar'
+                ? 'سيتم حذف هذا العنصر نهائياً ولا يمكن التراجع.'
+                : 'This item will be permanently deleted. This cannot be undone.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel className="w-full sm:w-auto">{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 w-full sm:w-auto"
+            >
+              {lang === 'ar' ? 'حذف' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

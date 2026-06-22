@@ -82,3 +82,8 @@ export async function createEvaluation(
   if (error) throw error;
   return toEvaluation(data);
 }
+
+export async function deleteEvaluation(id: string): Promise<void> {
+  const { error } = await supabase.from('session_evaluations').delete().eq('id', id);
+  if (error) throw error;
+}
