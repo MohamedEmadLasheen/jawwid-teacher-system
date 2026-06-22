@@ -26,7 +26,7 @@ const ALL_PERMISSIONS: Permission[] = [
   'manage_teachers', 'view_reports', 'view_evaluations',
   'teacher_onboarding', 'teacher_followup', 'operational_notes',
   'teacher_evaluations', 'quality_monitoring', 'performance_reviews',
-  'manage_complaints', 'improvement_plans',
+  'manage_complaints', 'improvement_plans', 'manage_financials',
 ];
 
 export function SupervisorsPage() {

@@ -38,6 +38,7 @@ export const SYSTEM_ADMIN_ASSIGNABLE_PERMISSIONS: Permission[] = [
   'edit_supervisor',
   'delete_supervisor',
   'view_all_data',
+  'manage_financials',
 ];
 
 // ─── Permission categories for UI grouping ────────────────────────────────────
@@ -77,6 +78,7 @@ export const PERMISSION_CATEGORIES: {
     permissions: [
       'manage_teachers', 'view_reports', 'view_evaluations', 'manage_supervisors',
       'create_supervisor', 'edit_supervisor', 'delete_supervisor', 'view_all_data',
+      'manage_financials',
     ],
   },
   {
@@ -121,6 +123,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     'create_supervisor',
     'edit_supervisor',
     'view_all_data',
+    'manage_financials',
   ],
   operation_admin: [
     'teacher_onboarding',

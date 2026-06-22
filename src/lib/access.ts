@@ -32,8 +32,8 @@ export const ROUTE_PERMISSIONS: Record<string, Permission[] | null> = {
     'teacher_evaluations', 'quality_monitoring', 'performance_reviews',
     'manage_complaints', 'improvement_plans', 'teacher_followup', 'operational_notes',
   ],
-  '/bonuses': ['view_all_data'],
-  '/deductions': ['view_all_data'],
+  '/bonuses': ['manage_financials', 'view_all_data'],
+  '/deductions': ['manage_financials', 'view_all_data'],
   '/activity-log': ['view_audit_logs'],
   '/settings': null,   // self-gates internally (own password vs super-admin tabs)
   '/profile': null,

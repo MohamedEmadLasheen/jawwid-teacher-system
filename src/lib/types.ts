@@ -45,7 +45,8 @@ export type Permission =
   | 'quality_monitoring'
   | 'performance_reviews'
   | 'manage_complaints'
-  | 'improvement_plans';
+  | 'improvement_plans'
+  | 'manage_financials';
 
 export interface User {
   id: string;
