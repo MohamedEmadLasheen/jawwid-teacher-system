@@ -198,3 +198,24 @@ export async function disableUser(userId: string) {
   const { error } = await supabase.from('profiles').update({ is_active: false }).eq('id', userId);
   if (error) throw error;
 }
+
+/**
+ * Permanently deletes a user (auth account + profile). Runs server-side in
+ * the `delete-user` Edge Function, which verifies the caller is a super_admin
+ * and uses the service role to remove the auth user (profile cascade-deletes).
+ */
+export async function deleteUserAccount(userId: string): Promise<void> {
+  const { error } = await supabase.functions.invoke('delete-user', { body: { userId } });
+  if (error) {
+    // Surface the function's JSON error message when present.
+    let message = error.message;
+    try {
+      const ctx = (error as { context?: Response }).context;
+      if (ctx && typeof ctx.json === 'function') {
+        const body = await ctx.json();
+        if (body?.error) message = body.error;
+      }
+    } catch { /* keep generic message */ }
+    throw new Error(message);
+  }
+}

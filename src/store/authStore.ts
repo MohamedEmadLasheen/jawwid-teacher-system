@@ -12,6 +12,7 @@ import {
   updateLastLogin,
   changeOwnPassword,
   disableUser,
+  deleteUserAccount,
   fetchAllUsers,
 } from '../services/auth.service';
 
@@ -31,6 +32,7 @@ interface AuthState {
   addUser: (user: Omit<User, 'id' | 'createdAt'>, password: string) => Promise<void>;
   updateUser: (id: string, updates: Partial<User>) => Promise<void>;
   disableUser: (id: string) => Promise<void>;
+  removeUser: (id: string) => Promise<void>;
   changePassword: (userId: string, newPassword: string) => Promise<void>;
   updatePermissions: (userId: string, permissions: Permission[]) => Promise<void>;
   toggleLockedPermission: (userId: string, permission: Permission) => void;
@@ -137,6 +139,11 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     set((state) => ({
       users: state.users.map((u) => (u.id === id ? { ...u, isActive: false } : u)),
     }));
+  },
+
+  removeUser: async (id) => {
+    await deleteUserAccount(id);
+    set((state) => ({ users: state.users.filter((u) => u.id !== id) }));
   },
 
   changePassword: async (userId, newPassword) => {

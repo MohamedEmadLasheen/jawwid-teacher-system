@@ -2,7 +2,7 @@
 import { useTranslation } from 'react-i18next';
 import {
   Key, Users, Shield, Globe, Lock, Unlock, AlertTriangle,
-  CheckCircle2, XCircle, Eye, EyeOff, Crown, Building2, Database,
+  CheckCircle2, XCircle, Eye, EyeOff, Crown, Building2, Database, Trash2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -116,7 +116,7 @@ function EmergencyConfirmDialog({ open, onConfirm, onCancel, actionLabel }: Emer
 export function SettingsPage() {
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === 'ar';
-  const { currentUser, users, changePassword, addUser, updatePermissions } = useAuthStore();
+  const { currentUser, users, changePassword, addUser, updatePermissions, removeUser } = useAuthStore();
   const { addLog } = useLogStore();
   const isSuperAdmin = currentUser?.role === 'super_admin';
 
@@ -142,6 +142,17 @@ export function SettingsPage() {
     setEmergencyOpen(false);
     pendingAction?.();
     setPendingAction(null);
+  };
+
+  const handleDeleteUser = (user: { id: string; name: string }) => {
+    requireEmergencyConfirm(
+      isAr ? `حذف المستخدم: ${user.name}` : `Delete user: ${user.name}`,
+      () => {
+        removeUser(user.id).catch((e) =>
+          alert(e instanceof Error ? e.message : (isAr ? 'فشل الحذف' : 'Delete failed'))
+        );
+      }
+    );
   };
 
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -364,10 +375,16 @@ export function SettingsPage() {
                             )}
                           </div>
                         </div>
-                        <Button variant="outline" size="sm" className="text-primary border-primary/30 hover:bg-primary/10 h-8 text-xs shrink-0" onClick={() => openPermissions(user.id)}>
-                          <Shield className="h-3.5 w-3.5 me-1" />
-                          {isAr ? 'الصلاحيات' : 'Perms'}
-                        </Button>
+                        <div className="flex gap-1.5 shrink-0">
+                          <Button variant="outline" size="sm" className="text-primary border-primary/30 hover:bg-primary/10 h-8 text-xs" onClick={() => openPermissions(user.id)}>
+                            <Shield className="h-3.5 w-3.5 me-1" />
+                            {isAr ? 'الصلاحيات' : 'Perms'}
+                          </Button>
+                          <Button variant="outline" size="sm" className="text-red-600 border-red-200 hover:bg-red-50 h-8 text-xs" onClick={() => handleDeleteUser(user)}>
+                            <Trash2 className="h-3.5 w-3.5 me-1" />
+                            {isAr ? 'حذف' : 'Delete'}
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ))}
