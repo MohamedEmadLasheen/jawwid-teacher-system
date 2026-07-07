@@ -15,6 +15,7 @@ import {
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import type { TeacherTimelineEvent } from '@/lib/types';
+import { TeacherAvailabilityTab } from '@/features/scheduling/components/TeacherAvailabilityTab';
 
 export function TeacherProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -190,6 +191,7 @@ export function TeacherProfilePage() {
         <TabsList className="flex flex-wrap h-auto gap-1">
           <TabsTrigger value="personal">{t('teachers.personalInfo')}</TabsTrigger>
           <TabsTrigger value="employment">{t('teachers.employmentInfo')}</TabsTrigger>
+          <TabsTrigger value="availability">{t('scheduling.availability')}</TabsTrigger>
           <TabsTrigger value="performance">{t('teachers.performance')}</TabsTrigger>
           <TabsTrigger value="history">{t('common.actions')}</TabsTrigger>
           <TabsTrigger value="financial">{t('teachers.financialSummary')}</TabsTrigger>
@@ -238,6 +240,21 @@ export function TeacherProfilePage() {
                   <p className="text-sm bg-gray-50 p-3 rounded-lg border">{teacher.notes}</p>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Availability / Shift */}
+        <TabsContent value="availability">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-primary flex items-center gap-2">
+                {t('scheduling.availability')}
+                <Badge variant="outline">{t(`teachers.${teacher.teacherType}`)}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TeacherAvailabilityTab teacherId={teacher.id} teacherType={teacher.teacherType} />
             </CardContent>
           </Card>
         </TabsContent>

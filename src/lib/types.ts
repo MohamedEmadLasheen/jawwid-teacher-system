@@ -6,6 +6,8 @@ export type RiskLevel = 'low' | 'medium' | 'high';
 export type SalaryCurrency = 'EGP' | 'USD';
 export type SalaryType = 'fixed' | 'hourly' | 'hybrid';
 export type TeachingMarket = 'arab' | 'non_arab' | 'both';
+export type TeacherType = 'hourly' | 'shift';
+export type DayOfWeek = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 export type PerformanceCategory = 'elite' | 'excellent' | 'good' | 'needs_improvement' | 'at_risk';
 
 export type Specialization =
@@ -46,7 +48,10 @@ export type Permission =
   | 'performance_reviews'
   | 'manage_complaints'
   | 'improvement_plans'
-  | 'manage_financials';
+  | 'manage_financials'
+  | 'manage_students'
+  | 'manage_parents'
+  | 'manage_courses';
 
 export interface User {
   id: string;
@@ -80,6 +85,10 @@ export interface Teacher {
   specializations: Specialization[];
   status: TeacherStatus;
   level: TeacherLevel;
+  /** Hourly: manually set available blocks. Shift: assigned to reusable shift templates. */
+  teacherType: TeacherType;
+  branchId?: string | null;
+  maxWeeklyHours?: number | null;
   notes: string;
   isDeleted: boolean;
   deletedAt?: string;
@@ -259,8 +268,198 @@ export interface Supervisor {
   permissions: Permission[];
   /** Linked auth user id when the supervisor has a login account. */
   userId?: string | null;
+  /** UI-only hex color used to color-code this supervisor's students on the schedule grid. */
+  colorHex?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+// ─── Scheduling Engine — foundational domain (Phase 0) ────────────────────────
+
+export type StudentStatus = 'active' | 'paused' | 'trial' | 'withdrawn';
+export type StudentGender = 'male' | 'female';
+export type ParentRelationship = 'mother' | 'father' | 'guardian' | 'other';
+export type PreferredLanguage = 'ar' | 'en';
+/** Reuses the same vocabulary as Teacher.specializations so course→teacher matching is a plain equality join. */
+export type CourseCategory = Specialization;
+
+export interface Branch {
+  id: string;
+  name: string;
+  timezone: string;
+  country: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Parent {
+  id: string;
+  branchId?: string | null;
+  fullName: string;
+  phone: string;
+  email: string;
+  country: string;
+  timezone: string;
+  preferredLanguage: PreferredLanguage;
+  notes: string;
+  isDeleted: boolean;
+  deletedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Student {
+  id: string;
+  branchId?: string | null;
+  fullName: string;
+  dateOfBirth?: string;
+  country: string;
+  timezone: string;
+  gender?: StudentGender;
+  level: string;
+  status: StudentStatus;
+  enrollmentSource: string;
+  /** Operations Supervisor who owns this student — drives the schedule grid's supervisor-based coloring. */
+  supervisorId?: string | null;
+  /** Student who paused and later resumed — a real attribute, not a name suffix. */
+  isReturning: boolean;
+  /** The student's primary/assigned course. Null means "Course Pending" in the schedule UI. */
+  courseId?: string | null;
+  notes: string;
+  isDeleted: boolean;
+  deletedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StudentParent {
+  id: string;
+  studentId: string;
+  parentId: string;
+  relationship: ParentRelationship;
+  isPrimaryContact: boolean;
+  createdAt: string;
+}
+
+export interface Course {
+  id: string;
+  branchId?: string | null;
+  nameEn: string;
+  nameAr: string;
+  category: CourseCategory;
+  defaultDurationMinutes: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Scheduling Engine — teacher availability & shift model (Phase 1) ─────────
+
+export interface TeacherAvailability {
+  id: string;
+  teacherId: string;
+  dayOfWeek: DayOfWeek;
+  startMinute: number;
+  endMinute: number;
+  timezone: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ShiftTemplate {
+  id: string;
+  branchId?: string | null;
+  name: string;
+  startMinute: number;
+  endMinute: number;
+  timezone: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TeacherShiftAssignment {
+  id: string;
+  teacherId: string;
+  shiftTemplateId: string;
+  dayOfWeek: DayOfWeek;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Scheduling Engine — core lesson model (Phase 2) ───────────────────────────
+
+export type LessonLifecycleStatus = 'trial' | 'active' | 'paused' | 'ended';
+export type LessonExceptionStatus = 'cancelled' | 'rescheduled' | 'completed' | 'no_show';
+
+export interface Lesson {
+  id: string;
+  branchId?: string | null;
+  teacherId: string;
+  /** Null renders as "Course Pending" — never guessed automatically. */
+  courseId?: string | null;
+  dayOfWeek: DayOfWeek;
+  startMinute: number;
+  durationMinutes: number;
+  endMinute: number;
+  timezone: string;
+  lifecycleStatus: LessonLifecycleStatus;
+  effectiveFrom: string;
+  effectiveUntil?: string | null;
+  originalTeacherId?: string | null;
+  sameDaySince: string;
+  sameTimeSince: string;
+  notes: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LessonParticipant {
+  id: string;
+  lessonId: string;
+  studentId: string;
+  createdAt: string;
+}
+
+export interface LessonException {
+  id: string;
+  lessonId: string;
+  occurrenceDate: string;
+  status: LessonExceptionStatus;
+  overrideTeacherId?: string | null;
+  overrideStartMinute?: number | null;
+  overrideDurationMinutes?: number | null;
+  attendanceNotes: string;
+  reason: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ScheduleConflictResult {
+  hasConflict: boolean;
+  teacherConflict: { lessonId: string; teacherId: string } | null;
+  studentConflicts: { studentId: string; lessonId: string }[];
+  message: string;
+}
+
+export interface TeacherPreservationScore {
+  score: number;
+  teacherPreserved: boolean;
+  dayStableDays: number;
+  timeStableDays: number;
+  breakdown: { teacher: number; day: number; time: number };
+}
+
+export interface ScheduleHealthMetrics {
+  teacherOccupancyRate: number;
+  totalEmptyHours: number;
+  unusedPrimeTimeHours: number;
+  mostOccupiedTeacher: { teacherId: string; fullName: string; occupancyPct: number } | null;
+  leastUtilizedTeacher: { teacherId: string; fullName: string; occupancyPct: number } | null;
+  totalAvailableBookableSlots: number;
 }
 
 export interface ActivityLog {

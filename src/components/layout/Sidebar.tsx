@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard, Users, UserCheck, ClipboardList,
   Activity, Settings, LogOut, TrendingDown, TrendingUp, User, X,
+  GraduationCap, Users2, BookOpen, Clock, CalendarClock,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useLogStore } from '@/store/logStore';
@@ -30,7 +31,12 @@ export function Sidebar({ onClose }: SidebarProps) {
 
   const allNavItems: NavItem[] = [
     { to: '/dashboard', icon: <LayoutDashboard className="h-5 w-5 shrink-0" />, label: t('nav.dashboard') },
+    { to: '/schedule', icon: <CalendarClock className="h-5 w-5 shrink-0" />, label: t('nav.schedule') },
     { to: '/teachers', icon: <Users className="h-5 w-5 shrink-0" />, label: t('nav.teachers') },
+    { to: '/students', icon: <GraduationCap className="h-5 w-5 shrink-0" />, label: t('nav.students') },
+    { to: '/parents', icon: <Users2 className="h-5 w-5 shrink-0" />, label: t('nav.parents') },
+    { to: '/courses', icon: <BookOpen className="h-5 w-5 shrink-0" />, label: t('nav.courses') },
+    { to: '/shift-templates', icon: <Clock className="h-5 w-5 shrink-0" />, label: t('nav.shiftTemplates') },
     { to: '/supervisors', icon: <UserCheck className="h-5 w-5 shrink-0" />, label: t('nav.supervisors') },
     { to: '/action-center', icon: <ClipboardList className="h-5 w-5 shrink-0" />, label: t('nav.actionCenter') },
     { to: '/bonuses', icon: <TrendingUp className="h-5 w-5 shrink-0" />, label: t('nav.bonuses') },

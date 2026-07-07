@@ -1,0 +1,21 @@
+/**
+ * Centralized React Query key factory for the Scheduling module.
+ * Every hook reads keys from here so master-grid/per-teacher-view
+ * caches (added in later phases) never drift apart from hand-typed keys.
+ */
+export const schedulingKeys = {
+  all: ['scheduling'] as const,
+  students: () => [...schedulingKeys.all, 'students'] as const,
+  parents: () => [...schedulingKeys.all, 'parents'] as const,
+  studentParents: () => [...schedulingKeys.all, 'studentParents'] as const,
+  courses: () => [...schedulingKeys.all, 'courses'] as const,
+  teacherAvailability: (teacherId?: string) => [...schedulingKeys.all, 'teacherAvailability', teacherId ?? 'all'] as const,
+  shiftTemplates: () => [...schedulingKeys.all, 'shiftTemplates'] as const,
+  teacherShiftAssignments: (teacherId?: string) => [...schedulingKeys.all, 'teacherShiftAssignments', teacherId ?? 'all'] as const,
+  lessons: () => [...schedulingKeys.all, 'lessons'] as const,
+  lessonParticipants: () => [...schedulingKeys.all, 'lessonParticipants'] as const,
+  grid: (dayOfWeek: number) => [...schedulingKeys.all, 'grid', dayOfWeek] as const,
+  availabilityForDay: (dayOfWeek: number) => [...schedulingKeys.all, 'availabilityForDay', dayOfWeek] as const,
+  health: () => [...schedulingKeys.all, 'health'] as const,
+  preservationScore: (lessonId: string) => [...schedulingKeys.all, 'preservationScore', lessonId] as const,
+};

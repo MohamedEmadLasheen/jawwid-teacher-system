@@ -38,6 +38,9 @@ export interface Database {
           specializations: string[];
           status: string;
           level: string;
+          teacher_type: string;
+          branch_id: string | null;
+          max_weekly_hours: number | null;
           notes: string;
           is_deleted: boolean;
           deleted_at: string | null;
@@ -198,6 +201,7 @@ export interface Database {
           status: string;
           permissions: string[];
           user_id: string | null;
+          color_hex: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -259,9 +263,223 @@ export interface Database {
         Insert: Omit<Database['public']['Tables']['salary_records']['Row'], 'id' | 'created_at'> & { id?: string; created_at?: string };
         Update: Partial<Database['public']['Tables']['salary_records']['Row']>;
       };
+      branches: {
+        Row: {
+          id: string;
+          name: string;
+          timezone: string;
+          country: string | null;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['branches']['Row'], 'id' | 'created_at' | 'updated_at'> & { id?: string; created_at?: string; updated_at?: string };
+        Update: Partial<Database['public']['Tables']['branches']['Row']>;
+      };
+      parents: {
+        Row: {
+          id: string;
+          branch_id: string | null;
+          full_name: string;
+          phone: string;
+          email: string;
+          country: string;
+          timezone: string;
+          preferred_language: string;
+          notes: string;
+          is_deleted: boolean;
+          deleted_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['parents']['Row'], 'id' | 'created_at' | 'updated_at'> & { id?: string; created_at?: string; updated_at?: string };
+        Update: Partial<Database['public']['Tables']['parents']['Row']>;
+      };
+      students: {
+        Row: {
+          id: string;
+          branch_id: string | null;
+          full_name: string;
+          date_of_birth: string | null;
+          country: string;
+          timezone: string;
+          gender: string | null;
+          level: string;
+          status: string;
+          enrollment_source: string;
+          supervisor_id: string | null;
+          is_returning: boolean;
+          course_id: string | null;
+          notes: string;
+          is_deleted: boolean;
+          deleted_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['students']['Row'], 'id' | 'created_at' | 'updated_at'> & { id?: string; created_at?: string; updated_at?: string };
+        Update: Partial<Database['public']['Tables']['students']['Row']>;
+      };
+      student_parents: {
+        Row: {
+          id: string;
+          student_id: string;
+          parent_id: string;
+          relationship: string;
+          is_primary_contact: boolean;
+          created_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['student_parents']['Row'], 'id' | 'created_at'> & { id?: string; created_at?: string };
+        Update: Partial<Database['public']['Tables']['student_parents']['Row']>;
+      };
+      courses: {
+        Row: {
+          id: string;
+          branch_id: string | null;
+          name_en: string;
+          name_ar: string;
+          category: string;
+          default_duration_minutes: number;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['courses']['Row'], 'id' | 'created_at' | 'updated_at'> & { id?: string; created_at?: string; updated_at?: string };
+        Update: Partial<Database['public']['Tables']['courses']['Row']>;
+      };
+      teacher_availability: {
+        Row: {
+          id: string;
+          teacher_id: string;
+          day_of_week: number;
+          start_minute: number;
+          end_minute: number;
+          timezone: string;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['teacher_availability']['Row'], 'id' | 'created_at' | 'updated_at'> & { id?: string; created_at?: string; updated_at?: string };
+        Update: Partial<Database['public']['Tables']['teacher_availability']['Row']>;
+      };
+      shift_templates: {
+        Row: {
+          id: string;
+          branch_id: string | null;
+          name: string;
+          start_minute: number;
+          end_minute: number;
+          timezone: string;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['shift_templates']['Row'], 'id' | 'created_at' | 'updated_at'> & { id?: string; created_at?: string; updated_at?: string };
+        Update: Partial<Database['public']['Tables']['shift_templates']['Row']>;
+      };
+      teacher_shift_assignments: {
+        Row: {
+          id: string;
+          teacher_id: string;
+          shift_template_id: string;
+          day_of_week: number;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['teacher_shift_assignments']['Row'], 'id' | 'created_at' | 'updated_at'> & { id?: string; created_at?: string; updated_at?: string };
+        Update: Partial<Database['public']['Tables']['teacher_shift_assignments']['Row']>;
+      };
+      lessons: {
+        Row: {
+          id: string;
+          branch_id: string | null;
+          teacher_id: string;
+          course_id: string | null;
+          day_of_week: number;
+          start_minute: number;
+          duration_minutes: number;
+          end_minute: number;
+          timezone: string;
+          lifecycle_status: string;
+          effective_from: string;
+          effective_until: string | null;
+          original_teacher_id: string | null;
+          same_day_since: string;
+          same_time_since: string;
+          created_by: string | null;
+          notes: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['lessons']['Row'], 'id' | 'end_minute' | 'created_at' | 'updated_at'> & { id?: string; created_at?: string; updated_at?: string };
+        Update: Partial<Database['public']['Tables']['lessons']['Row']>;
+      };
+      lesson_participants: {
+        Row: {
+          id: string;
+          lesson_id: string;
+          student_id: string;
+          created_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['lesson_participants']['Row'], 'id' | 'created_at'> & { id?: string; created_at?: string };
+        Update: Partial<Database['public']['Tables']['lesson_participants']['Row']>;
+      };
+      lesson_exceptions: {
+        Row: {
+          id: string;
+          lesson_id: string;
+          occurrence_date: string;
+          status: string;
+          override_teacher_id: string | null;
+          override_start_minute: number | null;
+          override_duration_minutes: number | null;
+          attendance_notes: string;
+          reason: string;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['lesson_exceptions']['Row'], 'id' | 'created_at' | 'updated_at'> & { id?: string; created_at?: string; updated_at?: string };
+        Update: Partial<Database['public']['Tables']['lesson_exceptions']['Row']>;
+      };
     };
-    Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Views: {
+      v_teacher_availability_unified: {
+        Row: {
+          teacher_id: string;
+          day_of_week: number;
+          start_minute: number;
+          end_minute: number;
+          timezone: string;
+          source: string;
+        };
+      };
+    };
+    Functions: {
+      check_schedule_conflict: {
+        Args: {
+          p_teacher_id: string;
+          p_student_ids: string[];
+          p_day_of_week: number;
+          p_start_minute: number;
+          p_duration_minutes: number;
+          p_exclude_lesson_id?: string | null;
+        };
+        Returns: Json;
+      };
+      apply_schedule_change: {
+        Args: { p_action: string; p_payload: Json };
+        Returns: Json;
+      };
+      get_teacher_preservation_score: {
+        Args: { p_lesson_id: string };
+        Returns: Json;
+      };
+      get_schedule_health_metrics: {
+        Args: Record<string, never>;
+        Returns: Json;
+      };
+    };
     Enums: Record<string, never>;
   };
 }

@@ -19,6 +19,9 @@ function toTeacher(row: Row): Teacher {
     specializations: row.specializations as Teacher['specializations'],
     status: row.status as Teacher['status'],
     level: row.level as Teacher['level'],
+    teacherType: row.teacher_type as Teacher['teacherType'],
+    branchId: row.branch_id,
+    maxWeeklyHours: row.max_weekly_hours,
     notes: row.notes,
     isDeleted: row.is_deleted,
     deletedAt: row.deleted_at ?? undefined,
@@ -54,6 +57,9 @@ export async function createTeacher(
       specializations: teacher.specializations,
       status: teacher.status,
       level: teacher.level,
+      teacher_type: teacher.teacherType,
+      branch_id: teacher.branchId ?? null,
+      max_weekly_hours: teacher.maxWeeklyHours ?? null,
       notes: teacher.notes,
       is_deleted: false,
     })
@@ -77,6 +83,9 @@ export async function updateTeacher(id: string, updates: Partial<Teacher>): Prom
   if (updates.specializations !== undefined) patch.specializations = updates.specializations;
   if (updates.status !== undefined) patch.status = updates.status;
   if (updates.level !== undefined) patch.level = updates.level;
+  if (updates.teacherType !== undefined) patch.teacher_type = updates.teacherType;
+  if (updates.branchId !== undefined) patch.branch_id = updates.branchId ?? null;
+  if (updates.maxWeeklyHours !== undefined) patch.max_weekly_hours = updates.maxWeeklyHours ?? null;
   if (updates.notes !== undefined) patch.notes = updates.notes;
 
   const { data, error } = await supabase

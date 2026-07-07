@@ -14,6 +14,7 @@ function toSupervisor(row: Row): Supervisor {
     status: row.status as Supervisor['status'],
     permissions: row.permissions as Permission[],
     userId: row.user_id,
+    colorHex: row.color_hex,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

@@ -14,6 +14,12 @@ import { ActionCenterPage } from '@/features/action-center/ActionCenterPage';
 import { DeductionsPage } from '@/features/deductions/DeductionsPage';
 import { BonusesPage } from '@/features/bonuses/BonusesPage';
 import { ActivityLogPage } from '@/features/activity-log/ActivityLogPage';
+import { StudentsPage } from '@/features/scheduling/StudentsPage';
+import { ParentsPage } from '@/features/scheduling/ParentsPage';
+import { CoursesPage } from '@/features/scheduling/CoursesPage';
+import { ShiftTemplatesPage } from '@/features/scheduling/ShiftTemplatesPage';
+import { LessonsPage } from '@/features/scheduling/LessonsPage';
+import { MasterSchedulePage } from '@/features/scheduling/MasterSchedulePage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { ProfilePage } from '@/features/profile/ProfilePage';
 import { useAuthStore } from '@/store/authStore';
@@ -105,12 +111,18 @@ export default function App() {
         >
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
+          <Route path="schedule" element={<Guard anyOf={ROUTE_PERMISSIONS['/schedule']}><MasterSchedulePage /></Guard>} />
           <Route path="teachers" element={<Guard anyOf={ROUTE_PERMISSIONS['/teachers']}><TeachersPage /></Guard>} />
           <Route path="teachers/:id" element={<Guard anyOf={ROUTE_PERMISSIONS['/teachers']}><TeacherProfilePage /></Guard>} />
           <Route path="supervisors" element={<Guard anyOf={ROUTE_PERMISSIONS['/supervisors']}><SupervisorsPage /></Guard>} />
           <Route path="action-center" element={<Guard anyOf={ROUTE_PERMISSIONS['/action-center']}><ActionCenterPage /></Guard>} />
           <Route path="deductions" element={<Guard anyOf={ROUTE_PERMISSIONS['/deductions']}><DeductionsPage /></Guard>} />
           <Route path="bonuses" element={<Guard anyOf={ROUTE_PERMISSIONS['/bonuses']}><BonusesPage /></Guard>} />
+          <Route path="students" element={<Guard anyOf={ROUTE_PERMISSIONS['/students']}><StudentsPage /></Guard>} />
+          <Route path="parents" element={<Guard anyOf={ROUTE_PERMISSIONS['/parents']}><ParentsPage /></Guard>} />
+          <Route path="courses" element={<Guard anyOf={ROUTE_PERMISSIONS['/courses']}><CoursesPage /></Guard>} />
+          <Route path="shift-templates" element={<Guard anyOf={ROUTE_PERMISSIONS['/shift-templates']}><ShiftTemplatesPage /></Guard>} />
+          <Route path="lessons" element={<Guard anyOf={ROUTE_PERMISSIONS['/lessons']}><LessonsPage /></Guard>} />
           <Route path="activity-log" element={<Guard anyOf={ROUTE_PERMISSIONS['/activity-log']}><ActivityLogPage /></Guard>} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="profile" element={<ProfilePage />} />

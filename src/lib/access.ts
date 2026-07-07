@@ -26,6 +26,7 @@ export function userCan(user: AccessUser | null | undefined, anyOf?: Permission[
  */
 export const ROUTE_PERMISSIONS: Record<string, Permission[] | null> = {
   '/dashboard': null,
+  '/schedule': ['manage_teachers', 'view_all_data'],
   '/teachers': ['manage_teachers', 'view_reports', 'view_all_data'],
   '/supervisors': ['manage_supervisors', 'create_supervisor', 'edit_supervisor', 'delete_supervisor'],
   '/action-center': [
@@ -34,6 +35,11 @@ export const ROUTE_PERMISSIONS: Record<string, Permission[] | null> = {
   ],
   '/bonuses': ['manage_financials', 'view_all_data'],
   '/deductions': ['manage_financials', 'view_all_data'],
+  '/students': ['manage_students', 'view_all_data'],
+  '/parents': ['manage_parents', 'view_all_data'],
+  '/courses': ['manage_courses', 'view_all_data'],
+  '/shift-templates': ['manage_teachers', 'view_all_data'],
+  '/lessons': ['manage_teachers', 'view_all_data'],
   '/activity-log': ['view_audit_logs'],
   '/settings': null,   // self-gates internally (own password vs super-admin tabs)
   '/profile': null,

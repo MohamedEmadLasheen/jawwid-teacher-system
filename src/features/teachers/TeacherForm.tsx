@@ -1,6 +1,6 @@
 ﻿import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { Teacher, Specialization, SalaryCurrency, SalaryType, TeachingMarket } from '@/lib/types';
+import type { Teacher, Specialization, SalaryCurrency, SalaryType, TeachingMarket, TeacherType } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -38,6 +38,7 @@ export function TeacherForm({ teacher, onSubmit, onCancel }: TeacherFormProps) {
     specializations: teacher?.specializations ?? [] as Specialization[],
     status: teacher?.status ?? 'active',
     level: teacher?.level ?? 'silver',
+    teacherType: (teacher?.teacherType ?? 'hourly') as TeacherType,
     notes: teacher?.notes ?? '',
   });
 
@@ -195,6 +196,21 @@ export function TeacherForm({ teacher, onSubmit, onCancel }: TeacherFormProps) {
               <SelectItem value="silver">{t('teachers.silver')}</SelectItem>
               <SelectItem value="gold">{t('teachers.gold')}</SelectItem>
               <SelectItem value="platinum">{t('teachers.platinum')}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Teacher Type */}
+        <div className="space-y-1">
+          <Label>{t('teachers.teacherType')}</Label>
+          <Select
+            value={form.teacherType}
+            onValueChange={(v) => setForm({ ...form, teacherType: v as TeacherType })}
+          >
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="hourly">{t('teachers.hourly')}</SelectItem>
+              <SelectItem value="shift">{t('teachers.shift')}</SelectItem>
             </SelectContent>
           </Select>
         </div>

@@ -34,3 +34,14 @@ pnpm-debug.log*
 # OS files
 .DS_Store
 Thumbs.db
+
+# Generated import reports contain real student/parent names — never commit
+scripts/import-schedule/import_report.md
+scripts/import-schedule/*.xlsx
+
+# Local Supabase CLI project-link state (machine-specific)
+supabase/.temp/
+
+# Python bytecode cache (import-schedule script)
+__pycache__/
+*.pyc
