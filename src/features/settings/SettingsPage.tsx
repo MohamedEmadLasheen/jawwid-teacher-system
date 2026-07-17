@@ -2,7 +2,7 @@
 import { useTranslation } from 'react-i18next';
 import {
   Key, Users, Shield, Globe, Lock, Unlock, AlertTriangle,
-  CheckCircle2, XCircle, Eye, EyeOff, Crown, Building2, Database, Trash2,
+  CheckCircle2, XCircle, Eye, EyeOff, Crown, Building2, Database, Trash2, FlaskConical,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,6 +31,7 @@ import {
 import type { Permission, UserRole } from '@/lib/types';
 import { BrandingTab } from './BrandingTab';
 import { BackupTab } from './BackupTab';
+import { DemoDataTab } from './DemoDataTab';
 
 interface EmergencyConfirmProps {
   open: boolean;
@@ -274,6 +275,11 @@ export function SettingsPage() {
                 <Database className="h-3.5 w-3.5 me-1 shrink-0" />{isAr ? 'النسخ الاحتياطي' : 'Backup'}
               </TabsTrigger>
             )}
+            {isSuperAdmin && (
+              <TabsTrigger value="demoData" className="data-[state=active]:bg-primary data-[state=active]:text-white text-xs sm:text-sm whitespace-nowrap px-2.5 py-1.5">
+                <FlaskConical className="h-3.5 w-3.5 me-1 shrink-0" />{isAr ? 'بيانات تجريبية' : 'Demo Data'}
+              </TabsTrigger>
+            )}
           </TabsList>
         </div>
 
@@ -476,6 +482,13 @@ export function SettingsPage() {
         {isSuperAdmin && (
           <TabsContent value="backup" className="mt-4">
             <BackupTab />
+          </TabsContent>
+        )}
+
+        {/* Demo Data Tab */}
+        {isSuperAdmin && (
+          <TabsContent value="demoData" className="mt-4">
+            <DemoDataTab />
           </TabsContent>
         )}
       </Tabs>

@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { DemoModeBanner } from './DemoModeBanner';
 import { AcademyLogo } from '@/components/ui/AcademyLogo';
 import { useBrandingStore } from '@/store/brandingStore';
 import { cn } from '@/lib/utils';
@@ -77,6 +78,7 @@ export function AppShell() {
 
       {/* Main content */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+        <DemoModeBanner />
         <Header onMenuToggle={() => setSidebarOpen(!sidebarOpen)} title={title} />
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6">
           <Outlet />
