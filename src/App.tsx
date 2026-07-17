@@ -15,6 +15,7 @@ import { DeductionsPage } from '@/features/deductions/DeductionsPage';
 import { BonusesPage } from '@/features/bonuses/BonusesPage';
 import { ActivityLogPage } from '@/features/activity-log/ActivityLogPage';
 import { StudentsPage } from '@/features/scheduling/StudentsPage';
+import { PrimaryTeacherReviewPage } from '@/features/scheduling/PrimaryTeacherReviewPage';
 import { ParentsPage } from '@/features/scheduling/ParentsPage';
 import { CoursesPage } from '@/features/scheduling/CoursesPage';
 import { ShiftTemplatesPage } from '@/features/scheduling/ShiftTemplatesPage';
@@ -121,6 +122,7 @@ export default function App() {
           <Route path="deductions" element={<Guard anyOf={ROUTE_PERMISSIONS['/deductions']}><DeductionsPage /></Guard>} />
           <Route path="bonuses" element={<Guard anyOf={ROUTE_PERMISSIONS['/bonuses']}><BonusesPage /></Guard>} />
           <Route path="students" element={<Guard anyOf={ROUTE_PERMISSIONS['/students']}><StudentsPage /></Guard>} />
+          <Route path="teacher-review" element={<Guard anyOf={ROUTE_PERMISSIONS['/teacher-review']}><PrimaryTeacherReviewPage /></Guard>} />
           <Route path="parents" element={<Guard anyOf={ROUTE_PERMISSIONS['/parents']}><ParentsPage /></Guard>} />
           <Route path="courses" element={<Guard anyOf={ROUTE_PERMISSIONS['/courses']}><CoursesPage /></Guard>} />
           <Route path="shift-templates" element={<Guard anyOf={ROUTE_PERMISSIONS['/shift-templates']}><ShiftTemplatesPage /></Guard>} />

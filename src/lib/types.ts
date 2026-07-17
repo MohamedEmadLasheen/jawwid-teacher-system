@@ -480,6 +480,43 @@ export interface ScheduleConflictRow {
   durationMinutesB: number;
 }
 
+/** Current + historical primary-teacher fact for a student — separate from
+ * whichever teacher_id happens to be on a given lesson (migration 017). */
+export interface StudentTeacherAssignment {
+  id: string;
+  studentId: string;
+  teacherId: string;
+  startedAt: string;
+  endedAt: string | null;
+  source: 'confirmed_manual' | 'confirmed_import' | 'inferred_pending_review';
+  notes?: string;
+  createdBy?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** One row from get_primary_teacher_inference_report() — evidence/codes only, never
+ * a confirmed business fact by itself (see PrimaryTeacherReviewPage for the human-approval step). */
+export interface PrimaryTeacherInferenceRow {
+  studentId: string;
+  studentName: string;
+  candidateTeacherId: string | null;
+  candidateTeacherName: string | null;
+  analyzedLessonCount: number;
+  candidateLessonCount: number;
+  candidateSharePct: number | null;
+  distinctTeacherCount: number;
+  mostRecentLessonSince: string | null;
+  secondCandidateTeacherId: string | null;
+  secondCandidateTeacherName: string | null;
+  secondCandidateSharePct: number | null;
+  confirmedTeacherId: string | null;
+  confirmedTeacherName: string | null;
+  confidence: 'high' | 'medium' | 'low' | 'insufficient' | null;
+  status: 'confirmed' | 'inferred' | 'needs_review' | 'no_candidate';
+  reasonCode: string;
+}
+
 export interface ActivityLog {
   id: string;
   userId: string;
