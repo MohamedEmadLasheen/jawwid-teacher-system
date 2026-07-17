@@ -16,13 +16,20 @@ export function ScheduleHealthPanel() {
     );
   }
 
+  // No teacher has any recorded availability at all yet (the legacy import
+  // never captured working hours) — every occupancy/capacity metric below
+  // is genuinely uncomputable right now, not a real zero. Show that
+  // honestly instead of a misleading "0%"/"0h"/"0".
+  const noAvailabilityData = data.mostOccupiedTeacher === null;
+  const noData = t('scheduling.health.noData');
+
   const metrics = [
-    { label: t('scheduling.health.occupancyRate'), value: `${data.teacherOccupancyRate}%`, color: 'text-blue-600' },
-    { label: t('scheduling.health.emptyHours'), value: `${data.totalEmptyHours}h`, color: 'text-gray-700' },
-    { label: t('scheduling.health.unusedPrimeTime'), value: `${data.unusedPrimeTimeHours}h`, color: 'text-amber-600' },
-    { label: t('scheduling.health.mostOccupied'), value: data.mostOccupiedTeacher ? `${data.mostOccupiedTeacher.fullName} (${data.mostOccupiedTeacher.occupancyPct}%)` : '—', color: 'text-green-600' },
-    { label: t('scheduling.health.leastUtilized'), value: data.leastUtilizedTeacher ? `${data.leastUtilizedTeacher.fullName} (${data.leastUtilizedTeacher.occupancyPct}%)` : '—', color: 'text-red-600' },
-    { label: t('scheduling.health.availableSlots'), value: data.totalAvailableBookableSlots, color: 'text-primary' },
+    { label: t('scheduling.health.occupancyRate'), value: noAvailabilityData ? noData : `${data.teacherOccupancyRate}%`, color: noAvailabilityData ? 'text-muted-foreground' : 'text-blue-600' },
+    { label: t('scheduling.health.emptyHours'), value: noAvailabilityData ? noData : `${data.totalEmptyHours}h`, color: noAvailabilityData ? 'text-muted-foreground' : 'text-gray-700' },
+    { label: t('scheduling.health.unusedPrimeTime'), value: noAvailabilityData ? noData : `${data.unusedPrimeTimeHours}h`, color: noAvailabilityData ? 'text-muted-foreground' : 'text-amber-600' },
+    { label: t('scheduling.health.mostOccupied'), value: data.mostOccupiedTeacher ? `${data.mostOccupiedTeacher.fullName} (${data.mostOccupiedTeacher.occupancyPct}%)` : noData, color: data.mostOccupiedTeacher ? 'text-green-600' : 'text-muted-foreground' },
+    { label: t('scheduling.health.leastUtilized'), value: data.leastUtilizedTeacher ? `${data.leastUtilizedTeacher.fullName} (${data.leastUtilizedTeacher.occupancyPct}%)` : noData, color: data.leastUtilizedTeacher ? 'text-red-600' : 'text-muted-foreground' },
+    { label: t('scheduling.health.availableSlots'), value: noAvailabilityData ? noData : data.totalAvailableBookableSlots, color: noAvailabilityData ? 'text-muted-foreground' : 'text-primary' },
   ];
 
   return (

@@ -457,9 +457,27 @@ export interface ScheduleHealthMetrics {
   teacherOccupancyRate: number;
   totalEmptyHours: number;
   unusedPrimeTimeHours: number;
+  primeTimeOccupancyPct: number;
   mostOccupiedTeacher: { teacherId: string; fullName: string; occupancyPct: number } | null;
   leastUtilizedTeacher: { teacherId: string; fullName: string; occupancyPct: number } | null;
   totalAvailableBookableSlots: number;
+  teachersAbove95PctCount: number;
+  teachersBelow40PctCount: number;
+  pausedStudentsSchedulableCount: number;
+}
+
+/** One raw row from get_active_schedule_conflicts() — facts/codes only, no translated text. */
+export interface ScheduleConflictRow {
+  conflictType: 'teacher_double_booking' | 'student_double_booking';
+  teacherId: string | null;
+  studentId: string | null;
+  lessonIdA: string;
+  lessonIdB: string;
+  dayOfWeek: DayOfWeek;
+  startMinuteA: number;
+  durationMinutesA: number;
+  startMinuteB: number;
+  durationMinutesB: number;
 }
 
 export interface ActivityLog {

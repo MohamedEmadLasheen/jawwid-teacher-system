@@ -1,7 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link, useSearchParams } from 'react-router-dom';
+import { CalendarDays } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useScheduleUiStore } from '@/store/scheduleUiStore';
 import { ScheduleHealthPanel } from './components/ScheduleHealthPanel';
+import { ScheduleIntelligenceCenter } from './components/ScheduleIntelligenceCenter';
 import { ScheduleFilterBar } from './components/ScheduleFilterBar';
 import { ColorLegend } from './components/ColorLegend';
 import { PrimeTimeIndicator } from './components/PrimeTimeIndicator';
@@ -22,6 +26,15 @@ interface ProposedMove {
 export function MasterSchedulePage() {
   const { t } = useTranslation();
   const { selectedDay, setSelectedDay } = useScheduleUiStore();
+  const [searchParams] = useSearchParams();
+
+  // Deep-link support (e.g. Dashboard conflict cards: /schedule?day=N) — mirrors
+  // the ?issue= convention already used on /students, reusing the existing day-tab state.
+  useEffect(() => {
+    const dayParam = searchParams.get('day');
+    if (dayParam !== null) setSelectedDay(Number(dayParam) as DayOfWeek);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const [createTarget, setCreateTarget] = useState<{ teacherId: string; startMinute: number } | null>(null);
   const [editingLesson, setEditingLesson] = useState<LessonWithParticipants | null>(null);
@@ -29,9 +42,16 @@ export function MasterSchedulePage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl sm:text-2xl font-bold text-primary">{t('scheduling.masterSchedule')}</h1>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <h1 className="text-xl sm:text-2xl font-bold text-primary">{t('scheduling.masterSchedule')}</h1>
+        <Button asChild size="sm" variant="outline">
+          <Link to="/schedule/teacher"><CalendarDays className="h-4 w-4 me-1.5" />{t('scheduling.teacherWeeklySchedule')}</Link>
+        </Button>
+      </div>
 
       <ScheduleHealthPanel />
+
+      <ScheduleIntelligenceCenter />
 
       <div className="space-y-3">
         <ScheduleFilterBar />
