@@ -10,7 +10,6 @@ export function ColorLegend() {
     { key: 'trial', className: 'border-dashed' },
     { key: 'active', className: 'border-solid' },
     { key: 'paused', className: 'border-dotted' },
-    { key: 'ended', className: 'border-solid opacity-50' },
   ];
 
   return (

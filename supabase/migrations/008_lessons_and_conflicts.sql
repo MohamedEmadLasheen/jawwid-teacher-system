@@ -360,7 +360,7 @@ BEGIN
       v_student_ids,
       (p_payload->>'day_of_week')::SMALLINT,
       (p_payload->>'start_minute')::SMALLINT,
-      COALESCE((p_payload->>'duration_minutes')::SMALLINT, 30)
+      COALESCE((p_payload->>'duration_minutes')::SMALLINT, 30::SMALLINT)
     );
     IF (v_conflict->>'has_conflict')::BOOLEAN THEN
       RAISE EXCEPTION 'schedule_conflict: %', v_conflict->>'message' USING ERRCODE = 'P0001';
@@ -457,7 +457,7 @@ BEGIN
     END IF;
 
     v_conflict := public.check_schedule_conflict(
-      v_lesson.teacher_id, ARRAY[(p_payload->>'student_id')::UUID], v_lesson.day_of_week, v_lesson.start_minute, v_lesson.duration_minutes
+      v_lesson.teacher_id, ARRAY[(p_payload->>'student_id')::UUID], v_lesson.day_of_week, v_lesson.start_minute, v_lesson.duration_minutes, v_lesson.id
     );
     IF (v_conflict->>'has_conflict')::BOOLEAN THEN
       RAISE EXCEPTION 'schedule_conflict: %', v_conflict->>'message' USING ERRCODE = 'P0001';

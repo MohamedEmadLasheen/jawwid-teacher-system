@@ -16,6 +16,10 @@ export const schedulingKeys = {
   lessonParticipants: () => [...schedulingKeys.all, 'lessonParticipants'] as const,
   grid: (dayOfWeek: number) => [...schedulingKeys.all, 'grid', dayOfWeek] as const,
   availabilityForDay: (dayOfWeek: number) => [...schedulingKeys.all, 'availabilityForDay', dayOfWeek] as const,
+  exceptionsForDate: (occurrenceDate: string) => [...schedulingKeys.all, 'exceptionsForDate', occurrenceDate] as const,
   health: () => [...schedulingKeys.all, 'health'] as const,
+  activeConflicts: () => [...schedulingKeys.all, 'activeConflicts'] as const,
+  primaryTeacherInference: () => [...schedulingKeys.all, 'primaryTeacherInference'] as const,
+  currentPrimaryTeachers: (studentIds: string[]) => [...schedulingKeys.all, 'currentPrimaryTeachers', studentIds] as const,
   preservationScore: (lessonId: string) => [...schedulingKeys.all, 'preservationScore', lessonId] as const,
 };

@@ -2,6 +2,8 @@ import { useTranslation } from 'react-i18next';
 import { useTeacherStore } from '@/store/teacherStore';
 import { useSupervisorStore } from '@/store/supervisorStore';
 import { useCourses } from '../hooks/useCourses';
+import { useStudents } from '../hooks/useStudents';
+import { useParentNameByStudentId } from '../hooks/useParents';
 import { useScheduleUiStore } from '@/store/scheduleUiStore';
 import { Input } from '@/components/ui/input';
 import {
@@ -10,7 +12,10 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Search } from 'lucide-react';
-import type { LessonLifecycleStatus, TeacherType } from '@/lib/types';
+import { MultiSelectFilter } from './MultiSelectFilter';
+import { labelToMinute, minuteToLabel } from '../utils/timeGrid';
+import type { LessonGroupFilter } from '@/store/scheduleUiStore';
+import type { TeacherType } from '@/lib/types';
 
 const ALL = '__all__';
 
@@ -20,6 +25,8 @@ export function ScheduleFilterBar() {
   const { teachers } = useTeacherStore();
   const { supervisors } = useSupervisorStore();
   const { data: courses = [] } = useCourses();
+  const { data: students = [] } = useStudents();
+  const parentNameByStudentId = useParentNameByStudentId();
   const { searchQuery, setSearchQuery, filters, setFilter } = useScheduleUiStore();
 
   return (
@@ -34,32 +41,39 @@ export function ScheduleFilterBar() {
         />
       </div>
 
-      <Select value={filters.teacherId ?? ALL} onValueChange={(v) => setFilter('teacherId', v === ALL ? null : v)}>
-        <SelectTrigger className="h-9 text-sm w-40 shrink-0"><SelectValue placeholder={t('scheduling.allTeachers')} /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL}>{t('scheduling.allTeachers')}</SelectItem>
-          {teachers.filter((tc) => !tc.isDeleted).map((tc) => (
-            <SelectItem key={tc.id} value={tc.id}>{tc.fullName}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <MultiSelectFilter
+        placeholder={t('scheduling.allTeachers')}
+        selectedIds={filters.teacherIds}
+        onChange={(ids) => setFilter('teacherIds', ids)}
+        options={teachers.filter((tc) => !tc.isDeleted).map((tc) => ({ id: tc.id, label: tc.fullName, searchText: tc.id }))}
+      />
 
-      <Select
-        value={filters.coursePendingOnly ? 'pending' : filters.courseId ?? ALL}
-        onValueChange={(v) => {
-          if (v === 'pending') { setFilter('coursePendingOnly', true); setFilter('courseId', null); }
-          else { setFilter('coursePendingOnly', false); setFilter('courseId', v === ALL ? null : v); }
-        }}
-      >
-        <SelectTrigger className="h-9 text-sm w-40 shrink-0"><SelectValue placeholder={t('scheduling.allCourses')} /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL}>{t('scheduling.allCourses')}</SelectItem>
-          <SelectItem value="pending">{t('scheduling.coursePending')}</SelectItem>
-          {courses.map((c) => (
-            <SelectItem key={c.id} value={c.id}>{isAr ? c.nameAr : c.nameEn}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <MultiSelectFilter
+        placeholder={t('scheduling.allStudents')}
+        selectedIds={filters.studentIds}
+        onChange={(ids) => setFilter('studentIds', ids)}
+        options={students.filter((s) => !s.isDeleted).map((s) => ({
+          id: s.id, label: s.fullName, searchText: `${parentNameByStudentId.get(s.id) ?? ''} ${s.id}`,
+        }))}
+      />
+
+      <div className="flex items-center gap-1 shrink-0">
+        <MultiSelectFilter
+          className="w-36"
+          placeholder={t('scheduling.allCourses')}
+          selectedIds={filters.coursePendingOnly ? [] : filters.courseIds}
+          onChange={(ids) => { setFilter('coursePendingOnly', false); setFilter('courseIds', ids); }}
+          options={courses.map((c) => ({ id: c.id, label: isAr ? c.nameAr : c.nameEn }))}
+        />
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
+          <input
+            type="checkbox"
+            checked={filters.coursePendingOnly}
+            onChange={(e) => { setFilter('coursePendingOnly', e.target.checked); if (e.target.checked) setFilter('courseIds', []); }}
+          />
+          {t('scheduling.coursePending')}
+        </label>
+      </div>
 
       <Select value={filters.teacherType ?? ALL} onValueChange={(v) => setFilter('teacherType', v === ALL ? null : v as TeacherType)}>
         <SelectTrigger className="h-9 text-sm w-36 shrink-0"><SelectValue placeholder={t('scheduling.allTeacherTypes')} /></SelectTrigger>
@@ -70,31 +84,49 @@ export function ScheduleFilterBar() {
         </SelectContent>
       </Select>
 
-      <Select value={filters.supervisorId ?? ALL} onValueChange={(v) => setFilter('supervisorId', v === ALL ? null : v)}>
-        <SelectTrigger className="h-9 text-sm w-40 shrink-0"><SelectValue placeholder={t('scheduling.allSupervisors')} /></SelectTrigger>
+      <MultiSelectFilter
+        placeholder={t('scheduling.allSupervisors')}
+        selectedIds={filters.supervisorIds}
+        onChange={(ids) => setFilter('supervisorIds', ids)}
+        options={supervisors.filter((s) => s.status === 'active').map((s) => ({ id: s.id, label: s.name }))}
+      />
+
+      <MultiSelectFilter
+        placeholder={t('scheduling.allStatuses')}
+        selectedIds={filters.lifecycleStatuses}
+        onChange={(ids) => setFilter('lifecycleStatuses', ids as typeof filters.lifecycleStatuses)}
+        options={(['trial', 'active', 'paused', 'ended'] as const).map((s) => ({ id: s, label: t(`scheduling.lifecycle.${s}`) }))}
+      />
+
+      <Select value={filters.groupFilter ?? ALL} onValueChange={(v) => setFilter('groupFilter', v === ALL ? null : v as LessonGroupFilter)}>
+        <SelectTrigger className="h-9 text-sm w-36 shrink-0"><SelectValue placeholder={t('scheduling.allLessonTypes')} /></SelectTrigger>
         <SelectContent>
-          <SelectItem value={ALL}>{t('scheduling.allSupervisors')}</SelectItem>
-          {supervisors.filter((s) => s.status === 'active').map((s) => (
-            <SelectItem key={s.id} value={s.id}>
-              <span className="inline-flex items-center gap-2">
-                {s.colorHex && <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.colorHex }} />}
-                {s.name}
-              </span>
-            </SelectItem>
-          ))}
+          <SelectItem value={ALL}>{t('scheduling.allLessonTypes')}</SelectItem>
+          <SelectItem value="group">{t('scheduling.groupLesson')}</SelectItem>
+          <SelectItem value="one_to_one">{t('scheduling.hover.oneToOne')}</SelectItem>
         </SelectContent>
       </Select>
 
-      <Select value={filters.lifecycleStatus ?? ALL} onValueChange={(v) => setFilter('lifecycleStatus', v === ALL ? null : v as LessonLifecycleStatus)}>
-        <SelectTrigger className="h-9 text-sm w-36 shrink-0"><SelectValue placeholder={t('scheduling.allStatuses')} /></SelectTrigger>
-        <SelectContent>
-          <SelectItem value={ALL}>{t('scheduling.allStatuses')}</SelectItem>
-          <SelectItem value="trial">{t('scheduling.lifecycle.trial')}</SelectItem>
-          <SelectItem value="active">{t('scheduling.lifecycle.active')}</SelectItem>
-          <SelectItem value="paused">{t('scheduling.lifecycle.paused')}</SelectItem>
-          <SelectItem value="ended">{t('scheduling.lifecycle.ended')}</SelectItem>
-        </SelectContent>
-      </Select>
+      <div className="flex items-center gap-1 shrink-0">
+        <Input
+          type="time"
+          className="h-9 w-28 text-sm"
+          value={filters.timeRangeStart !== null ? minuteToLabel(filters.timeRangeStart) : ''}
+          onChange={(e) => setFilter('timeRangeStart', e.target.value ? labelToMinute(e.target.value) : null)}
+        />
+        <span className="text-muted-foreground text-sm">–</span>
+        <Input
+          type="time"
+          className="h-9 w-28 text-sm"
+          value={filters.timeRangeEnd !== null ? minuteToLabel(filters.timeRangeEnd) : ''}
+          onChange={(e) => setFilter('timeRangeEnd', e.target.value ? labelToMinute(e.target.value) : null)}
+        />
+      </div>
+
+      <label className="flex items-center gap-2 h-9 px-1 shrink-0">
+        <Switch checked={filters.primeTimeOnly} onCheckedChange={(v) => setFilter('primeTimeOnly', v)} />
+        <Label className="text-sm cursor-pointer">{t('scheduling.primeTimeOnly')}</Label>
+      </label>
 
       <label className="flex items-center gap-2 h-9 px-1 shrink-0">
         <Switch checked={filters.availableOnly} onCheckedChange={(v) => setFilter('availableOnly', v)} />

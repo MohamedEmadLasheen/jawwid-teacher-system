@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { useStudents } from '../hooks/useStudents';
+import { useCourses } from '../hooks/useCourses';
 import { useSupervisorStore } from '@/store/supervisorStore';
 import { getLessonSupervisorColor, getLessonBorderStyle } from '../utils/lessonColor';
 import { minuteToLabel } from '../utils/timeGrid';
@@ -13,8 +14,10 @@ interface DraggableLessonCardProps {
 }
 
 export function DraggableLessonCard({ lesson, onClick }: DraggableLessonCardProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isAr = i18n.language === 'ar';
   const { data: students = [] } = useStudents();
+  const { data: courses = [] } = useCourses();
   const { supervisors } = useSupervisorStore();
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: lesson.id,
@@ -23,10 +26,9 @@ export function DraggableLessonCard({ lesson, onClick }: DraggableLessonCardProp
 
   const supervisorColor = getLessonSupervisorColor(lesson.participants, students, supervisors);
   const borderStyle = getLessonBorderStyle(lesson.lifecycleStatus);
-  const studentNames = lesson.participants
-    .map((p) => students.find((s) => s.id === p.studentId)?.fullName)
-    .filter(Boolean)
-    .join(', ');
+  const course = courses.find((c) => c.id === lesson.courseId);
+  const firstStudentName = students.find((s) => s.id === lesson.participants[0]?.studentId)?.fullName ?? '—';
+  const isGroup = lesson.participants.length > 1;
 
   return (
     <button
@@ -41,13 +43,20 @@ export function DraggableLessonCard({ lesson, onClick }: DraggableLessonCardProp
         borderStyle,
         opacity: isDragging ? 0.4 : 1,
       }}
-      className="w-full h-full text-start px-1.5 py-1 rounded-md border-2 bg-white hover:shadow-md transition-shadow overflow-hidden cursor-grab active:cursor-grabbing"
+      className="w-full h-full text-start px-1.5 py-1 rounded-md border-2 bg-white hover:shadow-md transition-shadow overflow-hidden cursor-grab active:cursor-grabbing flex flex-col"
     >
-      <p className="text-[11px] font-medium truncate leading-tight">{studentNames || '—'}</p>
+      <p className="text-[11px] font-medium truncate leading-tight">
+        {isGroup ? `${firstStudentName} +${lesson.participants.length - 1}` : firstStudentName}
+      </p>
       <p className="text-[10px] text-muted-foreground truncate leading-tight">
         {minuteToLabel(lesson.startMinute)}–{minuteToLabel(lesson.endMinute)}
-        {lesson.participants.length > 1 && <span className="ms-1 font-medium">· {t('scheduling.groupLesson')}</span>}
       </p>
+      {course && <p className="text-[9px] text-muted-foreground truncate leading-tight">{isAr ? course.nameAr : course.nameEn}</p>}
+      {isGroup && (
+        <p className="text-[9px] font-medium text-primary truncate leading-tight mt-auto">
+          {t('scheduling.participantsCount', { count: lesson.participants.length })}
+        </p>
+      )}
     </button>
   );
 }

@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { supabase, fetchAllRows } from '@/lib/supabase';
 import type { Parent, StudentParent } from '@/lib/types';
 import type { Database } from '@/lib/database.types';
 
@@ -104,9 +104,10 @@ export async function restoreParent(id: string): Promise<void> {
 // ─── Student ↔ Parent links ───────────────────────────────────────────────────
 
 export async function fetchStudentParents(): Promise<StudentParent[]> {
-  const { data, error } = await supabase.from('student_parents').select('*');
-  if (error) throw error;
-  return (data ?? []).map(toStudentParent);
+  const rows = await fetchAllRows<LinkRow>((from, to) =>
+    supabase.from('student_parents').select('*').order('id', { ascending: true }).range(from, to)
+  );
+  return rows.map(toStudentParent);
 }
 
 export async function linkStudentParent(link: {

@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as parentsSvc from '@/services/scheduling/parents.service';
 import type { Parent, StudentParent } from '@/lib/types';
@@ -15,6 +16,22 @@ export function useStudentParents() {
     queryKey: schedulingKeys.studentParents(),
     queryFn: parentsSvc.fetchStudentParents,
   });
+}
+
+/** One parent name per student (first linked parent) — shared by the lesson
+ * create dialog's student search and the schedule filter bar's Student
+ * filter, so this join isn't duplicated in either place. */
+export function useParentNameByStudentId(): Map<string, string> {
+  const { data: parents = [] } = useParents();
+  const { data: studentParents = [] } = useStudentParents();
+  return useMemo(() => {
+    const map = new Map<string, string>();
+    studentParents.forEach((sp) => {
+      const parentName = parents.find((p) => p.id === sp.parentId)?.fullName;
+      if (parentName && !map.has(sp.studentId)) map.set(sp.studentId, parentName);
+    });
+    return map;
+  }, [parents, studentParents]);
 }
 
 export function useCreateParent() {

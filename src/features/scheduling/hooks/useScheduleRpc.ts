@@ -21,8 +21,11 @@ export function useApplyScheduleChange() {
     mutationFn: ({ action, payload }: { action: string; payload: Record<string, unknown> }) =>
       rpcSvc.applyScheduleChange(action, payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: schedulingKeys.lessons() });
-      queryClient.invalidateQueries({ queryKey: schedulingKeys.lessonParticipants() });
+      // The grid/exceptions queries are keyed by day/date (schedulingKeys.grid(dayOfWeek),
+      // .exceptionsForDate(date)), not under .lessons()/.lessonParticipants() — invalidating
+      // only those wouldn't actually refetch what the grid renders. Invalidate everything
+      // under the scheduling key so every affected view (any day, health panel) refetches.
+      queryClient.invalidateQueries({ queryKey: schedulingKeys.all });
     },
   });
 }

@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import type { ScheduleConflictResult, TeacherPreservationScore, ScheduleHealthMetrics } from '@/lib/types';
+import type { ScheduleConflictResult, TeacherPreservationScore, ScheduleHealthMetrics, ScheduleConflictRow } from '@/lib/types';
 
 function toConflictResult(raw: unknown): ScheduleConflictResult {
   const r = raw as {
@@ -68,6 +68,38 @@ export async function getTeacherPreservationScore(lessonId: string): Promise<Tea
   };
 }
 
+/** Reads get_active_schedule_conflicts() — a set-based, read-only SQL scan (migration 016),
+ * never a frontend loop making one RPC call per lesson pair. Raw facts/codes only; the
+ * frontend resolves teacher/student names and localizes everything. */
+export async function getActiveScheduleConflicts(): Promise<ScheduleConflictRow[]> {
+  const { data, error } = await supabase.rpc('get_active_schedule_conflicts');
+  if (error) throw error;
+  const rows = (data ?? []) as {
+    conflict_type: 'teacher_double_booking' | 'student_double_booking';
+    teacher_id: string | null;
+    student_id: string | null;
+    lesson_id_a: string;
+    lesson_id_b: string;
+    day_of_week: number;
+    start_minute_a: number;
+    duration_minutes_a: number;
+    start_minute_b: number;
+    duration_minutes_b: number;
+  }[];
+  return rows.map((r) => ({
+    conflictType: r.conflict_type,
+    teacherId: r.teacher_id,
+    studentId: r.student_id,
+    lessonIdA: r.lesson_id_a,
+    lessonIdB: r.lesson_id_b,
+    dayOfWeek: r.day_of_week as ScheduleConflictRow['dayOfWeek'],
+    startMinuteA: r.start_minute_a,
+    durationMinutesA: r.duration_minutes_a,
+    startMinuteB: r.start_minute_b,
+    durationMinutesB: r.duration_minutes_b,
+  }));
+}
+
 export async function getScheduleHealthMetrics(): Promise<ScheduleHealthMetrics> {
   const { data, error } = await supabase.rpc('get_schedule_health_metrics');
   if (error) throw error;
@@ -75,14 +107,19 @@ export async function getScheduleHealthMetrics(): Promise<ScheduleHealthMetrics>
     teacher_occupancy_rate: number;
     total_empty_hours: number;
     unused_prime_time_hours: number;
+    prime_time_occupancy_pct: number;
     most_occupied_teacher: { teacher_id: string; full_name: string; occupancy_pct: number } | null;
     least_utilized_teacher: { teacher_id: string; full_name: string; occupancy_pct: number } | null;
     total_available_bookable_slots: number;
+    teachers_above_95pct_count: number;
+    teachers_below_40pct_count: number;
+    paused_students_schedulable_count: number;
   };
   return {
     teacherOccupancyRate: r.teacher_occupancy_rate,
     totalEmptyHours: r.total_empty_hours,
     unusedPrimeTimeHours: r.unused_prime_time_hours,
+    primeTimeOccupancyPct: r.prime_time_occupancy_pct,
     mostOccupiedTeacher: r.most_occupied_teacher
       ? { teacherId: r.most_occupied_teacher.teacher_id, fullName: r.most_occupied_teacher.full_name, occupancyPct: r.most_occupied_teacher.occupancy_pct }
       : null,
@@ -90,5 +127,8 @@ export async function getScheduleHealthMetrics(): Promise<ScheduleHealthMetrics>
       ? { teacherId: r.least_utilized_teacher.teacher_id, fullName: r.least_utilized_teacher.full_name, occupancyPct: r.least_utilized_teacher.occupancy_pct }
       : null,
     totalAvailableBookableSlots: r.total_available_bookable_slots,
+    teachersAbove95PctCount: r.teachers_above_95pct_count,
+    teachersBelow40PctCount: r.teachers_below_40pct_count,
+    pausedStudentsSchedulableCount: r.paused_students_schedulable_count,
   };
 }

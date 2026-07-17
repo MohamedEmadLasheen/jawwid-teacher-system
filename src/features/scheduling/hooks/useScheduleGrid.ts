@@ -7,8 +7,10 @@ import * as availabilitySvc from '@/services/scheduling/teacherAvailability.serv
 import { useStudents } from './useStudents';
 import { useCourses } from './useCourses';
 import { schedulingKeys } from '../api/queryKeys';
+import { nextDateForDayOfWeek } from '../utils/nextDateForDayOfWeek';
+import { overlapsPrimeTime } from '../utils/primeTime';
 import type { ScheduleFilters } from '@/store/scheduleUiStore';
-import type { Teacher } from '@/lib/types';
+import type { DayOfWeek, Teacher } from '@/lib/types';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
 import type { UnifiedAvailabilitySlot } from '@/services/scheduling/teacherAvailability.service';
 
@@ -31,6 +33,8 @@ export function useScheduleGrid(dayOfWeek: number, filters: ScheduleFilters, sea
   const { data: students = [] } = useStudents();
   const { data: courses = [] } = useCourses();
 
+  const occurrenceDate = nextDateForDayOfWeek(dayOfWeek as DayOfWeek);
+
   const lessonsQuery = useQuery({
     queryKey: schedulingKeys.grid(dayOfWeek),
     queryFn: () => lessonsSvc.fetchLessonsForDay(dayOfWeek),
@@ -39,36 +43,83 @@ export function useScheduleGrid(dayOfWeek: number, filters: ScheduleFilters, sea
     queryKey: schedulingKeys.availabilityForDay(dayOfWeek),
     queryFn: () => availabilitySvc.fetchUnifiedAvailabilityForDay(dayOfWeek),
   });
+  const exceptionsQuery = useQuery({
+    queryKey: schedulingKeys.exceptionsForDate(occurrenceDate),
+    queryFn: () => lessonsSvc.fetchExceptionsForDate(occurrenceDate),
+  });
 
   const rows = useMemo<ScheduleGridTeacherRow[]>(() => {
-    const lessons = lessonsQuery.data ?? [];
+    const rawLessons = lessonsQuery.data ?? [];
     const availability = availabilityQuery.data ?? [];
+    const exceptions = exceptionsQuery.data ?? [];
     const search = searchQuery.trim().toLowerCase();
+
+    // Apply today's occurrence-scoped deviations (cancel/reschedule) so a
+    // "this occurrence" change — which only ever writes a lesson_exceptions
+    // row, never the recurring lessons row — is actually visible in the grid.
+    const exceptionByLessonId = new Map(exceptions.map((e) => [e.lessonId, e]));
+    const lessons = rawLessons
+      .filter((l) => exceptionByLessonId.get(l.id)?.status !== 'cancelled')
+      .map((l) => {
+        const exc = exceptionByLessonId.get(l.id);
+        if (exc?.status !== 'rescheduled') return l;
+        const startMinute = exc.overrideStartMinute ?? l.startMinute;
+        const durationMinutes = exc.overrideDurationMinutes ?? l.durationMinutes;
+        return {
+          ...l,
+          teacherId: exc.overrideTeacherId ?? l.teacherId,
+          startMinute,
+          durationMinutes,
+          endMinute: startMinute + durationMinutes,
+        };
+      });
 
     const studentNameById = new Map(students.map((s) => [s.id, s.fullName]));
 
     return teachers
       .filter((t) => !t.isDeleted)
-      .filter((t) => !filters.teacherId || t.id === filters.teacherId)
+      .filter((t) => filters.teacherIds.length === 0 || filters.teacherIds.includes(t.id))
       .filter((t) => !filters.teacherType || t.teacherType === filters.teacherType)
       .map((teacher) => {
         let teacherLessons = lessons.filter((l) => l.teacherId === teacher.id);
 
         if (filters.coursePendingOnly) {
           teacherLessons = teacherLessons.filter((l) => !l.courseId);
-        } else if (filters.courseId) {
-          teacherLessons = teacherLessons.filter((l) => l.courseId === filters.courseId);
+        } else if (filters.courseIds.length > 0) {
+          teacherLessons = teacherLessons.filter((l) => l.courseId && filters.courseIds.includes(l.courseId));
         }
-        if (filters.lifecycleStatus) {
-          teacherLessons = teacherLessons.filter((l) => l.lifecycleStatus === filters.lifecycleStatus);
+        if (filters.lifecycleStatuses.length > 0) {
+          teacherLessons = teacherLessons.filter((l) => filters.lifecycleStatuses.includes(l.lifecycleStatus));
         }
-        if (filters.supervisorId) {
+        if (filters.supervisorIds.length > 0) {
           teacherLessons = teacherLessons.filter((l) =>
-            l.participants.some((p) => students.find((s) => s.id === p.studentId)?.supervisorId === filters.supervisorId)
+            l.participants.some((p) => {
+              const supId = students.find((s) => s.id === p.studentId)?.supervisorId;
+              return supId && filters.supervisorIds.includes(supId);
+            })
+          );
+        }
+        if (filters.studentIds.length > 0) {
+          teacherLessons = teacherLessons.filter((l) =>
+            l.participants.some((p) => filters.studentIds.includes(p.studentId))
           );
         }
         if (filters.availableOnly) {
           teacherLessons = [];
+        }
+        if (filters.primeTimeOnly) {
+          teacherLessons = teacherLessons.filter((l) => overlapsPrimeTime(l.startMinute, l.durationMinutes));
+        }
+        if (filters.groupFilter === 'group') {
+          teacherLessons = teacherLessons.filter((l) => l.participants.length > 1);
+        } else if (filters.groupFilter === 'one_to_one') {
+          teacherLessons = teacherLessons.filter((l) => l.participants.length <= 1);
+        }
+        if (filters.timeRangeStart !== null) {
+          teacherLessons = teacherLessons.filter((l) => l.startMinute >= filters.timeRangeStart!);
+        }
+        if (filters.timeRangeEnd !== null) {
+          teacherLessons = teacherLessons.filter((l) => l.startMinute + l.durationMinutes <= filters.timeRangeEnd!);
         }
 
         return {
@@ -84,13 +135,13 @@ export function useScheduleGrid(dayOfWeek: number, filters: ScheduleFilters, sea
           l.participants.some((p) => (studentNameById.get(p.studentId) ?? '').toLowerCase().includes(search))
         );
       });
-  }, [teachers, students, lessonsQuery.data, availabilityQuery.data, filters, searchQuery]);
+  }, [teachers, students, lessonsQuery.data, availabilityQuery.data, exceptionsQuery.data, filters, searchQuery]);
 
   return {
     rows,
     courses,
     supervisors,
-    isLoading: lessonsQuery.isLoading || availabilityQuery.isLoading,
-    error: lessonsQuery.error || availabilityQuery.error,
+    isLoading: lessonsQuery.isLoading || availabilityQuery.isLoading || exceptionsQuery.isLoading,
+    error: lessonsQuery.error || availabilityQuery.error || exceptionsQuery.error,
   };
 }

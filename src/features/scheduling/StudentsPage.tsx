@@ -1,8 +1,13 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useLogStore } from '@/store/logStore';
 import { useSupervisorStore } from '@/store/supervisorStore';
+import { useTeacherStore } from '@/store/teacherStore';
+import { useLessons, useLessonParticipants } from './hooks/useLessons';
+import { minuteToLabel } from './utils/timeGrid';
+import { DAYS_OF_WEEK } from './constants/schedulingConstants';
 import {
   useStudents, useCreateStudent, useUpdateStudent, useSoftDeleteStudent, useRestoreStudent,
 } from './hooks/useStudents';
@@ -26,7 +31,7 @@ import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { Plus, Search, Edit, Trash2, RotateCcw, GraduationCap } from 'lucide-react';
+import { Plus, Search, Eye, Trash2, RotateCcw, GraduationCap } from 'lucide-react';
 import type { Student } from '@/lib/types';
 
 const statusColors: Record<string, string> = {
@@ -48,6 +53,22 @@ export function StudentsPage() {
   const restoreStudent = useRestoreStudent();
   const { supervisors } = useSupervisorStore();
   const supervisorById = new Map(supervisors.map((s) => [s.id, s]));
+  const { teachers } = useTeacherStore();
+  const teacherById = new Map(teachers.map((tc) => [tc.id, tc]));
+  const { data: allLessons = [] } = useLessons();
+  const { data: allParticipants = [] } = useLessonParticipants();
+  const lessonById = new Map(allLessons.map((l) => [l.id, l]));
+  // First lesson (by day/time) each student is enrolled in — real, already-fetched
+  // relationships only (lesson_participants → lessons.teacherId/day/time).
+  const scheduleByStudent = new Map<string, { teacherId: string; dayOfWeek: number; startMinute: number }>();
+  allParticipants.forEach((p) => {
+    const lesson = lessonById.get(p.lessonId);
+    if (!lesson) return;
+    const existing = scheduleByStudent.get(p.studentId);
+    if (!existing || lesson.dayOfWeek < existing.dayOfWeek || (lesson.dayOfWeek === existing.dayOfWeek && lesson.startMinute < existing.startMinute)) {
+      scheduleByStudent.set(p.studentId, { teacherId: lesson.teacherId, dayOfWeek: lesson.dayOfWeek, startMinute: lesson.startMinute });
+    }
+  });
 
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -56,12 +77,18 @@ export function StudentsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editStudent, setEditStudent] = useState<Student | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  // Deep-link support for Dashboard "Action Required" cards (e.g. /students?issue=unassigned-teacher) —
+  // only real, already-computed subsets, never an invented filter.
+  const issueFilter = searchParams.get('issue');
+  const clearIssueFilter = () => setSearchParams((prev) => { prev.delete('issue'); return prev; });
 
   const filtered = students.filter((s) => {
     if (s.isDeleted !== showDeleted) return false;
     if (search && !s.fullName.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterStatus !== 'all' && s.status !== filterStatus) return false;
     if (filterSupervisor !== 'all' && s.supervisorId !== filterSupervisor) return false;
+    if (issueFilter === 'unassigned-teacher' && (s.status !== 'active' || scheduleByStudent.has(s.id))) return false;
     return true;
   });
 
@@ -106,6 +133,13 @@ export function StudentsPage() {
           </Button>
         </div>
       </div>
+
+      {issueFilter === 'unassigned-teacher' && (
+        <div className="flex items-center justify-between gap-2 flex-wrap p-2.5 px-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
+          <span>{t('students.issueFilter.unassignedTeacher')} — {filtered.length} {t('students.title')}</span>
+          <Button size="sm" variant="ghost" className="h-7 text-xs text-amber-800" onClick={clearIssueFilter}>{t('students.issueFilter.clear')}</Button>
+        </div>
+      )}
 
       <Card>
         <CardContent className="p-3 sm:p-4">
@@ -157,6 +191,9 @@ export function StudentsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4">
           {filtered.map((student) => {
             const supervisor = student.supervisorId ? supervisorById.get(student.supervisorId) : undefined;
+            const schedule = scheduleByStudent.get(student.id);
+            const scheduleTeacher = schedule ? teacherById.get(schedule.teacherId) : undefined;
+            const dayLabelKey = schedule ? DAYS_OF_WEEK.find((d) => d.value === schedule.dayOfWeek)?.labelKey : undefined;
             return (
             <Card key={student.id} className="hover:shadow-md transition-shadow overflow-hidden">
               <CardContent className="p-3 sm:p-4">
@@ -169,20 +206,31 @@ export function StudentsPage() {
                       {student.fullName.charAt(0)}
                     </div>
                     <div className="min-w-0">
-                      <p className="font-semibold text-sm truncate">{student.fullName}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-semibold text-sm truncate">{student.fullName}</p>
+                        {student.isReturning && (
+                          <span className="text-[9px] text-muted-foreground shrink-0">({t('students.isReturning')})</span>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground truncate">
-                        {supervisor?.name || student.country || '—'}
+                        {supervisor?.name ? `${t('students.supervisor')}: ${supervisor.name}` : student.country || '—'}
                       </p>
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1 shrink-0">
-                    <Badge className={`text-xs ${statusColors[student.status]}`}>
-                      {t(`students.${student.status}`)}
-                    </Badge>
-                    {student.isReturning && (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">{t('students.isReturning')}</Badge>
-                    )}
-                  </div>
+                  <Badge className={`text-xs shrink-0 ${statusColors[student.status]}`}>
+                    {t(`students.${student.status}`)}
+                  </Badge>
+                </div>
+
+                <div className="space-y-1 mb-2.5 text-xs">
+                  <p className="text-muted-foreground">
+                    {t('students.currentTeacher')}: <span className="text-foreground font-medium">{scheduleTeacher?.fullName ?? t('common.unassigned')}</span>
+                  </p>
+                  <p className="text-muted-foreground">
+                    {t('students.regularSchedule')}: <span className="text-foreground font-medium">
+                      {schedule && dayLabelKey ? `${t(dayLabelKey)} ${minuteToLabel(schedule.startMinute)}` : t('students.noSchedule')}
+                    </span>
+                  </p>
                 </div>
 
                 <TooltipProvider>
@@ -191,12 +239,12 @@ export function StudentsPage() {
                       <>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button variant="outline" size="sm" onClick={() => setEditStudent(student)} aria-label={t('students.editStudent')} className="flex-1 text-xs h-8">
-                              <Edit className="h-3 w-3 me-1" />
-                              {t('common.edit')}
+                            <Button variant="outline" size="sm" onClick={() => setEditStudent(student)} aria-label={t('common.view')} className="flex-1 text-xs h-8">
+                              <Eye className="h-3 w-3 me-1" />
+                              {t('common.view')}
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>{t('students.editStudent')}</TooltipContent>
+                          <TooltipContent>{t('common.view')}</TooltipContent>
                         </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>

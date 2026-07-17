@@ -3,10 +3,12 @@ import { DndContext, type DragEndEvent } from '@dnd-kit/core';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useScheduleUiStore } from '@/store/scheduleUiStore';
 import { useScheduleGrid } from '../hooks/useScheduleGrid';
+import { useResponsiveColumnWidth } from '../hooks/useResponsiveColumnWidth';
 import { ScheduleGridRow } from './ScheduleGridRow';
+import { CurrentTimeIndicator } from './CurrentTimeIndicator';
 import { minuteToLabel } from '../utils/timeGrid';
 import { isColumnInPrimeTime } from '../utils/primeTime';
-import { GRID_COLUMNS, GRID_COLUMN_WIDTH, GRID_ROW_HEIGHT, GRID_TEACHER_COLUMN_WIDTH } from '../constants/schedulingConstants';
+import { GRID_COLUMNS, GRID_ROW_HEIGHT, GRID_TEACHER_COLUMN_WIDTH } from '../constants/schedulingConstants';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
 
 interface MasterScheduleGridProps {
@@ -19,6 +21,8 @@ export function MasterScheduleGrid({ onEmptyClick, onLessonClick, onProposeMove 
   const parentRef = useRef<HTMLDivElement>(null);
   const { selectedDay, filters, searchQuery } = useScheduleUiStore();
   const { rows, isLoading, error } = useScheduleGrid(selectedDay, filters, searchQuery);
+  const columnWidth = useResponsiveColumnWidth(parentRef, GRID_COLUMNS.length);
+  const isToday = selectedDay === new Date().getDay();
 
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -54,8 +58,8 @@ export function MasterScheduleGrid({ onEmptyClick, onLessonClick, onProposeMove 
             {GRID_COLUMNS.map((minute) => (
               <div
                 key={minute}
-                style={{ width: GRID_COLUMN_WIDTH }}
-                className={`shrink-0 text-[10px] text-center py-2 border-e border-gray-100 ${isColumnInPrimeTime(minute) ? 'bg-amber-50 font-medium text-amber-700' : 'text-muted-foreground'}`}
+                style={{ width: columnWidth }}
+                className={`shrink-0 text-[10px] text-center py-2 border-e border-gray-100 truncate ${isColumnInPrimeTime(minute) ? 'bg-amber-50 font-medium text-amber-700' : 'text-muted-foreground'}`}
               >
                 {minuteToLabel(minute)}
               </div>
@@ -64,13 +68,14 @@ export function MasterScheduleGrid({ onEmptyClick, onLessonClick, onProposeMove 
         </div>
 
         {/* Virtualized teacher rows */}
-        <div ref={parentRef} className="overflow-auto" style={{ height: '65vh' }}>
+        <div ref={parentRef} className="overflow-auto relative" style={{ height: '65vh' }}>
           {isLoading ? (
             <p className="text-sm text-muted-foreground p-4">…</p>
           ) : rows.length === 0 ? (
             <p className="text-sm text-muted-foreground p-4">—</p>
           ) : (
             <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+              {isToday && <CurrentTimeIndicator columnWidth={columnWidth} height={virtualizer.getTotalSize()} />}
               {virtualizer.getVirtualItems().map((virtualRow) => (
                 <div
                   key={rows[virtualRow.index].teacher.id}
@@ -83,7 +88,7 @@ export function MasterScheduleGrid({ onEmptyClick, onLessonClick, onProposeMove 
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
                 >
-                  <ScheduleGridRow row={rows[virtualRow.index]} onEmptyClick={onEmptyClick} onLessonClick={onLessonClick} />
+                  <ScheduleGridRow row={rows[virtualRow.index]} columnWidth={columnWidth} onEmptyClick={onEmptyClick} onLessonClick={onLessonClick} />
                 </div>
               ))}
             </div>

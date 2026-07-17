@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { supabase, fetchAllRows } from '@/lib/supabase';
 import type { Student } from '@/lib/types';
 import type { Database } from '@/lib/database.types';
 
@@ -28,12 +28,15 @@ function toStudent(row: Row): Student {
 }
 
 export async function fetchStudents(): Promise<Student[]> {
-  const { data, error } = await supabase
-    .from('students')
-    .select('*')
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  return (data ?? []).map(toStudent);
+  const rows = await fetchAllRows<Row>((from, to) =>
+    supabase
+      .from('students')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true }) // tiebreaker: many demo rows share the exact same created_at (one transaction), and .range() pagination needs a fully deterministic order or ties get duplicated/dropped across page boundaries
+      .range(from, to)
+  );
+  return rows.map(toStudent);
 }
 
 export async function createStudent(
