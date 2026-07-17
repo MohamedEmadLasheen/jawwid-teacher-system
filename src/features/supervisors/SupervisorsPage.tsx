@@ -29,6 +29,13 @@ const ALL_PERMISSIONS: Permission[] = [
   'manage_complaints', 'improvement_plans', 'manage_financials',
 ];
 
+// Curated palette for the Master Schedule's supervisor-color coding — kept
+// small and visually distinct so lesson borders/accents stay readable.
+const COLOR_PALETTE = [
+  '#E06666', '#F9CB9C', '#93C47D', '#6FA8DC', '#8E7CC3',
+  '#76A5AF', '#E69138', '#C27BA0', '#45818E', '#A64D79',
+];
+
 export function SupervisorsPage() {
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === 'ar';
@@ -53,17 +60,18 @@ export function SupervisorsPage() {
     name: '', email: '', phone: '', department: '',
     status: 'active' as 'active' | 'inactive',
     password: '',
+    colorHex: null as string | null,
   });
 
   const openAdd = () => {
     setEditing(null);
-    setForm({ name: '', email: '', phone: '', department: '', status: 'active', password: '' });
+    setForm({ name: '', email: '', phone: '', department: '', status: 'active', password: '', colorHex: null });
     setFormOpen(true);
   };
 
   const openEdit = (s: Supervisor) => {
     setEditing(s);
-    setForm({ name: s.name, email: s.email, phone: s.phone, department: s.department, status: s.status, password: '' });
+    setForm({ name: s.name, email: s.email, phone: s.phone, department: s.department, status: s.status, password: '', colorHex: s.colorHex ?? null });
     setFormOpen(true);
   };
 
@@ -147,7 +155,12 @@ export function SupervisorsPage() {
                   <tbody className="divide-y">
                     {supervisors.map((s) => (
                       <tr key={s.id} className="hover:bg-gray-50">
-                        <td className="py-3 px-4 font-medium text-gray-800">{s.name}</td>
+                        <td className="py-3 px-4 font-medium text-gray-800">
+                          <span className="inline-flex items-center gap-2">
+                            {s.colorHex && <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.colorHex }} />}
+                            {s.name}
+                          </span>
+                        </td>
                         <td className="py-3 px-4 text-gray-600">{s.email}</td>
                         <td className="py-3 px-4 text-gray-600">{s.department}</td>
                         <td className="py-3 px-4">
@@ -192,7 +205,10 @@ export function SupervisorsPage() {
                 <CardContent className="p-3">
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="min-w-0">
-                      <p className="font-semibold text-sm truncate">{s.name}</p>
+                      <p className="font-semibold text-sm truncate flex items-center gap-1.5">
+                        {s.colorHex && <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.colorHex }} />}
+                        {s.name}
+                      </p>
                       <p className="text-xs text-muted-foreground truncate">{s.email}</p>
                       {s.department && <p className="text-xs text-muted-foreground">{s.department}</p>}
                     </div>
@@ -271,6 +287,34 @@ export function SupervisorsPage() {
             <div className="space-y-1.5">
               <Label className="text-sm">{t('supervisors.department')}</Label>
               <Input value={form.department} onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))} className="h-10" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm">{t('supervisors.displayColor')}</Label>
+              <div className="flex flex-wrap items-center gap-2">
+                {COLOR_PALETTE.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, colorHex: c }))}
+                    aria-label={c}
+                    className={`w-7 h-7 rounded-full border-2 transition-transform ${form.colorHex === c ? 'border-primary scale-110' : 'border-transparent'}`}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+                {form.colorHex && (
+                  <button type="button" onClick={() => setForm((f) => ({ ...f, colorHex: null }))} className="text-xs text-muted-foreground underline ms-1">
+                    {t('common.cancel')}
+                  </button>
+                )}
+              </div>
+              {form.colorHex && (
+                <div
+                  className="mt-1.5 rounded-md border bg-white px-2.5 py-1.5 text-xs w-fit"
+                  style={{ borderInlineStartWidth: 4, borderInlineStartColor: form.colorHex }}
+                >
+                  {form.name || t('supervisors.name')} — 16:00–16:30
+                </div>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label className="text-sm">{t('supervisors.status')}</Label>

@@ -24,7 +24,8 @@ import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { levelColors, riskColors, perfColors } from '@/lib/uiConstants';
+import { riskColors, perfColors } from '@/lib/uiConstants';
+import { useLessons, useLessonParticipants } from '@/features/scheduling/hooks/useLessons';
 import {
   Plus, Search, Eye, Edit, Trash2, RotateCcw, Filter, ChevronDown, ChevronUp, Users,
 } from 'lucide-react';
@@ -33,6 +34,22 @@ import type { Teacher } from '@/lib/types';
 export function TeachersPage() {
   const { t, i18n } = useTranslation();
   const { currentUser } = useAuthStore();
+  // Reused, already-cached app-wide queries (not one query per card) to
+  // show real Weekly Lessons / Current Students on each teacher card.
+  const { data: allLessons = [] } = useLessons();
+  const { data: allParticipants = [] } = useLessonParticipants();
+  const lessonsByTeacher = new Map<string, string[]>();
+  allLessons.forEach((l) => {
+    const arr = lessonsByTeacher.get(l.teacherId) ?? [];
+    arr.push(l.id);
+    lessonsByTeacher.set(l.teacherId, arr);
+  });
+  const studentsByLesson = new Map<string, Set<string>>();
+  allParticipants.forEach((p) => {
+    const set = studentsByLesson.get(p.lessonId) ?? new Set<string>();
+    set.add(p.studentId);
+    studentsByLesson.set(p.lessonId, set);
+  });
   const { addLog } = useLogStore();
   const {
     teachers, evaluations, complaints, improvementPlans, deductions,
@@ -228,7 +245,9 @@ export function TeachersPage() {
           {filtered.map((teacher) => {
             const { riskLevel, riskScore } = computeRiskProfile(teacher.id, evaluations, complaints, improvementPlans, deductions);
             const { score: perfScore, category: perfCat } = computePerformanceScore(teacher.id, evaluations, complaints, improvementPlans, deductions);
-            const currSymbol = teacher.salaryCurrency === 'USD' ? '$' : 'ج.م';
+            const teacherLessonIds = lessonsByTeacher.get(teacher.id) ?? [];
+            const weeklyLessons = teacherLessonIds.length;
+            const studentsCount = new Set(teacherLessonIds.flatMap((lid) => [...(studentsByLesson.get(lid) ?? [])])).size;
 
             return (
               <Card key={teacher.id} className="hover:shadow-md transition-shadow overflow-hidden">
@@ -264,12 +283,14 @@ export function TeachersPage() {
                   </div>
 
                   {/* Stats row */}
-                  <div className="grid grid-cols-3 gap-1.5 mb-2.5 text-center">
+                  <div className="grid grid-cols-4 gap-1.5 mb-2.5 text-center">
                     <div className="bg-gray-50 rounded p-1.5">
-                      <p className="text-[10px] text-muted-foreground">{t('teachers.level')}</p>
-                      <Badge className={`${levelColors[teacher.level]} text-[10px] mt-0.5 px-1`}>
-                        {t(`teachers.${teacher.level}`)}
-                      </Badge>
+                      <p className="text-[10px] text-muted-foreground">{t('scheduling.workload.weeklyLessons')}</p>
+                      <p className="text-xs font-semibold mt-0.5">{weeklyLessons}</p>
+                    </div>
+                    <div className="bg-gray-50 rounded p-1.5">
+                      <p className="text-[10px] text-muted-foreground">{t('teachers.currentStudents')}</p>
+                      <p className="text-xs font-semibold mt-0.5">{studentsCount}</p>
                     </div>
                     <div className="bg-gray-50 rounded p-1.5">
                       <p className="text-[10px] text-muted-foreground">{t('risk.title')}</p>
@@ -283,12 +304,6 @@ export function TeachersPage() {
                         {perfScore}%
                       </Badge>
                     </div>
-                  </div>
-
-                  {/* Salary */}
-                  <div className="flex items-center justify-between text-xs text-muted-foreground mb-2.5 gap-1">
-                    <span className="truncate">{t('teachers.monthlySalary')}: <strong className="text-foreground">{currSymbol}{teacher.monthlySalary.toLocaleString()}</strong></span>
-                    <span className="shrink-0">{t(`teachingMarket.${teacher.teachingMarket}`)}</span>
                   </div>
 
                   {/* Actions */}

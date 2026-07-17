@@ -1,5 +1,5 @@
 ﻿import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useTeacherStore, computeRiskProfile, computePerformanceScore, formatCurrency } from '@/store/teacherStore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,12 +10,13 @@ import { Progress } from '@/components/ui/progress';
 import {
   ArrowRight, ArrowLeft, User, Briefcase, TrendingUp, History,
   Clock, Star, AlertTriangle, CheckCircle2, XCircle, FileText,
-  DollarSign, Calendar, Phone, Mail, Globe, Award,
+  DollarSign, Calendar, Phone, Mail, Globe, Award, BarChart3,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ar } from 'date-fns/locale';
 import type { TeacherTimelineEvent } from '@/lib/types';
 import { TeacherAvailabilityTab } from '@/features/scheduling/components/TeacherAvailabilityTab';
+import { useTeacherWorkload } from '@/features/scheduling/hooks/useTeacherWorkload';
 
 export function TeacherProfilePage() {
   const { id } = useParams<{ id: string }>();
@@ -29,6 +30,7 @@ export function TeacherProfilePage() {
   } = useTeacherStore();
 
   const teacher = teachers.find((t) => t.id === id);
+  const { metrics: workload, isLoading: workloadLoading } = useTeacherWorkload(id ?? '');
   if (!teacher) {
     return (
       <div className="p-6 text-center">
@@ -192,6 +194,7 @@ export function TeacherProfilePage() {
           <TabsTrigger value="personal">{t('teachers.personalInfo')}</TabsTrigger>
           <TabsTrigger value="employment">{t('teachers.employmentInfo')}</TabsTrigger>
           <TabsTrigger value="availability">{t('scheduling.availability')}</TabsTrigger>
+          <TabsTrigger value="workload">{t('scheduling.workload.title')}</TabsTrigger>
           <TabsTrigger value="performance">{t('teachers.performance')}</TabsTrigger>
           <TabsTrigger value="history">{t('common.actions')}</TabsTrigger>
           <TabsTrigger value="financial">{t('teachers.financialSummary')}</TabsTrigger>
@@ -247,14 +250,46 @@ export function TeacherProfilePage() {
         {/* Availability / Shift */}
         <TabsContent value="availability">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between gap-2 flex-wrap">
               <CardTitle className="text-primary flex items-center gap-2">
                 {t('scheduling.availability')}
                 <Badge variant="outline">{t(`teachers.${teacher.teacherType}`)}</Badge>
               </CardTitle>
+              <Button asChild size="sm" variant="outline">
+                <Link to={`/schedule/teacher?teacherId=${teacher.id}`}>
+                  <Calendar className="h-4 w-4 me-1.5" />
+                  {t('scheduling.teacherWeeklySchedule')}
+                </Link>
+              </Button>
             </CardHeader>
             <CardContent>
               <TeacherAvailabilityTab teacherId={teacher.id} teacherType={teacher.teacherType} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Workload Analytics */}
+        <TabsContent value="workload">
+          <Card>
+            <CardHeader><CardTitle className="text-primary flex items-center gap-2"><BarChart3 className="h-5 w-5" />{t('scheduling.workload.title')}</CardTitle></CardHeader>
+            <CardContent>
+              {workloadLoading ? (
+                <p className="text-sm text-muted-foreground">…</p>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <InfoItem icon={<Clock />} label={t('scheduling.workload.dailyHours')} value={`${workload.dailyHours}h`} />
+                  <InfoItem icon={<Clock />} label={t('scheduling.workload.weeklyHours')} value={`${workload.weeklyHours}h`} />
+                  <InfoItem icon={<Clock />} label={t('scheduling.workload.monthlyHours')} value={`${workload.monthlyHours}h`} />
+                  <InfoItem icon={<Star />} label={t('scheduling.workload.primeTimeHours')} value={`${workload.primeTimeHours}h`} />
+                  <InfoItem icon={<Calendar />} label={t('scheduling.workload.emptyHours')} value={`${workload.emptyHours}h`} />
+                  <InfoItem icon={<Calendar />} label={t('scheduling.workload.availableHours')} value={`${workload.availableHours}h`} />
+                  <InfoItem icon={<CheckCircle2 />} label={t('scheduling.workload.bookedLessons')} value={String(workload.bookedLessons)} />
+                  <InfoItem icon={<CheckCircle2 />} label={t('scheduling.workload.completedLessons')} value={String(workload.completedLessons)} />
+                  <InfoItem icon={<XCircle />} label={t('scheduling.workload.cancelledLessons')} value={String(workload.cancelledLessons)} />
+                  <InfoItem icon={<Star />} label={t('scheduling.workload.trialLessons')} value={String(workload.trialLessons)} />
+                  <InfoItem icon={<TrendingUp />} label={t('scheduling.workload.occupancyPct')} value={`${workload.occupancyPct}%`} />
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

@@ -6,24 +6,36 @@ import type { DayOfWeek, TeacherType, LessonLifecycleStatus } from '@/lib/types'
  * filters, search query. Lesson/teacher/student rows are never cached
  * here; that's React Query's job (see useScheduleGrid).
  */
+export type LessonGroupFilter = 'group' | 'one_to_one' | null;
+
 export interface ScheduleFilters {
-  teacherId: string | null;
-  courseId: string | null;
+  teacherIds: string[];
+  courseIds: string[];
+  studentIds: string[];
   coursePendingOnly: boolean;
   teacherType: TeacherType | null;
-  supervisorId: string | null;
-  lifecycleStatus: LessonLifecycleStatus | null;
+  supervisorIds: string[];
+  lifecycleStatuses: LessonLifecycleStatus[];
   availableOnly: boolean;
+  primeTimeOnly: boolean;
+  groupFilter: LessonGroupFilter;
+  timeRangeStart: number | null;
+  timeRangeEnd: number | null;
 }
 
-const DEFAULT_FILTERS: ScheduleFilters = {
-  teacherId: null,
-  courseId: null,
+export const DEFAULT_FILTERS: ScheduleFilters = {
+  teacherIds: [],
+  courseIds: [],
+  studentIds: [],
   coursePendingOnly: false,
   teacherType: null,
-  supervisorId: null,
-  lifecycleStatus: null,
+  supervisorIds: [],
+  lifecycleStatuses: [],
   availableOnly: false,
+  primeTimeOnly: false,
+  groupFilter: null,
+  timeRangeStart: null,
+  timeRangeEnd: null,
 };
 
 interface ScheduleUiState {
