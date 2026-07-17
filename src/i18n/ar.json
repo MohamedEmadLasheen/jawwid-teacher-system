@@ -720,6 +720,30 @@
     "allStudents": "كل الطلاب",
     "filterSelectedCount": "{{count}} محدد"
   },
+  "operations": {
+    "attendance": {
+      "title": "تسجيل الحصة",
+      "present": "حاضر",
+      "makeup": "تعويضية",
+      "loadError": "تعذر تحميل بيانات الحضور لهذه الحصة.",
+      "saveError": "تعذر الحفظ - حاول مرة أخرى.",
+      "otherPlaceholder": "صف السبب…",
+      "status": {
+        "delivered": "حاضر",
+        "absentStudent": "غائب",
+        "excusedFamily": "معذور",
+        "excusedTeacher": "غياب المعلم"
+      },
+      "reason": {
+        "sick": "مريض",
+        "noAnswer": "لا يوجد رد",
+        "parentReschedule": "طلب ولي الأمر التأجيل",
+        "technicalIssue": "مشكلة تقنية",
+        "teacherExcused": "عذر المعلم",
+        "other": "أخرى"
+      }
+    }
+  },
   "salaryType": {
     "fixed": "راتب شهري ثابت",
     "hourly": "أجر بالساعة",

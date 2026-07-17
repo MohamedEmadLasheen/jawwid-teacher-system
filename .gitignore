@@ -7,8 +7,6 @@ dist-ssr/
 *.local
 
 # Environment / secrets
-.env
-.env.*
 !.env.example
 
 # Editor / tooling
@@ -45,3 +43,4 @@ supabase/.temp/
 # Python bytecode cache (import-schedule script)
 __pycache__/
 *.pyc
+config.bat

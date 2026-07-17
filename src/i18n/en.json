@@ -720,6 +720,30 @@
     "allStudents": "All Students",
     "filterSelectedCount": "{{count}} selected"
   },
+  "operations": {
+    "attendance": {
+      "title": "Record Session",
+      "present": "Present",
+      "makeup": "Make-up",
+      "loadError": "Couldn't load attendance for this lesson.",
+      "saveError": "Couldn't save — please try again.",
+      "otherPlaceholder": "Describe the reason…",
+      "status": {
+        "delivered": "Present",
+        "absentStudent": "Absent",
+        "excusedFamily": "Excused",
+        "excusedTeacher": "Teacher Excused"
+      },
+      "reason": {
+        "sick": "Sick",
+        "noAnswer": "No Answer",
+        "parentReschedule": "Parent Requested Reschedule",
+        "technicalIssue": "Technical Issue",
+        "teacherExcused": "Teacher Excused",
+        "other": "Other"
+      }
+    }
+  },
   "salaryType": {
     "fixed": "Fixed Monthly Salary",
     "hourly": "Hourly Rate",

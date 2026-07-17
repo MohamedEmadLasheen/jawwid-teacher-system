@@ -6,6 +6,7 @@ import { useCourses } from '../hooks/useCourses';
 import { useParentNameByStudentId } from '../hooks/useParents';
 import { useApplyScheduleChange, useCheckScheduleConflict } from '../hooks/useScheduleRpc';
 import { useCurrentPrimaryTeachers } from '../hooks/usePrimaryTeacherAssignments';
+import { AttendanceSection } from '@/features/operations/components/AttendanceSection';
 import { TeacherPreservationScoreBadge } from './TeacherPreservationScoreBadge';
 import { DAYS_OF_WEEK } from '../constants/schedulingConstants';
 import { labelToMinute, minuteToLabel } from '../utils/timeGrid';
@@ -277,6 +278,10 @@ export function LessonDetailDialog(props: LessonDetailDialogProps) {
               {teacher?.fullName} · {t(DAYS_OF_WEEK.find((d) => d.value === dayOfWeek)!.labelKey)}
               {` · ${minuteToLabel(props.lesson.startMinute)}–${minuteToLabel(props.lesson.endMinute)}`}
             </p>
+          )}
+
+          {!isCreate && (
+            <AttendanceSection lesson={props.lesson} students={students} onAllMarked={props.onSaved} />
           )}
 
           {isCreate && (

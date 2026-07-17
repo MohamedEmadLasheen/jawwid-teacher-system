@@ -51,7 +51,9 @@ export type Permission =
   | 'manage_financials'
   | 'manage_students'
   | 'manage_parents'
-  | 'manage_courses';
+  | 'manage_courses'
+  | 'manage_session_reports'
+  | 'view_session_reports';
 
 export interface User {
   id: string;
@@ -434,6 +436,36 @@ export interface LessonException {
   overrideDurationMinutes?: number | null;
   attendanceNotes: string;
   reason: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Operations Module (Phase 1: Session Reporting) ──────────────────────────
+// First entity in a dedicated Operations domain — see src/services/operations/
+// and src/features/operations/. Follow-Ups, Payments, and Notes (future
+// phases) each get their own table/type/service here too, not a shared
+// generic shape; what's reused across them is the surrounding pattern
+// (service/hook conventions, the operationsKeys factory, activity logging),
+// not the data model itself.
+export type LessonSessionReportStatus = 'delivered' | 'absent_student' | 'excused_family' | 'excused_teacher';
+export type SessionPerformanceLevel = 'excellent' | 'very_good' | 'good' | 'acceptable';
+
+export interface LessonSessionReport {
+  id: string;
+  lessonParticipantId: string;
+  occurrenceDate: string;
+  status: LessonSessionReportStatus;
+  isMakeupSession: boolean;
+  /** Set only when a substitute (not the lesson's own teacher_id) delivered this occurrence. */
+  deliveredByTeacherId?: string | null;
+  performanceLevel?: SessionPerformanceLevel | null;
+  sessionNumberInPackage?: number | null;
+  contentCovered: string;
+  homework: string;
+  nextSessionPlan: string;
+  /** Required whenever status !== 'delivered' (enforced by a DB CHECK constraint too). */
+  reasonNote: string;
+  createdBy?: string | null;
   createdAt: string;
   updatedAt: string;
 }
