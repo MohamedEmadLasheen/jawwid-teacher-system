@@ -36,6 +36,7 @@ export const ROUTE_PERMISSIONS: Record<string, Permission[] | null> = {
   ],
   '/bonuses': ['manage_financials', 'view_all_data'],
   '/deductions': ['manage_financials', 'view_all_data'],
+  '/adjustments': ['manage_financials', 'view_all_data'],
   '/students': ['manage_students', 'view_all_data'],
   '/teacher-review': ['manage_students', 'manage_teachers', 'view_all_data'],
   '/parents': ['manage_parents', 'view_all_data'],

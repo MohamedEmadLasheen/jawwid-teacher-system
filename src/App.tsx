@@ -22,6 +22,7 @@ import { ShiftTemplatesPage } from '@/features/scheduling/ShiftTemplatesPage';
 import { LessonsPage } from '@/features/scheduling/LessonsPage';
 import { MasterSchedulePage } from '@/features/scheduling/MasterSchedulePage';
 import { TeacherWeeklySchedulePage } from '@/features/scheduling/TeacherWeeklySchedulePage';
+import { AdjustmentsPage } from '@/features/adjustments/AdjustmentsPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { ProfilePage } from '@/features/profile/ProfilePage';
 import { useAuthStore } from '@/store/authStore';
@@ -121,6 +122,7 @@ export default function App() {
           <Route path="action-center" element={<Guard anyOf={ROUTE_PERMISSIONS['/action-center']}><ActionCenterPage /></Guard>} />
           <Route path="deductions" element={<Guard anyOf={ROUTE_PERMISSIONS['/deductions']}><DeductionsPage /></Guard>} />
           <Route path="bonuses" element={<Guard anyOf={ROUTE_PERMISSIONS['/bonuses']}><BonusesPage /></Guard>} />
+          <Route path="adjustments" element={<Guard anyOf={ROUTE_PERMISSIONS['/adjustments']}><AdjustmentsPage /></Guard>} />
           <Route path="students" element={<Guard anyOf={ROUTE_PERMISSIONS['/students']}><StudentsPage /></Guard>} />
           <Route path="teacher-review" element={<Guard anyOf={ROUTE_PERMISSIONS['/teacher-review']}><PrimaryTeacherReviewPage /></Guard>} />
           <Route path="parents" element={<Guard anyOf={ROUTE_PERMISSIONS['/parents']}><ParentsPage /></Guard>} />
