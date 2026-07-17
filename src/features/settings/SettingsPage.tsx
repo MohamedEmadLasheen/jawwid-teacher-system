@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Key, Users, Shield, Globe, Lock, Unlock, AlertTriangle,
   CheckCircle2, XCircle, Eye, EyeOff, Crown, Building2, Database, Trash2, FlaskConical,
+  Clock, Activity,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,10 +29,13 @@ import {
   PERMISSION_CATEGORIES,
   isSuperAdminOnlyPermission,
 } from '@/lib/permissions';
+import { userCan, ROUTE_PERMISSIONS } from '@/lib/access';
 import type { Permission, UserRole } from '@/lib/types';
 import { BrandingTab } from './BrandingTab';
 import { BackupTab } from './BackupTab';
 import { DemoDataTab } from './DemoDataTab';
+import { ShiftTemplatesPage } from '@/features/scheduling/ShiftTemplatesPage';
+import { ActivityLogPage } from '@/features/activity-log/ActivityLogPage';
 
 interface EmergencyConfirmProps {
   open: boolean;
@@ -120,6 +124,8 @@ export function SettingsPage() {
   const { currentUser, users, changePassword, addUser, updatePermissions, removeUser } = useAuthStore();
   const { addLog } = useLogStore();
   const isSuperAdmin = currentUser?.role === 'super_admin';
+  const canSeeShiftTemplates = userCan(currentUser, ROUTE_PERMISSIONS['/shift-templates']);
+  const canSeeActivityLog = userCan(currentUser, ROUTE_PERMISSIONS['/activity-log']);
 
   const [pwForm, setPwForm] = useState({ current: '', newPw: '', confirm: '' });
   const [pwMsg, setPwMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -278,6 +284,16 @@ export function SettingsPage() {
             {isSuperAdmin && (
               <TabsTrigger value="demoData" className="data-[state=active]:bg-primary data-[state=active]:text-white text-xs sm:text-sm whitespace-nowrap px-2.5 py-1.5">
                 <FlaskConical className="h-3.5 w-3.5 me-1 shrink-0" />{isAr ? 'بيانات تجريبية' : 'Demo Data'}
+              </TabsTrigger>
+            )}
+            {canSeeShiftTemplates && (
+              <TabsTrigger value="shiftTemplates" className="data-[state=active]:bg-primary data-[state=active]:text-white text-xs sm:text-sm whitespace-nowrap px-2.5 py-1.5">
+                <Clock className="h-3.5 w-3.5 me-1 shrink-0" />{t('nav.shiftTemplates')}
+              </TabsTrigger>
+            )}
+            {canSeeActivityLog && (
+              <TabsTrigger value="activityLog" className="data-[state=active]:bg-primary data-[state=active]:text-white text-xs sm:text-sm whitespace-nowrap px-2.5 py-1.5">
+                <Activity className="h-3.5 w-3.5 me-1 shrink-0" />{t('nav.activityLog')}
               </TabsTrigger>
             )}
           </TabsList>
@@ -489,6 +505,20 @@ export function SettingsPage() {
         {isSuperAdmin && (
           <TabsContent value="demoData" className="mt-4">
             <DemoDataTab />
+          </TabsContent>
+        )}
+
+        {/* Scheduling → Shift Templates */}
+        {canSeeShiftTemplates && (
+          <TabsContent value="shiftTemplates" className="mt-4">
+            <ShiftTemplatesPage />
+          </TabsContent>
+        )}
+
+        {/* Administration → Activity Log */}
+        {canSeeActivityLog && (
+          <TabsContent value="activityLog" className="mt-4">
+            <ActivityLogPage />
           </TabsContent>
         )}
       </Tabs>

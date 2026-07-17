@@ -2,8 +2,8 @@
 import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard, Users, UserCheck, ClipboardList,
-  Activity, Settings, LogOut, TrendingDown, TrendingUp, User, X,
-  GraduationCap, Users2, BookOpen, Clock, CalendarClock,
+  Settings, LogOut, User, X,
+  GraduationCap, Users2, BookOpen, CalendarClock, Wallet, UserCog,
 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useLogStore } from '@/store/logStore';
@@ -16,6 +16,12 @@ interface NavItem {
   to: string;
   icon: React.ReactNode;
   label: string;
+  permKey?: string;
+}
+
+interface NavGroup {
+  labelKey?: string;
+  items: NavItem[];
 }
 
 interface SidebarProps {
@@ -29,24 +35,47 @@ export function Sidebar({ onClose }: SidebarProps) {
   const { addLog } = useLogStore();
   const { branding } = useBrandingStore();
 
-  const allNavItems: NavItem[] = [
-    { to: '/dashboard', icon: <LayoutDashboard className="h-5 w-5 shrink-0" />, label: t('nav.dashboard') },
-    { to: '/schedule', icon: <CalendarClock className="h-5 w-5 shrink-0" />, label: t('nav.schedule') },
-    { to: '/teachers', icon: <Users className="h-5 w-5 shrink-0" />, label: t('nav.teachers') },
-    { to: '/students', icon: <GraduationCap className="h-5 w-5 shrink-0" />, label: t('nav.students') },
-    { to: '/parents', icon: <Users2 className="h-5 w-5 shrink-0" />, label: t('nav.parents') },
-    { to: '/courses', icon: <BookOpen className="h-5 w-5 shrink-0" />, label: t('nav.courses') },
-    { to: '/shift-templates', icon: <Clock className="h-5 w-5 shrink-0" />, label: t('nav.shiftTemplates') },
-    { to: '/supervisors', icon: <UserCheck className="h-5 w-5 shrink-0" />, label: t('nav.supervisors') },
-    { to: '/action-center', icon: <ClipboardList className="h-5 w-5 shrink-0" />, label: t('nav.actionCenter') },
-    { to: '/bonuses', icon: <TrendingUp className="h-5 w-5 shrink-0" />, label: t('nav.bonuses') },
-    { to: '/deductions', icon: <TrendingDown className="h-5 w-5 shrink-0" />, label: t('nav.deductions') },
-    { to: '/activity-log', icon: <Activity className="h-5 w-5 shrink-0" />, label: t('nav.activityLog') },
-    { to: '/settings', icon: <Settings className="h-5 w-5 shrink-0" />, label: t('nav.settings') },
+  const navGroups: NavGroup[] = [
+    { items: [{ to: '/dashboard', icon: <LayoutDashboard className="h-5 w-5 shrink-0" />, label: t('nav.dashboard') }] },
+    {
+      labelKey: 'nav.groupOperations',
+      items: [
+        { to: '/schedule', icon: <CalendarClock className="h-5 w-5 shrink-0" />, label: t('nav.schedule') },
+        { to: '/action-center', icon: <ClipboardList className="h-5 w-5 shrink-0" />, label: t('nav.actionCenter') },
+      ],
+    },
+    {
+      labelKey: 'nav.groupPeople',
+      items: [
+        { to: '/teachers', icon: <Users className="h-5 w-5 shrink-0" />, label: t('nav.teachers') },
+        { to: '/students', icon: <GraduationCap className="h-5 w-5 shrink-0" />, label: t('nav.students') },
+        { to: '/teacher-review', icon: <UserCog className="h-5 w-5 shrink-0" />, label: t('nav.primaryTeacherReview'), permKey: '/teacher-review' },
+        { to: '/parents', icon: <Users2 className="h-5 w-5 shrink-0" />, label: t('nav.parents') },
+        { to: '/supervisors', icon: <UserCheck className="h-5 w-5 shrink-0" />, label: t('nav.teamManagement'), permKey: '/supervisors' },
+      ],
+    },
+    {
+      labelKey: 'nav.groupAcademy',
+      items: [
+        { to: '/courses', icon: <BookOpen className="h-5 w-5 shrink-0" />, label: t('nav.courses') },
+      ],
+    },
+    {
+      labelKey: 'nav.groupAdministration',
+      items: [
+        { to: '/adjustments', icon: <Wallet className="h-5 w-5 shrink-0" />, label: t('nav.adjustments') },
+        { to: '/settings', icon: <Settings className="h-5 w-5 shrink-0" />, label: t('nav.settings') },
+      ],
+    },
   ];
 
-  // Only show nav items the current user is allowed to access.
-  const navItems = allNavItems.filter((item) => userCan(currentUser, ROUTE_PERMISSIONS[item.to]));
+  // Only show nav items/groups the current user is allowed to access.
+  const navGroupsFiltered = navGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => userCan(currentUser, ROUTE_PERMISSIONS[item.permKey ?? item.to])),
+    }))
+    .filter((group) => group.items.length > 0);
 
   const handleLogout = () => {
     if (currentUser) {
@@ -101,27 +130,36 @@ export function Sidebar({ onClose }: SidebarProps) {
 
       {/* Nav links */}
       <nav className="flex-1 py-3 overflow-y-auto">
-        <ul className="space-y-0.5 px-2">
-          {navItems.map((item) => (
-            <li key={item.to}>
-              <NavLink
-                to={item.to}
-                onClick={onClose}
-                className={({ isActive }) =>
-                  cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                    isActive
-                      ? 'bg-secondary text-secondary-foreground'
-                      : 'text-white/80 hover:bg-white/10 hover:text-white'
-                  )
-                }
-              >
-                {item.icon}
-                <span className="truncate">{item.label}</span>
-              </NavLink>
-            </li>
-          ))}
-        </ul>
+        {navGroupsFiltered.map((group, gi) => (
+          <div key={group.labelKey ?? `group-${gi}`} className={gi > 0 ? 'mt-3' : ''}>
+            {group.labelKey && (
+              <p className="px-4 pb-1 text-[10px] font-semibold uppercase tracking-wider text-white/50">
+                {t(group.labelKey)}
+              </p>
+            )}
+            <ul className="space-y-0.5 px-2">
+              {group.items.map((item) => (
+                <li key={item.to}>
+                  <NavLink
+                    to={item.to}
+                    onClick={onClose}
+                    className={({ isActive }) =>
+                      cn(
+                        'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                        isActive
+                          ? 'bg-secondary text-secondary-foreground'
+                          : 'text-white/80 hover:bg-white/10 hover:text-white'
+                      )
+                    }
+                  >
+                    {item.icon}
+                    <span className="truncate">{item.label}</span>
+                  </NavLink>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </nav>
 
       {/* Logout */}
