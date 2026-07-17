@@ -20,6 +20,7 @@ import { CoursesPage } from '@/features/scheduling/CoursesPage';
 import { ShiftTemplatesPage } from '@/features/scheduling/ShiftTemplatesPage';
 import { LessonsPage } from '@/features/scheduling/LessonsPage';
 import { MasterSchedulePage } from '@/features/scheduling/MasterSchedulePage';
+import { TeacherWeeklySchedulePage } from '@/features/scheduling/TeacherWeeklySchedulePage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
 import { ProfilePage } from '@/features/profile/ProfilePage';
 import { useAuthStore } from '@/store/authStore';
@@ -112,6 +113,7 @@ export default function App() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="schedule" element={<Guard anyOf={ROUTE_PERMISSIONS['/schedule']}><MasterSchedulePage /></Guard>} />
+          <Route path="schedule/teacher" element={<Guard anyOf={ROUTE_PERMISSIONS['/schedule/teacher']}><TeacherWeeklySchedulePage /></Guard>} />
           <Route path="teachers" element={<Guard anyOf={ROUTE_PERMISSIONS['/teachers']}><TeachersPage /></Guard>} />
           <Route path="teachers/:id" element={<Guard anyOf={ROUTE_PERMISSIONS['/teachers']}><TeacherProfilePage /></Guard>} />
           <Route path="supervisors" element={<Guard anyOf={ROUTE_PERMISSIONS['/supervisors']}><SupervisorsPage /></Guard>} />

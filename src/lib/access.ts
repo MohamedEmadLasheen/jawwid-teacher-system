@@ -27,6 +27,7 @@ export function userCan(user: AccessUser | null | undefined, anyOf?: Permission[
 export const ROUTE_PERMISSIONS: Record<string, Permission[] | null> = {
   '/dashboard': null,
   '/schedule': ['manage_teachers', 'view_all_data'],
+  '/schedule/teacher': ['manage_teachers', 'view_all_data'],
   '/teachers': ['manage_teachers', 'view_reports', 'view_all_data'],
   '/supervisors': ['manage_supervisors', 'create_supervisor', 'edit_supervisor', 'delete_supervisor'],
   '/action-center': [
