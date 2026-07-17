@@ -9,6 +9,7 @@
     "schedule": "Schedule",
     "teachers": "Teachers",
     "students": "Students",
+    "primaryTeacherReview": "Primary Teacher Review",
     "parents": "Parents",
     "courses": "Courses",
     "shiftTemplates": "Shift Templates",
@@ -21,7 +22,14 @@
     "bonuses": "Bonuses",
     "profile": "My Profile",
     "notifications": "Notifications",
-    "reports": "Reports"
+    "reports": "Reports",
+    "teacherWeeklySchedule": "Weekly View",
+    "teamManagement": "Team Management",
+    "adjustments": "Adjustments",
+    "groupOperations": "Operations",
+    "groupPeople": "People",
+    "groupAcademy": "Academy",
+    "groupAdministration": "Administration"
   },
   "auth": {
     "login": "Login",
@@ -64,7 +72,201 @@
     "complaintResolutionRate": "Complaint Resolution Rate",
     "teacherRetentionRate": "Teacher Retention Rate",
     "attendanceRate": "Attendance Rate",
-    "performanceDistribution": "Performance Distribution"
+    "performanceDistribution": "Performance Distribution",
+    "coach": {
+      "greetingMorning": "🌅 Good Morning, {{name}}!",
+      "greetingAfternoon": "☀️ Good Afternoon, {{name}}!",
+      "greetingEvening": "🌙 Good Evening, {{name}}!",
+      "todayScore": "Today's Operations Score",
+      "todayGoal": "Today's Goal",
+      "goalGap": "Improve from {{from}} → {{to}} by resolving the items below.",
+      "whyBreakdown": "Why the score isn't higher",
+      "rating": {
+        "excellent": "Excellent",
+        "good": "Good",
+        "needs_attention": "Needs Attention",
+        "critical": "Critical"
+      },
+      "penalty": {
+        "conflicts": "{{count}} unresolved scheduling conflict(s)",
+        "unusedPrimeSlots": "{{count}} unused Prime Time slot(s)",
+        "emptySlots": "{{count}} sellable empty slot(s)",
+        "overloadedTeachers": "{{count}} teacher(s) above 95% occupancy",
+        "underutilizedTeachers": "{{count}} teacher(s) below 40% occupancy",
+        "pausedSchedulable": "{{count}} paused student(s) who could be rescheduled now",
+        "parentRequests": "{{count}} unresolved parent request(s)"
+      },
+      "lessonsToday": "Lessons Today",
+      "primeTimeOccupancy": "Prime Time Occupancy",
+      "availableSlots": "Available Bookable Slots",
+      "schedulingConflicts": "Scheduling Conflicts",
+      "parentsWaiting": "Parents Waiting",
+      "pausedStudents": "Paused Students",
+      "teacherOccupancy": "Teacher Occupancy",
+      "activeTeachersToday": "Active Teachers Today",
+      "lessonsAtRisk": "Lessons at Risk",
+      "pendingActions": "Pending Actions",
+      "comingSoon": "Coming Soon",
+      "summary": {
+        "healthy": "Everything looks healthy today.",
+        "scoreGap": "Today you can increase Operations Score from {{from}} → {{to}}.",
+        "opportunities": "Today there are {{count}} high-impact opportunities."
+      }
+    },
+    "actionRequired": {
+      "title": "Action Required",
+      "empty": "No urgent operational actions. Today's schedule is stable.",
+      "unassignedStudents": "{{count}} active student(s) have no assigned teacher.",
+      "openStudents": "Open Students"
+    },
+    "health": {
+      "stable": "Stable",
+      "needsAttention": "Needs Attention",
+      "highRisk": "High Risk",
+      "summaryStable": "Today's schedule is stable. No detected operational risk.",
+      "summaryNeedsAttention": "Attention required. {{count}} item(s) need scheduling intervention.",
+      "summaryHighRisk": "High risk today. {{count}} item(s) need urgent scheduling intervention."
+    },
+    "studentsAttention": {
+      "title": "Students Needing Attention",
+      "noTeacher": "No assigned teacher",
+      "viewAll": "View all in Students"
+    },
+    "intel": {
+      "reason": {
+        "studentNoTeacher": "No assigned teacher",
+        "teacherDoubleBooking": "{{name}} has overlapping lessons.",
+        "studentDoubleBooking": "{{name}} is booked into overlapping lessons."
+      },
+      "evidence": {
+        "enrolledDaysAgo": "Enrolled {{days}} day(s) ago",
+        "noScheduleData": "No enrollment date on record",
+        "overlappingLessons": "{{timeA}}–{{endA}} overlaps with {{timeB}}–{{endB}}."
+      },
+      "action": {
+        "resolveIssue": "Resolve Issue",
+        "reviewConflict": "Review Conflict"
+      }
+    },
+    "teacherIntel": {
+      "topTitle": "Top 10 Performing Teachers",
+      "attentionTitle": "10 Teachers Needing Attention",
+      "confidenceLabel": "Data confidence",
+      "confidence": { "high": "High", "limited": "Limited", "none": "None" },
+      "insufficientData": "Insufficient Data",
+      "noneNeedingAttention": "No teachers currently need attention.",
+      "reason": {
+        "complaints": "{{count}} open complaint(s).",
+        "lowEvaluation": "Average evaluation score is {{avg}}, below the acceptable threshold.",
+        "improvementPlan": "{{count}} active improvement plan(s).",
+        "deductions": "{{count}} recent deduction(s).",
+        "none": "General risk factors detected."
+      },
+      "action": {
+        "reviewComplaints": "Review complaints",
+        "reviewEvaluations": "Review evaluations",
+        "reviewImprovementPlan": "Review improvement plan",
+        "reviewDeductions": "Review deductions",
+        "reviewProfile": "Review profile"
+      }
+    },
+    "dataAttention": {
+      "title": "Data Attention",
+      "teachersNoAvailability": "Teacher availability is incomplete for {{count}} active teacher(s)."
+    },
+    "mission": {
+      "title": "Today's Mission",
+      "progress": "Mission Progress",
+      "allClear": "No urgent tasks right now — great work!",
+      "scorePoints": "Operations Score",
+      "estimatedTime": "{{minutes}} min",
+      "revenueOpportunity": "Revenue Opportunity",
+      "priority": {
+        "critical": "Critical",
+        "important": "Important",
+        "recommended": "Recommended",
+        "opportunity": "Opportunity"
+      },
+      "task": {
+        "conflicts": "Resolve {{count}} scheduling conflict(s)",
+        "overloadedTeachers": "Balance {{count}} overloaded teacher(s)",
+        "primeTime": "Fill {{count}} Prime Time slot(s)",
+        "pausedStudents": "Contact {{count}} paused student(s)",
+        "underutilizedTeachers": "Rebalance {{count}} underutilized teacher(s)",
+        "emptySlots": "Recover {{count}} sellable empty slot(s)",
+        "parentRequests": "Review {{count}} parent request(s)"
+      },
+      "cta": {
+        "viewSchedule": "View Schedule",
+        "openStudents": "Open Students",
+        "assignTeacher": "Assign Teacher",
+        "review": "Review"
+      }
+    },
+    "recommendation": {
+      "title": "Smart Recommended Action",
+      "none": "No recommendation right now.",
+      "ignored": "Recommendation ignored.",
+      "moveLesson": "Move {{teacher}}'s lesson",
+      "impactSummary": "Moves this lesson into Prime Time to recover an unused slot — this is a same-teacher time change only, it does not reduce this teacher's total workload.",
+      "reason": "{{teacher}} has {{count}} lessons this week — well above the academy average of {{avg}}.",
+      "expectedImpact": "Expected impact",
+      "operationsScoreGain": "Operations Score",
+      "estimatedTime": "Estimated implementation",
+      "confidence": "Confidence",
+      "why": "Why?",
+      "whyIntro": "This recommendation exists because:",
+      "scoreIncrease": "Expected Operations Score increase: +{{points}}",
+      "option": "Option {{letter}}",
+      "recommended": "Recommended",
+      "previewChange": "Preview Change",
+      "hidePreview": "Hide Preview",
+      "viewAlternatives": "View Alternatives",
+      "queuePosition": "{{position}} of {{total}} recommendations",
+      "viewQueue": "View All Recommendations",
+      "hideQueue": "Hide List",
+      "allReviewed": "All currently available recommendations have been reviewed.",
+      "apply": "Apply Recommendation",
+      "applied": "Applied",
+      "viewSchedule": "View Schedule",
+      "ignore": "Ignore",
+      "factors": {
+        "preservationLabel": "{{delta}} Teacher Preservation",
+        "preservationDetail": "Preservation score would change from {{before}} to {{after}} (same teacher and day are kept; only the time-stability component resets).",
+        "noConflictsLabel": "No conflicts",
+        "noConflictsDetail": "Verified conflict-free before scoring.",
+        "parentPreferenceLabel": "Parent preference — coming soon",
+        "parentPreferenceDetail": "Parent-preferred days/times aren't tracked yet, so this factor doesn't affect the score.",
+        "primeTimeIntoLabel": "Moves into Prime Time",
+        "primeTimeOutLabel": "Moves out of Prime Time",
+        "primeTimeNoChangeLabel": "No Prime Time change",
+        "primeTimeDetailInto": "Moves this lesson from outside Prime Time into Prime Time (1–6 PM).",
+        "primeTimeDetailOut": "Moves this lesson from inside Prime Time to outside Prime Time (1–6 PM).",
+        "primeTimeDetailNoChange": "No change in Prime Time status.",
+        "workloadLabel": "Workload unaffected",
+        "workloadDetail": "A same-teacher, same-duration time shift doesn't change this teacher's total booked minutes.",
+        "capacityLabel": "Total capacity unaffected",
+        "capacityDetail": "Moving an existing lesson into an already-available slot doesn't change total bookable capacity.",
+        "opsScoreGainLabel": "+{{gain}} Operations Score",
+        "opsScoreNoChangeLabel": "No Operations Score change",
+        "opsScoreGainDetail": "Fills one previously-unused Prime Time slot (same weight the Operations Score already uses).",
+        "opsScoreNoChangeDetail": "This move doesn't change any Operations Score input."
+      }
+    },
+    "risk": {
+      "title": "Tomorrow Risk",
+      "level": { "high": "High Risk", "medium": "Medium Risk", "low": "Low Risk" },
+      "busiestTeacher": "{{teacher}} has {{count}} lessons scheduled — the most of any teacher.",
+      "lowPreservation": "{{count}} lesson(s) have a preservation score below 50% due to recent teacher/time changes.",
+      "groupLessons": "{{count}} group lesson(s) — a cancellation would affect multiple students."
+    },
+    "impact": {
+      "title": "Business Impact",
+      "potentialScoreGain": "Potential Score Gain Today",
+      "primeTimeBooked": "Prime Time Booked (week)",
+      "preservationAvg": "Teacher Preservation Avg",
+      "studentsChangedTeacher": "Students Changed Teacher"
+    }
   },
   "teachers": {
     "title": "Teachers",
@@ -85,6 +287,7 @@
     "specializations": "Specializations",
     "status": "Status",
     "level": "Level",
+    "currentStudents": "Students",
     "notes": "Notes",
     "active": "Active",
     "inactive": "Inactive",
@@ -166,12 +369,82 @@
     "course": "Course",
     "coursePending": "Course Pending",
     "isReturning": "Returning student",
+    "currentTeacher": "Current Teacher",
+    "regularSchedule": "Regular Schedule",
+    "noSchedule": "No regular schedule",
+    "issueFilter": {
+      "unassignedTeacher": "Issue: No Assigned Teacher",
+      "clear": "Clear filter"
+    },
     "notes": "Notes",
     "search": "Search students...",
     "noStudents": "No students found",
     "confirmDelete": "Are you sure you want to delete this student?",
     "deletedStudents": "Deleted Students",
     "allStatuses": "All Statuses"
+  },
+  "teacherReview": {
+    "title": "Primary Teacher Review",
+    "summary": {
+      "analyzed": "Active Students Analyzed",
+      "confirmed": "Confirmed",
+      "high": "High Confidence",
+      "medium": "Medium Confidence",
+      "needsReview": "Needs Review",
+      "insufficient": "Insufficient Data",
+      "noCandidate": "No Candidate"
+    },
+    "progress": "Confirmed {{confirmed}} of {{total}} active students",
+    "skippedNote": "{{count}} skipped this session",
+    "filters": {
+      "allPending": "All Pending",
+      "high": "High Confidence",
+      "medium": "Medium Confidence",
+      "needsReview": "Needs Review",
+      "insufficient": "Insufficient Data",
+      "noCandidate": "No Candidate",
+      "confirmed": "Confirmed",
+      "evidenceStrength": "Evidence Strength",
+      "allEvidence": "All Evidence Levels"
+    },
+    "search": {
+      "placeholder": "Search student or teacher name"
+    },
+    "evidence": {
+      "strong": "Strong Evidence",
+      "moderate": "Moderate Evidence",
+      "limited": "Limited History",
+      "ambiguous": "Ambiguous",
+      "none": "No Evidence"
+    },
+    "card": {
+      "analyzedLessons": "Analyzed Lessons",
+      "candidateLessons": "Candidate Lessons",
+      "sharePct": "Candidate Share",
+      "distinctTeachers": "Distinct Teachers",
+      "secondCandidate": "Second Candidate",
+      "mostRecentLesson": "Most Recent Lesson Since",
+      "currentTeacher": "Current Confirmed Teacher"
+    },
+    "messages": {
+      "insufficientData": "Insufficient lesson history for reliable inference.",
+      "noCandidate": "No teacher candidate could be inferred from lesson history."
+    },
+    "actions": {
+      "confirmTeacher": "Confirm Teacher",
+      "chooseDifferent": "Choose Different Teacher",
+      "skip": "Skip for Now",
+      "reviewCase": "Review Case",
+      "chooseTeacher": "Choose Teacher",
+      "chooseTeacherManually": "Choose Teacher Manually",
+      "changePrimaryTeacher": "Change Primary Teacher"
+    },
+    "dialog": {
+      "title": "Assign Primary Teacher",
+      "selectPlaceholder": "Select a teacher",
+      "confirmText": "You are confirming {{teacher}} as the student's primary teacher."
+    },
+    "emptyState": "No students match this filter."
   },
   "parents": {
     "title": "Parents",
@@ -216,6 +489,9 @@
     "confirmDelete": "Are you sure you want to delete this course?"
   },
   "scheduling": {
+    "weeklyView": {
+      "availabilityNeeded": "Complete teacher availability to enable gap and sellable-capacity analysis."
+    },
     "availability": "Availability",
     "noAvailability": "No availability blocks set",
     "to": "to",
@@ -250,10 +526,118 @@
       "unusedPrimeTime": "Unused Prime Time",
       "mostOccupied": "Most Occupied Teacher",
       "leastUtilized": "Least Utilized Teacher",
-      "availableSlots": "Available Bookable Slots"
+      "availableSlots": "Available Bookable Slots",
+      "noData": "No data"
     },
     "primeTime": "Prime Time",
     "masterSchedule": "Master Schedule",
+    "intel": {
+      "title": "Schedule Health Intelligence Center",
+      "healthScore": "Schedule Health Score",
+      "rating": {
+        "excellent": "Excellent",
+        "good": "Good",
+        "needs_attention": "Needs Attention",
+        "critical": "Critical"
+      },
+      "tab": {
+        "overview": "Overview",
+        "teachers": "Teacher Workload",
+        "primeTime": "Prime Time & Preservation",
+        "stability": "Stability",
+        "heatmaps": "Heat Maps",
+        "recommendations": "Recommendations"
+      },
+      "overview": {
+        "occupancyRate": "Teacher Occupancy",
+        "primeTimeOccupancy": "Prime Time Occupancy",
+        "emptyHours": "Empty Hours",
+        "availableSlots": "Available Slots",
+        "lessonsToday": "Lessons Today",
+        "lessonsWeek": "Lessons This Week",
+        "lessonsMonth": "Lessons This Month",
+        "activeStudents": "Active Students",
+        "activeTeachers": "Active Teachers",
+        "avgPerTeacher": "Avg Lessons / Teacher",
+        "avgPerStudent": "Avg Lessons / Student",
+        "weeklyCapacity": "Weekly Capacity"
+      },
+      "distribution": {
+        "title": "Workload Distribution",
+        "overloaded": "Overloaded",
+        "balanced": "Balanced",
+        "underutilized": "Underutilized",
+        "zeroLessons": "Zero Lessons",
+        "noPrimeTime": "No Prime Time",
+        "unusedAvailability": "Unused Availability"
+      },
+      "capacity": {
+        "title": "Capacity Analysis",
+        "maxAdditionalLessons": "Max Additional Lessons",
+        "weeklySellable": "Weekly Sellable Capacity",
+        "monthlySellable": "Monthly Sellable Capacity",
+        "nearCapacity": "Teachers Near Capacity",
+        "fullyBooked": "Teachers Fully Booked",
+        "below50": "Teachers Below 50%"
+      },
+      "primeTime": {
+        "title": "Prime Time",
+        "capacity": "Prime Time Capacity",
+        "used": "Prime Time Used",
+        "empty": "Prime Time Empty",
+        "occupancyPct": "Prime Time Occupancy",
+        "busiestDay": "Busiest Day",
+        "quietestDay": "Quietest Day",
+        "busiestHour": "Busiest Hour",
+        "bestOpportunity": "Best Opportunity Hour"
+      },
+      "preservation": {
+        "title": "Teacher Preservation",
+        "avgPct": "Avg Preservation Score",
+        "studentsChangedTeacher": "Students Changed Teacher",
+        "highestRetention": "Highest Retention",
+        "losingStudents": "Losing Students"
+      },
+      "sellable": {
+        "title": "Sellable Opportunities",
+        "recoverableEmpty": "Recoverable Empty Hours",
+        "recoverablePrimeTime": "Recoverable Prime Time",
+        "topTeachers": "Top Teachers by Sellable Hours"
+      },
+      "stability": {
+        "changesToday": "Changes Today",
+        "changesWeek": "Changes This Week",
+        "changesMonth": "Changes This Month",
+        "teacherChanges": "Teacher Changes",
+        "cancelled": "Cancelled",
+        "rescheduled": "Rescheduled",
+        "stabilityPct": "Stability Score"
+      },
+      "heatmap": {
+        "byDay": "Booked Hours by Day",
+        "byHour": "Booked Hours by Hour"
+      },
+      "col": {
+        "teacher": "Teacher",
+        "weeklyHours": "Weekly Hours",
+        "weeklyLessons": "Weekly Lessons",
+        "primeTimePct": "Prime Time %",
+        "occupancyPct": "Occupancy %",
+        "availableHours": "Available",
+        "emptyHours": "Empty",
+        "students": "Students",
+        "preservation": "Preservation",
+        "status": "Status",
+        "type": "Type"
+      },
+      "status": {
+        "very_light": "Very Light",
+        "balanced": "Balanced",
+        "busy": "Busy",
+        "overloaded": "Overloaded",
+        "critical": "Critical"
+      }
+    },
     "searchPlaceholder": "Search teacher or student...",
     "allTeachers": "All Teachers",
     "allCourses": "All Courses",
@@ -267,6 +651,9 @@
     "groupLesson": "Group",
     "moveLesson": "Move Lesson",
     "changeTeacher": "Change Teacher",
+    "primaryTeacher": "Primary Teacher",
+    "withPrimaryTeacher": "This lesson is with the student's confirmed Primary Teacher.",
+    "confirmedPrimaryTeacher": "Confirmed Primary Teacher: {{teacher}}",
     "changeTime": "Change Time",
     "cancelOccurrence": "Cancel This Occurrence",
     "endLesson": "End Lesson",
@@ -293,7 +680,45 @@
       "thursday": "Thursday",
       "friday": "Friday",
       "saturday": "Saturday"
-    }
+    },
+    "teacherWeeklySchedule": "Teacher Weekly Schedule",
+    "selectTeacher": "Select a teacher",
+    "teacher": "Teacher",
+    "days": "Days",
+    "participantsCount": "{{count}} Participants",
+    "allLessonTypes": "All Lesson Types",
+    "primeTimeOnly": "Prime Time only",
+    "hover": {
+      "students": "Student(s)",
+      "course": "Course",
+      "teacher": "Teacher",
+      "supervisor": "Supervisor",
+      "parents": "Parent(s)",
+      "duration": "Duration",
+      "lessonType": "Lesson Type",
+      "oneToOne": "One-to-One",
+      "attendance": "Attendance",
+      "paymentStatus": "Payment Status",
+      "status": "Status",
+      "notes": "Notes"
+    },
+    "workload": {
+      "title": "Workload Analytics",
+      "weeklyLessons": "Weekly Lessons",
+      "dailyHours": "Daily Hours (avg)",
+      "weeklyHours": "Weekly Hours",
+      "monthlyHours": "Monthly Hours (avg)",
+      "primeTimeHours": "Prime Time Hours",
+      "emptyHours": "Empty Hours",
+      "availableHours": "Available Hours",
+      "bookedLessons": "Booked Lessons",
+      "completedLessons": "Completed Lessons",
+      "cancelledLessons": "Cancelled Lessons",
+      "trialLessons": "Trial Lessons",
+      "occupancyPct": "Occupancy"
+    },
+    "allStudents": "All Students",
+    "filterSelectedCount": "{{count}} selected"
   },
   "salaryType": {
     "fixed": "Fixed Monthly Salary",
@@ -543,7 +968,8 @@
     "passwordMismatch": "Passwords do not match"
   },
   "supervisors": {
-    "title": "Supervisors",
+    "title": "Team Management",
+    "displayColor": "Display Color",
     "addSupervisor": "Add Supervisor",
     "editSupervisor": "Edit Supervisor",
     "name": "Name",
@@ -607,8 +1033,11 @@
     "save": "Save",
     "cancel": "Cancel",
     "edit": "Edit",
+    "view": "View",
     "delete": "Delete",
     "restore": "Restore",
+    "notAvailable": "Not available",
+    "unassigned": "Unassigned",
     "add": "Add",
     "search": "Search",
     "filter": "Filter",

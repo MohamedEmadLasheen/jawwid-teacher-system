@@ -9,6 +9,7 @@
     "schedule": "الجدول",
     "teachers": "المعلمون",
     "students": "الطلاب",
+    "primaryTeacherReview": "مراجعة المعلم الأساسي",
     "parents": "أولياء الأمور",
     "courses": "المواد",
     "shiftTemplates": "قوالب الدوام",
@@ -21,7 +22,14 @@
     "bonuses": "المكافآت",
     "profile": "الملف الشخصي",
     "notifications": "الإشعارات",
-    "reports": "التقارير"
+    "reports": "التقارير",
+    "teacherWeeklySchedule": "العرض الأسبوعي",
+    "teamManagement": "إدارة الفريق",
+    "adjustments": "التسويات",
+    "groupOperations": "العمليات",
+    "groupPeople": "الأفراد",
+    "groupAcademy": "الأكاديمية",
+    "groupAdministration": "الإدارة"
   },
   "auth": {
     "login": "تسجيل الدخول",
@@ -64,7 +72,201 @@
     "complaintResolutionRate": "معدل حل الشكاوى",
     "teacherRetentionRate": "معدل الاحتفاظ بالمعلمين",
     "attendanceRate": "معدل الحضور",
-    "performanceDistribution": "توزيع الأداء"
+    "performanceDistribution": "توزيع الأداء",
+    "coach": {
+      "greetingMorning": "🌅 صباح الخير، {{name}}!",
+      "greetingAfternoon": "☀️ مساء الخير، {{name}}!",
+      "greetingEvening": "🌙 مساء الخير، {{name}}!",
+      "todayScore": "درجة العمليات اليوم",
+      "todayGoal": "هدف اليوم",
+      "goalGap": "ارفع الدرجة من {{from}} إلى {{to}} بحل العناصر أدناه.",
+      "whyBreakdown": "سبب عدم ارتفاع الدرجة",
+      "rating": {
+        "excellent": "ممتاز",
+        "good": "جيد",
+        "needs_attention": "يحتاج انتباه",
+        "critical": "حرج"
+      },
+      "penalty": {
+        "conflicts": "{{count}} تعارض جدولة غير محلول",
+        "unusedPrimeSlots": "{{count}} فترة ذروة غير مستغلة",
+        "emptySlots": "{{count}} فترة فارغة قابلة للبيع",
+        "overloadedTeachers": "{{count}} معلم فوق 95% إشغال",
+        "underutilizedTeachers": "{{count}} معلم أقل من 40% إشغال",
+        "pausedSchedulable": "{{count}} طالب متوقف يمكن جدولته الآن",
+        "parentRequests": "{{count}} طلب ولي أمر غير محلول"
+      },
+      "lessonsToday": "دروس اليوم",
+      "primeTimeOccupancy": "إشغال وقت الذروة",
+      "availableSlots": "الفترات المتاحة للحجز",
+      "schedulingConflicts": "تعارضات الجدولة",
+      "parentsWaiting": "أولياء الأمور المنتظرون",
+      "pausedStudents": "الطلاب المتوقفون",
+      "teacherOccupancy": "إشغال المعلمين",
+      "activeTeachersToday": "المعلمون النشطون اليوم",
+      "lessonsAtRisk": "حصص معرّضة للخطر",
+      "pendingActions": "إجراءات معلّقة",
+      "comingSoon": "قريبًا",
+      "summary": {
+        "healthy": "كل شيء يبدو بخير اليوم.",
+        "scoreGap": "يمكنك اليوم رفع درجة العمليات من {{from}} → {{to}}.",
+        "opportunities": "توجد اليوم {{count}} فرصة عالية التأثير."
+      }
+    },
+    "actionRequired": {
+      "title": "إجراءات تحتاج تدخل",
+      "empty": "لا توجد إجراءات تشغيلية عاجلة. جدول اليوم مستقر.",
+      "unassignedStudents": "{{count}} طالب نشط بدون معلم مُعيَّن.",
+      "openStudents": "فتح الطلاب"
+    },
+    "health": {
+      "stable": "مستقر",
+      "needsAttention": "يحتاج انتباه",
+      "highRisk": "خطر مرتفع",
+      "summaryStable": "جدول اليوم مستقر. لا توجد مخاطر تشغيلية مكتشفة.",
+      "summaryNeedsAttention": "يتطلب الأمر انتباهًا. {{count}} عنصر يحتاج تدخلاً في الجدولة.",
+      "summaryHighRisk": "خطر مرتفع اليوم. {{count}} عنصر يحتاج تدخلاً عاجلاً في الجدولة."
+    },
+    "studentsAttention": {
+      "title": "طلاب يحتاجون انتباه",
+      "noTeacher": "بدون معلم مُعيَّن",
+      "viewAll": "عرض الكل في الطلاب"
+    },
+    "intel": {
+      "reason": {
+        "studentNoTeacher": "بدون معلم مُعيَّن",
+        "teacherDoubleBooking": "لدى {{name}} حصص متداخلة.",
+        "studentDoubleBooking": "{{name}} محجوز في حصص متداخلة."
+      },
+      "evidence": {
+        "enrolledDaysAgo": "تم التسجيل منذ {{days}} يوم",
+        "noScheduleData": "لا يوجد تاريخ تسجيل مسجل",
+        "overlappingLessons": "{{timeA}}–{{endA}} يتداخل مع {{timeB}}–{{endB}}."
+      },
+      "action": {
+        "resolveIssue": "حل المشكلة",
+        "reviewConflict": "مراجعة التعارض"
+      }
+    },
+    "teacherIntel": {
+      "topTitle": "أفضل 10 معلمين",
+      "attentionTitle": "10 معلمين يحتاجون متابعة",
+      "confidenceLabel": "موثوقية البيانات",
+      "confidence": { "high": "عالية", "limited": "محدودة", "none": "لا توجد" },
+      "insufficientData": "بيانات غير كافية",
+      "noneNeedingAttention": "لا يوجد معلمون يحتاجون متابعة حاليًا.",
+      "reason": {
+        "complaints": "{{count}} شكوى مفتوحة.",
+        "lowEvaluation": "متوسط درجة التقييم {{avg}}، أقل من الحد المقبول.",
+        "improvementPlan": "{{count}} خطة تحسين نشطة.",
+        "deductions": "{{count}} خصم حديث.",
+        "none": "تم اكتشاف عوامل خطر عامة."
+      },
+      "action": {
+        "reviewComplaints": "مراجعة الشكاوى",
+        "reviewEvaluations": "مراجعة التقييمات",
+        "reviewImprovementPlan": "مراجعة خطة التحسين",
+        "reviewDeductions": "مراجعة الخصومات",
+        "reviewProfile": "مراجعة الملف الشخصي"
+      }
+    },
+    "dataAttention": {
+      "title": "بيانات تحتاج مراجعة",
+      "teachersNoAvailability": "بيانات أوقات التوفر غير مكتملة لـ {{count}} معلم نشط."
+    },
+    "mission": {
+      "title": "مهمة اليوم",
+      "progress": "تقدم المهمة",
+      "allClear": "لا توجد مهام عاجلة الآن — عمل رائع!",
+      "scorePoints": "درجة العمليات",
+      "estimatedTime": "{{minutes}} دقيقة",
+      "revenueOpportunity": "فرصة إيرادات",
+      "priority": {
+        "critical": "حرج",
+        "important": "مهم",
+        "recommended": "موصى به",
+        "opportunity": "فرصة"
+      },
+      "task": {
+        "conflicts": "حل {{count}} تعارض جدولة",
+        "overloadedTeachers": "موازنة {{count}} معلم مثقل",
+        "primeTime": "شغل {{count}} فترة ذروة",
+        "pausedStudents": "تواصل مع {{count}} طالب متوقف",
+        "underutilizedTeachers": "إعادة توازن {{count}} معلم أقل استغلالًا",
+        "emptySlots": "استرجع {{count}} فترة فارغة قابلة للبيع",
+        "parentRequests": "راجع {{count}} طلب ولي أمر"
+      },
+      "cta": {
+        "viewSchedule": "عرض الجدول",
+        "openStudents": "فتح الطلاب",
+        "assignTeacher": "تعيين معلم",
+        "review": "مراجعة"
+      }
+    },
+    "recommendation": {
+      "title": "إجراء موصى به ذكي",
+      "none": "لا توجد توصية حاليًا.",
+      "ignored": "تم تجاهل التوصية.",
+      "moveLesson": "نقل درس {{teacher}}",
+      "impactSummary": "ينقل هذا الدرس إلى وقت الذروة لاستعادة فترة غير مستخدمة — هذا تغيير في التوقيت لنفس المعلم فقط، ولا يقلل من إجمالي عبء عمل هذا المعلم.",
+      "reason": "لدى {{teacher}} {{count}} حصة هذا الأسبوع — أعلى بكثير من متوسط الأكاديمية البالغ {{avg}}.",
+      "expectedImpact": "الأثر المتوقع",
+      "operationsScoreGain": "درجة العمليات",
+      "estimatedTime": "وقت التنفيذ المقدر",
+      "confidence": "الثقة",
+      "why": "لماذا؟",
+      "whyIntro": "توجد هذه التوصية للأسباب التالية:",
+      "scoreIncrease": "الزيادة المتوقعة في درجة العمليات: +{{points}}",
+      "option": "الخيار {{letter}}",
+      "recommended": "موصى به",
+      "previewChange": "معاينة التغيير",
+      "hidePreview": "إخفاء المعاينة",
+      "viewAlternatives": "عرض البدائل",
+      "queuePosition": "{{position}} من {{total}} توصية",
+      "viewQueue": "عرض جميع التوصيات",
+      "hideQueue": "إخفاء القائمة",
+      "allReviewed": "تمت مراجعة جميع التوصيات المتاحة حاليًا.",
+      "apply": "تطبيق التوصية",
+      "applied": "تم التطبيق",
+      "viewSchedule": "عرض الجدول",
+      "ignore": "تجاهل",
+      "factors": {
+        "preservationLabel": "{{delta}} في الحفاظ على المعلم",
+        "preservationDetail": "ستتغير درجة الحفاظ على الجدول من {{before}} إلى {{after}} (يبقى نفس المعلم واليوم؛ يُعاد فقط ضبط عنصر ثبات الوقت).",
+        "noConflictsLabel": "لا يوجد تعارض",
+        "noConflictsDetail": "تم التحقق من عدم وجود تعارض قبل التقييم.",
+        "parentPreferenceLabel": "تفضيل ولي الأمر — قريبًا",
+        "parentPreferenceDetail": "لا يتم تتبع الأيام/الأوقات المفضّلة لأولياء الأمور بعد، لذا لا يؤثر هذا العامل في الدرجة.",
+        "primeTimeIntoLabel": "ينتقل إلى وقت الذروة",
+        "primeTimeOutLabel": "ينتقل خارج وقت الذروة",
+        "primeTimeNoChangeLabel": "لا تغيير في وقت الذروة",
+        "primeTimeDetailInto": "ينقل هذا الدرس من خارج وقت الذروة إلى داخله (1–6 مساءً).",
+        "primeTimeDetailOut": "ينقل هذا الدرس من داخل وقت الذروة إلى خارجه (1–6 مساءً).",
+        "primeTimeDetailNoChange": "لا تغيير في حالة وقت الذروة.",
+        "workloadLabel": "عبء العمل دون تغيير",
+        "workloadDetail": "تغيير التوقيت لنفس المعلم بنفس المدة لا يغيّر إجمالي الدقائق المحجوزة لهذا المعلم.",
+        "capacityLabel": "السعة الإجمالية دون تغيير",
+        "capacityDetail": "نقل درس موجود إلى فترة متاحة أصلاً لا يغيّر إجمالي السعة القابلة للحجز.",
+        "opsScoreGainLabel": "+{{gain}} في درجة العمليات",
+        "opsScoreNoChangeLabel": "لا تغيير في درجة العمليات",
+        "opsScoreGainDetail": "يشغل فترة غير مستخدمة سابقًا في وقت الذروة (بنفس الوزن الذي تستخدمه درجة العمليات).",
+        "opsScoreNoChangeDetail": "هذا التغيير لا يؤثر في أي عنصر من عناصر درجة العمليات."
+      }
+    },
+    "risk": {
+      "title": "مخاطر الغد",
+      "level": { "high": "خطر مرتفع", "medium": "خطر متوسط", "low": "خطر منخفض" },
+      "busiestTeacher": "لدى {{teacher}} {{count}} حصة مجدولة — الأكثر بين جميع المعلمين.",
+      "lowPreservation": "{{count}} حصة لديها درجة حفاظ أقل من 50% بسبب تغييرات حديثة في المعلم أو الوقت.",
+      "groupLessons": "{{count}} حصة جماعية — الإلغاء سيؤثر على عدة طلاب."
+    },
+    "impact": {
+      "title": "الأثر التجاري",
+      "potentialScoreGain": "زيادة محتملة في الدرجة اليوم",
+      "primeTimeBooked": "وقت الذروة المحجوز (الأسبوع)",
+      "preservationAvg": "متوسط حفاظ المعلم",
+      "studentsChangedTeacher": "طلاب غيّروا المعلم"
+    }
   },
   "teachers": {
     "title": "المعلمون",
@@ -85,6 +287,7 @@
     "specializations": "التخصصات",
     "status": "الحالة",
     "level": "المستوى",
+    "currentStudents": "الطلاب",
     "notes": "ملاحظات",
     "active": "نشط",
     "inactive": "غير نشط",
@@ -166,12 +369,82 @@
     "course": "المادة",
     "coursePending": "بانتظار تحديد المادة",
     "isReturning": "طالب عائد",
+    "currentTeacher": "المعلم الحالي",
+    "regularSchedule": "الجدول المنتظم",
+    "noSchedule": "لا يوجد جدول منتظم",
+    "issueFilter": {
+      "unassignedTeacher": "المشكلة: بدون معلم مُعيَّن",
+      "clear": "إزالة الفلتر"
+    },
     "notes": "ملاحظات",
     "search": "البحث عن طالب...",
     "noStudents": "لا يوجد طلاب",
     "confirmDelete": "هل أنت متأكد من حذف هذا الطالب؟",
     "deletedStudents": "الطلاب المحذوفون",
     "allStatuses": "جميع الحالات"
+  },
+  "teacherReview": {
+    "title": "مراجعة المعلم الأساسي",
+    "summary": {
+      "analyzed": "الطلاب النشطون الذين تم تحليلهم",
+      "confirmed": "مؤكَّد",
+      "high": "ثقة عالية",
+      "medium": "ثقة متوسطة",
+      "needsReview": "يحتاج مراجعة",
+      "insufficient": "بيانات غير كافية",
+      "noCandidate": "لا يوجد مرشح"
+    },
+    "progress": "تم تأكيد المعلم الأساسي لـ {{confirmed}} من أصل {{total}} طالب نشط",
+    "skippedNote": "تم تخطي {{count}} في هذه الجلسة",
+    "filters": {
+      "allPending": "الكل قيد الانتظار",
+      "high": "ثقة عالية",
+      "medium": "ثقة متوسطة",
+      "needsReview": "يحتاج مراجعة",
+      "insufficient": "بيانات غير كافية",
+      "noCandidate": "لا يوجد مرشح",
+      "confirmed": "مؤكَّد",
+      "evidenceStrength": "قوة الدليل",
+      "allEvidence": "كل مستويات الدليل"
+    },
+    "search": {
+      "placeholder": "ابحث باسم الطالب أو المعلم"
+    },
+    "evidence": {
+      "strong": "دليل قوي",
+      "moderate": "دليل متوسط",
+      "limited": "سجل محدود",
+      "ambiguous": "حالة ملتبسة",
+      "none": "لا توجد أدلة كافية"
+    },
+    "card": {
+      "analyzedLessons": "الحصص التي تم تحليلها",
+      "candidateLessons": "حصص المرشح",
+      "sharePct": "نسبة المرشح",
+      "distinctTeachers": "عدد المعلمين المختلفين",
+      "secondCandidate": "المرشح الثاني",
+      "mostRecentLesson": "أحدث حصة منذ",
+      "currentTeacher": "المعلم المؤكَّد الحالي"
+    },
+    "messages": {
+      "insufficientData": "سجل الحصص غير كافٍ لاستنتاج موثوق.",
+      "noCandidate": "تعذر استنتاج معلم مرشح من سجل الحصص."
+    },
+    "actions": {
+      "confirmTeacher": "تأكيد المعلم",
+      "chooseDifferent": "اختيار معلم آخر",
+      "skip": "تخطي الآن",
+      "reviewCase": "مراجعة الحالة",
+      "chooseTeacher": "اختيار المعلم",
+      "chooseTeacherManually": "اختيار المعلم يدويًا",
+      "changePrimaryTeacher": "تغيير المعلم الأساسي"
+    },
+    "dialog": {
+      "title": "تعيين المعلم الأساسي",
+      "selectPlaceholder": "اختر معلمًا",
+      "confirmText": "أنت تؤكد أن {{teacher}} هو المعلم الأساسي للطالب."
+    },
+    "emptyState": "لا يوجد طلاب مطابقون لهذا الفلتر."
   },
   "parents": {
     "title": "أولياء الأمور",
@@ -216,6 +489,9 @@
     "confirmDelete": "هل أنت متأكد من حذف هذه المادة؟"
   },
   "scheduling": {
+    "weeklyView": {
+      "availabilityNeeded": "أكمل بيانات أوقات توفر المعلم لتفعيل تحليل الفجوات والسعة القابلة للبيع."
+    },
     "availability": "التوفر",
     "noAvailability": "لا توجد أوقات توفر محددة",
     "to": "إلى",
@@ -250,10 +526,118 @@
       "unusedPrimeTime": "وقت الذروة غير المستخدم",
       "mostOccupied": "الأكثر إشغالاً",
       "leastUtilized": "الأقل استغلالاً",
-      "availableSlots": "الفترات المتاحة للحجز"
+      "availableSlots": "الفترات المتاحة للحجز",
+      "noData": "لا توجد بيانات"
     },
     "primeTime": "وقت الذروة",
     "masterSchedule": "الجدول الرئيسي",
+    "intel": {
+      "title": "مركز ذكاء صحة الجدول",
+      "healthScore": "درجة صحة الجدول",
+      "rating": {
+        "excellent": "ممتاز",
+        "good": "جيد",
+        "needs_attention": "يحتاج انتباه",
+        "critical": "حرج"
+      },
+      "tab": {
+        "overview": "نظرة عامة",
+        "teachers": "عبء عمل المعلمين",
+        "primeTime": "وقت الذروة والحفاظ",
+        "stability": "الاستقرار",
+        "heatmaps": "خرائط الكثافة",
+        "recommendations": "التوصيات"
+      },
+      "overview": {
+        "occupancyRate": "إشغال المعلمين",
+        "primeTimeOccupancy": "إشغال وقت الذروة",
+        "emptyHours": "الساعات الفارغة",
+        "availableSlots": "الفترات المتاحة",
+        "lessonsToday": "دروس اليوم",
+        "lessonsWeek": "دروس هذا الأسبوع",
+        "lessonsMonth": "دروس هذا الشهر",
+        "activeStudents": "الطلاب النشطون",
+        "activeTeachers": "المعلمون النشطون",
+        "avgPerTeacher": "متوسط الدروس / معلم",
+        "avgPerStudent": "متوسط الدروس / طالب",
+        "weeklyCapacity": "السعة الأسبوعية"
+      },
+      "distribution": {
+        "title": "توزيع عبء العمل",
+        "overloaded": "محمّل زائد",
+        "balanced": "متوازن",
+        "underutilized": "غير مستغل",
+        "zeroLessons": "بدون دروس",
+        "noPrimeTime": "بدون وقت ذروة",
+        "unusedAvailability": "توفر غير مستخدم"
+      },
+      "capacity": {
+        "title": "تحليل السعة",
+        "maxAdditionalLessons": "أقصى دروس إضافية",
+        "weeklySellable": "السعة القابلة للبيع أسبوعياً",
+        "monthlySellable": "السعة القابلة للبيع شهرياً",
+        "nearCapacity": "معلمون قريبون من السعة القصوى",
+        "fullyBooked": "معلمون محجوزون بالكامل",
+        "below50": "معلمون أقل من 50%"
+      },
+      "primeTime": {
+        "title": "وقت الذروة",
+        "capacity": "سعة وقت الذروة",
+        "used": "المستخدم من وقت الذروة",
+        "empty": "الفارغ من وقت الذروة",
+        "occupancyPct": "إشغال وقت الذروة",
+        "busiestDay": "أكثر الأيام ازدحاماً",
+        "quietestDay": "أهدأ الأيام",
+        "busiestHour": "أكثر الساعات ازدحاماً",
+        "bestOpportunity": "أفضل ساعة فرصة"
+      },
+      "preservation": {
+        "title": "الحفاظ على المعلم",
+        "avgPct": "متوسط درجة الحفاظ",
+        "studentsChangedTeacher": "طلاب غيّروا المعلم",
+        "highestRetention": "الأعلى احتفاظاً",
+        "losingStudents": "يفقدون الطلاب"
+      },
+      "sellable": {
+        "title": "الفرص القابلة للبيع",
+        "recoverableEmpty": "الساعات الفارغة القابلة للاسترداد",
+        "recoverablePrimeTime": "وقت الذروة القابل للاسترداد",
+        "topTeachers": "أفضل المعلمين حسب الساعات القابلة للبيع"
+      },
+      "stability": {
+        "changesToday": "تغييرات اليوم",
+        "changesWeek": "تغييرات هذا الأسبوع",
+        "changesMonth": "تغييرات هذا الشهر",
+        "teacherChanges": "تغييرات المعلم",
+        "cancelled": "ملغاة",
+        "rescheduled": "معاد جدولتها",
+        "stabilityPct": "درجة الاستقرار"
+      },
+      "heatmap": {
+        "byDay": "الساعات المحجوزة حسب اليوم",
+        "byHour": "الساعات المحجوزة حسب الساعة"
+      },
+      "col": {
+        "teacher": "المعلم",
+        "weeklyHours": "الساعات الأسبوعية",
+        "weeklyLessons": "الدروس الأسبوعية",
+        "primeTimePct": "% وقت الذروة",
+        "occupancyPct": "% الإشغال",
+        "availableHours": "المتاح",
+        "emptyHours": "الفارغ",
+        "students": "الطلاب",
+        "preservation": "الحفاظ",
+        "status": "الحالة",
+        "type": "النوع"
+      },
+      "status": {
+        "very_light": "خفيف جداً",
+        "balanced": "متوازن",
+        "busy": "مشغول",
+        "overloaded": "محمّل زائد",
+        "critical": "حرج"
+      }
+    },
     "searchPlaceholder": "البحث عن معلم أو طالب...",
     "allTeachers": "كل المعلمين",
     "allCourses": "كل المواد",
@@ -267,6 +651,9 @@
     "groupLesson": "مجموعة",
     "moveLesson": "نقل الحصة",
     "changeTeacher": "تغيير المعلم",
+    "primaryTeacher": "المعلم الأساسي",
+    "withPrimaryTeacher": "هذه الحصة مع المعلم الأساسي المؤكَّد للطالب.",
+    "confirmedPrimaryTeacher": "المعلم الأساسي المؤكَّد: {{teacher}}",
     "changeTime": "تغيير الوقت",
     "cancelOccurrence": "إلغاء هذه الحصة",
     "endLesson": "إنهاء الحصة",
@@ -293,7 +680,45 @@
       "thursday": "الخميس",
       "friday": "الجمعة",
       "saturday": "السبت"
-    }
+    },
+    "teacherWeeklySchedule": "الجدول الأسبوعي للمعلم",
+    "selectTeacher": "اختر معلمًا",
+    "teacher": "المعلم",
+    "days": "الأيام",
+    "participantsCount": "{{count}} مشارك",
+    "allLessonTypes": "كل أنواع الدروس",
+    "primeTimeOnly": "وقت الذروة فقط",
+    "hover": {
+      "students": "الطالب/الطلاب",
+      "course": "المادة",
+      "teacher": "المعلم",
+      "supervisor": "المشرف",
+      "parents": "ولي/أولياء الأمر",
+      "duration": "المدة",
+      "lessonType": "نوع الدرس",
+      "oneToOne": "فردي",
+      "attendance": "الحضور",
+      "paymentStatus": "حالة الدفع",
+      "status": "الحالة",
+      "notes": "ملاحظات"
+    },
+    "workload": {
+      "title": "تحليلات عبء العمل",
+      "weeklyLessons": "الدروس الأسبوعية",
+      "dailyHours": "ساعات يومية (متوسط)",
+      "weeklyHours": "ساعات أسبوعية",
+      "monthlyHours": "ساعات شهرية (متوسط)",
+      "primeTimeHours": "ساعات وقت الذروة",
+      "emptyHours": "ساعات فارغة",
+      "availableHours": "ساعات متاحة",
+      "bookedLessons": "دروس محجوزة",
+      "completedLessons": "دروس مكتملة",
+      "cancelledLessons": "دروس ملغاة",
+      "trialLessons": "دروس تجريبية",
+      "occupancyPct": "نسبة الإشغال"
+    },
+    "allStudents": "كل الطلاب",
+    "filterSelectedCount": "{{count}} محدد"
   },
   "salaryType": {
     "fixed": "راتب شهري ثابت",
@@ -543,7 +968,8 @@
     "passwordMismatch": "كلمتا المرور غير متطابقتين"
   },
   "supervisors": {
-    "title": "المشرفون",
+    "title": "إدارة الفريق",
+    "displayColor": "لون العرض",
     "addSupervisor": "إضافة مشرف",
     "editSupervisor": "تعديل بيانات المشرف",
     "name": "الاسم",
@@ -607,7 +1033,10 @@
     "save": "حفظ",
     "cancel": "إلغاء",
     "edit": "تعديل",
+    "view": "عرض",
     "delete": "حذف",
+    "notAvailable": "غير متاح",
+    "unassigned": "غير معيّن",
     "restore": "استعادة",
     "add": "إضافة",
     "search": "بحث",
