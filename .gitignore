@@ -10,7 +10,6 @@ dist-ssr/
 !.env.example
 
 # Editor / tooling
-.vscode/*
 !.vscode/extensions.json
 .idea/
 *.suo
