@@ -42,4 +42,3 @@ supabase/.temp/
 # Python bytecode cache (import-schedule script)
 __pycache__/
 *.pyc
-config.bat
