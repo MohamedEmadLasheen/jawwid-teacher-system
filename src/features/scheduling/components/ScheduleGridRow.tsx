@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { LessonCell } from './LessonCell';
-import { computeRowCells } from '../utils/computeRowCells';
+import { ScheduleSlotCell } from './ScheduleSlotCell';
+import { computeRowLayout } from '../utils/computeRowLayout';
+import { minuteToX, minuteSpanToWidth, timelineWidth } from '../utils/timelineGeometry';
 import { GRID_COLUMNS, GRID_TEACHER_COLUMN_WIDTH } from '../constants/schedulingConstants';
 import type { ScheduleGridTeacherRow } from '../hooks/useScheduleGrid';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
@@ -14,31 +16,73 @@ interface ScheduleGridRowProps {
   label?: string;
 }
 
+/**
+ * One schedule row, drawn as three layers that all share the single
+ * timelineGeometry coordinate system:
+ *
+ *   0. 30-minute background columns — grid lines, Prime Time tint,
+ *      outside-shift hatching, drop targets, click-to-create.
+ *   1. Free-capacity bands — inside the teacher's working window and not
+ *      covered by a lesson. Non-interactive, so layer 0 still receives the
+ *      click that creates a lesson there.
+ *   2. Lesson cards — absolutely positioned at their exact start minute and
+ *      exact duration width.
+ *
+ * The leading label column is `sticky start-0`, which freezes it against the
+ * grid's single horizontal scroll container while every layer above scrolls
+ * together as one timeline.
+ */
 export function ScheduleGridRow({ row, columnWidth, onEmptyClick, onLessonClick, label }: ScheduleGridRowProps) {
-  const cells = useMemo(() => computeRowCells(row.lessons, row.availability), [row.lessons, row.availability]);
+  const layout = useMemo(() => computeRowLayout(row.lessons, row.availability), [row.lessons, row.availability]);
+  const axisWidth = timelineWidth(columnWidth);
 
   return (
     <div className="flex h-full border-b border-gray-100">
       <div
         style={{ width: GRID_TEACHER_COLUMN_WIDTH }}
-        className="shrink-0 sticky start-0 z-10 bg-white border-e border-gray-200 flex items-center px-3"
+        className="shrink-0 sticky start-0 z-30 bg-white border-e border-gray-200 flex items-center px-3"
       >
         <p className="text-sm font-medium truncate">{label ?? row.teacher.fullName}</p>
       </div>
-      <div className="flex">
-        {cells.map((state, idx) =>
-          state.kind === 'continuation' ? null : (
-            <LessonCell
-              key={GRID_COLUMNS[idx]}
+
+      <div className="relative shrink-0 h-full" style={{ width: axisWidth }}>
+        {/* Layer 0 — background columns */}
+        <div className="absolute inset-0 flex">
+          {GRID_COLUMNS.map((columnStart, idx) => (
+            <ScheduleSlotCell
+              key={columnStart}
               teacherId={row.teacher.id}
-              columnStart={GRID_COLUMNS[idx]}
+              columnStart={columnStart}
               columnWidth={columnWidth}
-              state={state}
+              inWindow={layout.columnInWindow[idx]}
+              hasWorkingWindow={layout.hasWorkingWindow}
               onEmptyClick={onEmptyClick}
-              onLessonClick={onLessonClick}
             />
-          )
-        )}
+          ))}
+        </div>
+
+        {/* Layer 1 — free capacity inside the working window */}
+        {layout.freeIntervals.map((interval) => (
+          <div
+            key={`free-${interval.startMinute}`}
+            aria-hidden
+            className="absolute top-0 h-full z-10 pointer-events-none bg-emerald-100/70 border-y-2 border-emerald-300/80"
+            style={{
+              left: minuteToX(interval.startMinute, columnWidth),
+              width: minuteSpanToWidth(interval.startMinute, interval.endMinute, columnWidth),
+            }}
+          />
+        ))}
+
+        {/* Layer 2 — lessons */}
+        {row.lessons.map((lesson) => (
+          <LessonCell
+            key={lesson.id}
+            lesson={lesson}
+            columnWidth={columnWidth}
+            onLessonClick={onLessonClick}
+          />
+        ))}
       </div>
     </div>
   );

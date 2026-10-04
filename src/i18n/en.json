@@ -718,7 +718,11 @@
       "occupancyPct": "Occupancy"
     },
     "allStudents": "All Students",
-    "filterSelectedCount": "{{count}} selected"
+    "filterSelectedCount": "{{count}} selected",
+    "dayColumn": "Day",
+    "teacherColumn": "Teacher",
+    "freeCapacity": "Free (within shift)",
+    "outsideShift": "Outside shift"
   },
   "operations": {
     "attendance": {

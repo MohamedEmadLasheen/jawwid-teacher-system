@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { GRID_START_MINUTE, GRID_END_MINUTE, SLOT_MINUTES, GRID_TEACHER_COLUMN_WIDTH } from '../constants/schedulingConstants';
+import { minuteToX } from '../utils/timelineGeometry';
+import { GRID_START_MINUTE, GRID_END_MINUTE, GRID_TEACHER_COLUMN_WIDTH } from '../constants/schedulingConstants';
 
 function nowMinutes(): number {
   const d = new Date();
@@ -13,6 +14,10 @@ function nowMinutes(): number {
  * same purpose (always-aligned live position), adapted to this grid's
  * existing orientation instead of redesigning it. Only rendered for
  * today's day-tab (by the caller) and updates every minute.
+ *
+ * Its x-position comes from the same timelineGeometry used by the header and
+ * the lesson cards, so the marker lands exactly on the current minute
+ * instead of being snapped to a 30-minute column.
  */
 export function CurrentTimeIndicator({ columnWidth, height }: { columnWidth: number; height: number }) {
   const [minutes, setMinutes] = useState(nowMinutes());
@@ -24,11 +29,11 @@ export function CurrentTimeIndicator({ columnWidth, height }: { columnWidth: num
 
   if (minutes < GRID_START_MINUTE || minutes >= GRID_END_MINUTE) return null;
 
-  const offsetPx = GRID_TEACHER_COLUMN_WIDTH + ((minutes - GRID_START_MINUTE) / SLOT_MINUTES) * columnWidth;
+  const offsetPx = GRID_TEACHER_COLUMN_WIDTH + minuteToX(minutes, columnWidth);
 
   return (
     <div
-      className="absolute top-0 z-30 pointer-events-none w-0.5 bg-red-500"
+      className="absolute top-0 z-[25] pointer-events-none w-0.5 bg-red-500"
       style={{ left: offsetPx, height }}
     >
       <span className="absolute -top-4 -translate-x-1/2 start-0 text-[9px] font-semibold text-red-500 bg-white px-1 rounded">

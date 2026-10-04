@@ -4,9 +4,11 @@ import { DndContext, type DragEndEvent } from '@dnd-kit/core';
 import { useScheduleGrid } from '../hooks/useScheduleGrid';
 import { useResponsiveColumnWidth } from '../hooks/useResponsiveColumnWidth';
 import { ScheduleGridRow } from './ScheduleGridRow';
-import { minuteToLabel } from '../utils/timeGrid';
-import { isColumnInPrimeTime } from '../utils/primeTime';
-import { DAYS_OF_WEEK, GRID_COLUMNS, GRID_TEACHER_COLUMN_WIDTH } from '../constants/schedulingConstants';
+import { ScheduleTimeHeader } from './ScheduleTimeHeader';
+import { timelineWidth } from '../utils/timelineGeometry';
+import {
+  DAYS_OF_WEEK, GRID_COLUMNS, GRID_ROW_HEIGHT, GRID_TEACHER_COLUMN_WIDTH,
+} from '../constants/schedulingConstants';
 import { DEFAULT_FILTERS, type ScheduleFilters } from '@/store/scheduleUiStore';
 import type { DayOfWeek } from '@/lib/types';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
@@ -27,11 +29,17 @@ interface TeacherWeekGridProps {
  * within its own day-row — dragging a lesson to a different day is done
  * via the detail dialog, not drag, matching the Master Schedule's own
  * same-day-only drag scope.
+ *
+ * Header and body live in ONE scroll container: the day column is
+ * `sticky start-0` and the time header `sticky top-0`, so days stay frozen
+ * on the left while the whole timeline — labels, grid lines, free bands and
+ * lessons — scrolls horizontally as a single unit. There is no second
+ * scroller to keep in sync, so header drift is structurally impossible.
  */
 export function TeacherWeekGrid({ teacherId, onEmptyClick, onLessonClick, onProposeMove }: TeacherWeekGridProps) {
   const { t } = useTranslation();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const columnWidth = useResponsiveColumnWidth(containerRef, GRID_COLUMNS.length);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const columnWidth = useResponsiveColumnWidth(scrollRef, GRID_COLUMNS.length);
   const filters: ScheduleFilters = { ...DEFAULT_FILTERS, teacherIds: [teacherId] };
 
   // Fixed 7 calls (one per real calendar day) — not a .map() over a hook,
@@ -55,54 +63,47 @@ export function TeacherWeekGrid({ teacherId, onEmptyClick, onLessonClick, onProp
     return <p className="text-sm text-red-600 p-4">{message}</p>;
   }
 
+  const contentWidth = GRID_TEACHER_COLUMN_WIDTH + timelineWidth(columnWidth);
+
   return (
     <div className="border rounded-lg overflow-hidden bg-white">
-      <div className="flex border-b border-gray-200 bg-gray-50 overflow-x-auto">
-        <div style={{ width: GRID_TEACHER_COLUMN_WIDTH }} className="shrink-0 sticky start-0 z-20 bg-gray-50 border-e border-gray-200" />
-        <div className="flex">
-          {GRID_COLUMNS.map((minute) => (
-            <div
-              key={minute}
-              style={{ width: columnWidth }}
-              className={`shrink-0 text-[10px] text-center py-2 border-e border-gray-100 truncate ${isColumnInPrimeTime(minute) ? 'bg-amber-50 font-medium text-amber-700' : 'text-muted-foreground'}`}
-            >
-              {minuteToLabel(minute)}
-            </div>
-          ))}
+      <div ref={scrollRef} className="overflow-auto" style={{ maxHeight: '70vh' }}>
+        <div style={{ width: contentWidth }}>
+          <ScheduleTimeHeader columnWidth={columnWidth} cornerLabel={t('scheduling.dayColumn')} />
+
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground p-4">…</p>
+          ) : (
+            DAYS_OF_WEEK.map(({ value: dayOfWeek, labelKey }) => {
+              const row = days[dayOfWeek].rows[0];
+              if (!row) return null;
+
+              const handleDragEnd = (event: DragEndEvent) => {
+                const { active, over } = event;
+                if (!over) return;
+                const lesson = active.data.current?.lesson as LessonWithParticipants | undefined;
+                const target = over.data.current as { teacherId: string; startMinute: number } | undefined;
+                if (!lesson || !target) return;
+                if (target.teacherId === lesson.teacherId && target.startMinute === lesson.startMinute) return;
+                onProposeMove(lesson, target.teacherId, target.startMinute);
+              };
+
+              return (
+                <DndContext key={dayOfWeek} onDragEnd={handleDragEnd}>
+                  <div style={{ height: GRID_ROW_HEIGHT }}>
+                    <ScheduleGridRow
+                      row={row}
+                      columnWidth={columnWidth}
+                      label={t(labelKey)}
+                      onEmptyClick={(tId, startMinute) => onEmptyClick(tId, dayOfWeek, startMinute)}
+                      onLessonClick={onLessonClick}
+                    />
+                  </div>
+                </DndContext>
+              );
+            })
+          )}
         </div>
-      </div>
-
-      <div ref={containerRef} className="overflow-auto" style={{ maxHeight: '70vh' }}>
-        {isLoading ? (
-          <p className="text-sm text-muted-foreground p-4">…</p>
-        ) : (
-          DAYS_OF_WEEK.map(({ value: dayOfWeek, labelKey }) => {
-            const row = days[dayOfWeek].rows[0];
-            if (!row) return null;
-
-            const handleDragEnd = (event: DragEndEvent) => {
-              const { active, over } = event;
-              if (!over) return;
-              const lesson = active.data.current?.lesson as LessonWithParticipants | undefined;
-              const target = over.data.current as { teacherId: string; startMinute: number } | undefined;
-              if (!lesson || !target) return;
-              if (target.teacherId === lesson.teacherId && target.startMinute === lesson.startMinute) return;
-              onProposeMove(lesson, target.teacherId, target.startMinute);
-            };
-
-            return (
-              <DndContext key={dayOfWeek} onDragEnd={handleDragEnd}>
-                <ScheduleGridRow
-                  row={row}
-                  columnWidth={columnWidth}
-                  label={t(labelKey)}
-                  onEmptyClick={(tId, startMinute) => onEmptyClick(tId, dayOfWeek, startMinute)}
-                  onLessonClick={onLessonClick}
-                />
-              </DndContext>
-            );
-          })
-        )}
       </div>
     </div>
   );
