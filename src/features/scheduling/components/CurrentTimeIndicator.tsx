@@ -34,9 +34,13 @@ export function CurrentTimeIndicator({ columnWidth, height }: { columnWidth: num
   return (
     <div
       className="absolute top-0 z-[25] pointer-events-none w-0.5 bg-red-500"
-      style={{ left: offsetPx, height }}
+      // Logical inset so the marker tracks the same reversed axis the header
+      // uses under dir="rtl"; `left` would pin it to the physical left edge.
+      style={{ insetInlineStart: offsetPx, height }}
     >
-      <span className="absolute -top-4 -translate-x-1/2 start-0 text-[9px] font-semibold text-red-500 bg-white px-1 rounded">
+      {/* start-0 is logical, but the centering translate is physical — it has
+          to flip too, or the badge sits a half-width off the line in RTL. */}
+      <span className="absolute -top-4 -translate-x-1/2 rtl:translate-x-1/2 start-0 text-[9px] font-semibold text-red-500 bg-white px-1 rounded">
         {'NOW'}
       </span>
     </div>

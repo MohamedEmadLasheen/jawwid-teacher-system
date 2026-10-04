@@ -68,7 +68,10 @@ export function ScheduleGridRow({ row, columnWidth, onEmptyClick, onLessonClick,
             aria-hidden
             className="absolute top-0 h-full z-10 pointer-events-none bg-emerald-100/70 border-y-2 border-emerald-300/80"
             style={{
-              left: minuteToX(interval.startMinute, columnWidth),
+              // Logical inset, not `left` — see LessonCell: the axis reverses
+              // under dir="rtl", so a physical offset would mirror away from
+              // the header while the flex slot columns followed it.
+              insetInlineStart: minuteToX(interval.startMinute, columnWidth),
               width: minuteSpanToWidth(interval.startMinute, interval.endMinute, columnWidth),
             }}
           />

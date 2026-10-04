@@ -20,6 +20,10 @@ dist-ssr/
 .mgx/
 .playwright-mcp/
 
+# Playwright layout-test artifacts (tests/schedule-layout)
+test-results/
+playwright-report/
+
 # Logs
 logs/
 *.log

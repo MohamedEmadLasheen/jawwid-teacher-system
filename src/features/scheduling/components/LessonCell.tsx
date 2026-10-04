@@ -28,7 +28,12 @@ export function LessonCell({ lesson, columnWidth, onLessonClick }: LessonCellPro
     <div
       className="absolute top-0 h-full p-0.5 z-20"
       style={{
-        left: minuteToX(lesson.startMinute, columnWidth),
+        // insetInlineStart, never `left`: the time axis is a flex row, so it
+        // reverses under dir="rtl" (Arabic). A physical `left` would stay
+        // anchored to the viewport's left edge and mirror away from the
+        // header. The logical inset resolves to `right` in RTL, which is
+        // exactly where the flex header puts the same minute.
+        insetInlineStart: minuteToX(lesson.startMinute, columnWidth),
         width: minuteSpanToWidth(lesson.startMinute, endMinute, columnWidth),
       }}
     >

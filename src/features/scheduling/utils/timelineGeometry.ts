@@ -37,7 +37,16 @@ export function clampToTimeline(minute: number): number {
 }
 
 /**
- * x-offset (px) of a minute, measured from the start of the time axis.
+ * Offset (px) of a minute, measured from the START OF THE INLINE AXIS — not
+ * from the physical left edge.
+ *
+ * The time axis is laid out as a flex row, so under `dir="rtl"` (Arabic, which
+ * this app ships) it reverses and minute zero sits at the RIGHT. Consumers must
+ * therefore apply this value as `insetInlineStart`, never as `left`; a physical
+ * offset stays anchored to the viewport's left edge and mirrors away from the
+ * header, misaligning every lesson card and availability band in Arabic. The
+ * number itself is direction-independent, which is what keeps a single geometry
+ * implementation serving both directions.
  *
  * The multiplication deliberately happens BEFORE the division by
  * SLOT_MINUTES: at a 30-minute boundary the numerator is an exact multiple
