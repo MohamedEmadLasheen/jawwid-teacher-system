@@ -165,3 +165,52 @@ The following need a real handset and a real teacher account:
 - [ ] Log in, close from recents, relaunch — still signed in
 - [ ] Deploy a new release, relaunch the installed app — the new version loads
 - [ ] Uninstall and reinstall: no stale data, login still works
+
+### Physical-device acceptance
+
+Everything automated is covered by `tests/pwa` (manifest, icons, worker, cache
+allowlist, offline fallback, routing, safe areas, keyboard zoom). The steps
+below need a real handset and a real Teacher account, and are the only
+remaining acceptance items. The project has no QA or staging account, so these
+must be run by someone who can sign in.
+
+**iPhone — Safari**
+1. Open `https://teachers.jawwid.com` in Safari.
+2. Log in with a real Teacher account.
+3. Confirm the authenticated Teacher System works normally.
+4. Share → *Add to Home Screen*.
+5. Confirm the correct Jawwid icon appears.
+6. Launch it from the Home Screen.
+7. Confirm it opens standalone, with no Safari address bar or toolbar.
+8. Confirm the session is still valid (no re-login).
+9. Navigate through the main Teacher System screens.
+10. Test scrolling.
+11. Test forms.
+12. Test text inputs and textarea focus (the view must not zoom in).
+13. Test keyboard behaviour — the focused field stays visible.
+14. Confirm the home-indicator area does not cover the footer or any control.
+15. Confirm the status bar does not overlap the header.
+16. Close and reopen the PWA.
+17. Confirm the session is still valid.
+18. Log out.
+19. Confirm logout works.
+20. Log in again.
+
+**Android — Chrome**
+1. Open the production URL.
+2. Log in with a real Teacher account.
+3. Confirm the authenticated Teacher System works.
+4. Chrome menu → *Install app*.
+5. Confirm the correct icon in the launcher.
+6. Launch from the installed app.
+7. Confirm standalone behaviour.
+8. Confirm the session persists.
+9. Test navigation.
+10. Test forms.
+11. Test keyboard.
+12. Test scrolling.
+13. Test hardware back navigation.
+14. Close and reopen.
+15. Confirm the session persists.
+16. Log out.
+17. Log in again.

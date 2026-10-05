@@ -311,3 +311,72 @@ test.describe('mobile viewport & safe areas', () => {
     }
   });
 });
+
+test.describe('iOS keyboard zoom', () => {
+  // iOS Safari zooms the whole viewport when a focused field renders below
+  // 16px. In a browser tab that is merely annoying; in a standalone PWA there
+  // is no address bar to pinch back from, so the app stays zoomed in. Every
+  // text-entry primitive therefore has to be >= 16px under the md breakpoint
+  // and may only drop to 14px at >= 768px, where no mobile keyboard exists.
+  const TEXTAREA_CLASS =
+    'flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm';
+
+  async function fontSizes(page: import('@playwright/test').Page, textareaClass: string) {
+    return page.evaluate((cls) => {
+      const ta = document.createElement('textarea');
+      ta.className = cls;
+      document.body.appendChild(ta);
+      const taSize = parseFloat(getComputedStyle(ta).fontSize);
+      ta.remove();
+      const input = document.querySelector('#email') as HTMLElement;
+      return { textarea: taSize, input: parseFloat(getComputedStyle(input).fontSize) };
+    }, textareaClass);
+  }
+
+  test('text fields are at least 16px on phones', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/login');
+    await expect(page.locator('#email')).toBeVisible();
+
+    const sizes = await fontSizes(page, TEXTAREA_CLASS);
+    expect(sizes.input, 'Input must not trigger iOS zoom').toBeGreaterThanOrEqual(16);
+    expect(sizes.textarea, 'Textarea must not trigger iOS zoom').toBeGreaterThanOrEqual(16);
+  });
+
+  test('desktop keeps the 14px fields it has always had', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto('/login');
+    await expect(page.locator('#email')).toBeVisible();
+
+    const sizes = await fontSizes(page, TEXTAREA_CLASS);
+    expect(sizes.input).toBe(14);
+    expect(sizes.textarea).toBe(14);
+
+    // And prove it against the exact class string the Textarea carried before
+    // this change: on desktop the two must be indistinguishable.
+    const legacy = await page.evaluate(() => {
+      const old =
+        'flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50';
+      const t = document.createElement('textarea');
+      t.className = old;
+      t.rows = 3;
+      document.body.appendChild(t);
+      const s = getComputedStyle(t);
+      const out = { fontSize: s.fontSize, lineHeight: s.lineHeight, height: t.getBoundingClientRect().height };
+      t.remove();
+      return out;
+    });
+    const current = await page.evaluate((cls) => {
+      const t = document.createElement('textarea');
+      t.className = cls;
+      t.rows = 3;
+      document.body.appendChild(t);
+      const s = getComputedStyle(t);
+      const out = { fontSize: s.fontSize, lineHeight: s.lineHeight, height: t.getBoundingClientRect().height };
+      t.remove();
+      return out;
+    }, TEXTAREA_CLASS);
+
+    expect(current).toEqual(legacy);
+  });
+});

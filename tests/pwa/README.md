@@ -24,6 +24,7 @@ assertion runs against the real artefact that gets rsynced to the VPS, over
 | Routing | `/`, `/login`, `/dashboard`, `/schedule/teacher` all resolve to the SPA, so `start_url` and `scope` hold on a deep link or refresh |
 | Safe areas | the new `.app-viewport` utilities are byte-identical to the `h-screen` they replaced wherever insets are 0; every arbitrary-value inset class survived the Tailwind build; the login screen stays inside simulated iPhone insets |
 | Responsive | no horizontal overflow at 320 / 360 / 375 / 390 / 393 / 430 px |
+| iOS keyboard zoom | text fields render ≥ 16px below the `md` breakpoint, so iOS does not zoom the viewport on focus — and are still the historic 14px on desktop, asserted against the exact pre-change class string |
 
 ## Why the cache assertions matter most
 
