@@ -59,7 +59,11 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
   const { data: students = [] } = useStudents();
   const checkConflict = useCheckScheduleConflict();
   const actions = useLessonActions();
-  const { lessons: slotLessons, others: slotOthers } = useSameTimeSlotLessons(lesson);
+  const {
+    lessons: slotLessons,
+    others: slotOthers,
+    isLoading: slotLoading,
+  } = useSameTimeSlotLessons(lesson);
 
   const [teacherId, setTeacherId] = useState(lesson.teacherId);
   const [dayOfWeek, setDayOfWeek] = useState<DayOfWeek>(lesson.dayOfWeek as DayOfWeek);
@@ -83,12 +87,24 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
     duration !== lesson.durationMinutes;
 
   /**
-   * The wider scope is only unavailable when there is nothing else in the
-   * slot. Changing the day does NOT withdraw it: the whole slot moves to the
+   * Why the wider scope is unavailable, if it is.
+   *
+   * 'loading' matters as much as 'only_one'. Until the slot query resolves,
+   * `slotLessons` is just [subject] — not because the lesson is alone, but
+   * because the answer has not arrived. Saying "this is the only lesson in
+   * this time slot", or showing a count of 1, would be a false statement
+   * about the schedule, and an admin could reasonably act on it. While it is
+   * loading the card makes NO claim about membership at all.
+   *
+   * Changing the day does not withdraw the scope: the whole slot moves to the
    * new day together, and whether that is legal is decided by preflight
    * across every target — all of them or none.
    */
-  const slotScopeBlockedReason = slotOthers.length === 0 ? 'only_one' : null;
+  const slotScopeBlockedReason: 'loading' | 'only_one' | null =
+    slotLoading ? 'loading' : slotOthers.length === 0 ? 'only_one' : null;
+
+  /** Nothing may be said about the slot — or done to it — until it is known. */
+  const slotUnknown = slotLoading;
 
   /** Reset the verdict whenever the proposal changes — it no longer applies. */
   const change = <T,>(set: (v: T) => void) => (v: T) => {
@@ -277,6 +293,19 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
 
   const busy = checkConflict.isPending || actions.isPending;
 
+  /**
+   * A failed preflight stands until the configuration changes.
+   *
+   * Retrying was always safe — preflight re-runs and writes nothing — but a
+   * button that looks actionable while the exact same invalid configuration
+   * is on screen invites a click that cannot succeed. The block is cleared by
+   * a change to any field preflight actually evaluates (teacher, day, time,
+   * duration) or to the scope, each of which already resets `verdict`;
+   * nothing else touches it, so an unrelated interaction never re-enables or
+   * disables Save on its own.
+   */
+  const blockedByPreflight = verdict !== null && !verdict.ok;
+
   /** The teachers whose lessons are in the slot, for the scope summary. */
   const slotTeacherNames = slotLessons
     .map((l) => teachers.find((tc) => tc.id === l.teacherId)?.fullName ?? '—')
@@ -421,9 +450,11 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
                         data-testid="scope-slot-note"
                         data-blocked={slotScopeBlockedReason ?? ''}
                       >
-                        {slotScopeBlockedReason === 'only_one'
-                          ? t('scheduling.edit.scopeSlotOnlyOne')
-                          : scopeSummary('whole_slot')}
+                        {slotScopeBlockedReason === 'loading'
+                          ? t('scheduling.edit.scopeSlotLoading')
+                          : slotScopeBlockedReason === 'only_one'
+                            ? t('scheduling.edit.scopeSlotOnlyOne')
+                            : scopeSummary('whole_slot')}
                       </span>
                     </span>
                   </label>
@@ -461,7 +492,7 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
               type="button"
               data-testid="save-changes"
               className="min-h-11"
-              disabled={!dirty || !effectiveScope || busy}
+              disabled={!dirty || !effectiveScope || busy || blockedByPreflight}
               onClick={handleSave}
             >
               {t('scheduling.edit.save')}
@@ -492,11 +523,13 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
                 variant="outline"
                 data-testid="delete-slot"
                 className="min-h-11 text-red-700 border-red-200 hover:bg-red-50"
-                disabled={busy || slotOthers.length === 0}
+                disabled={busy || slotUnknown || slotOthers.length === 0}
                 onClick={() => setConfirmDelete('whole_slot')}
               >
                 <Trash2 className="h-4 w-4 me-1.5" />
-                {t('scheduling.edit.deleteSlot', { n: slotLessons.length })}
+                {slotUnknown
+                  ? t('scheduling.edit.deleteSlotLoading')
+                  : t('scheduling.edit.deleteSlot', { n: slotLessons.length })}
               </Button>
             </div>
           </section>

@@ -666,6 +666,8 @@
       "scopeSlot": "كل الحصص في نفس التوقيت",
       "scopeSlotSummary": "{{n}} حصص يوم {{day}} الساعة {{time}} لكل المعلمين: {{teachers}}.",
       "scopeSlotOnlyOne": "هذه هي الحصة الوحيدة في هذا التوقيت.",
+      "deleteSlotLoading": "حذف كل الحصص في هذا التوقيت…",
+      "scopeSlotLoading": "جارٍ تحميل الحصص في هذا التوقيت…",
       "noConflicts": "لا توجد تعارضات. سيتم تحديث {{n}} حصة.",
       "batchStudentCollision": "تم الإيقاف — هذا يضع {{name}} في أكثر من حصة في نفس الوقت. لم يتم تغيير أي شيء.",
       "batchTeacherCollision": "تم الإيقاف — هذا يضع {{name}} في {{n}} حصص في نفس الوقت. لم يتم تغيير أي شيء.",

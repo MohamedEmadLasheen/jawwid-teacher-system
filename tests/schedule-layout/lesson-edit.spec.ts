@@ -34,10 +34,14 @@ const OUTSIDE = [
   'SUN-ENDED',   // in the slot, but ended — history
 ];
 
-async function open(page: Page, opts: { dir?: 'ltr' | 'rtl'; single?: boolean; mode?: 'create' } = {}) {
+async function open(
+  page: Page,
+  opts: { dir?: 'ltr' | 'rtl'; single?: boolean; mode?: 'create'; slowSlot?: boolean } = {}
+) {
   const q = new URLSearchParams();
   q.set('dir', opts.dir ?? 'ltr');
   if (opts.single) q.set('slot', 'single');
+  if (opts.slowSlot) q.set('slot', 'slow');
   if (opts.mode) q.set('mode', opts.mode);
   await page.goto(`/tests/schedule-layout/lesson-edit.html?${q}`);
   await page.waitForSelector('[data-testid="ready"]', { state: 'attached' });
@@ -339,6 +343,153 @@ test('the slot is resolved from the ORIGINAL day and time, not the destination',
   expect(writes.map((w) => w.lessonId).sort()).toEqual([...SLOT].sort());
   expect(writes.map((w) => w.lessonId)).not.toContain('SUN-1030-D');
   for (const w of writes) expect(w.payload.new_start_minute).toBe(10 * 60 + 30);
+});
+
+// ---------------------------------------------------------------------------
+// FINDING #1 — no claim about the slot until the slot query has resolved
+// ---------------------------------------------------------------------------
+
+test('while the slot is loading the card makes no claim about membership', async ({ page }) => {
+  await open(page, { slowSlot: true });
+  await selectOption(page, 'edit-duration', '60 minutes');
+
+  const note = page.locator('[data-testid="scope-slot-note"]');
+  const slotRadio = page.locator('[data-testid="scope-slot"]');
+  const deleteSlot = page.locator('[data-testid="delete-slot"]');
+
+  // 1 — the query really is in flight.
+  await expect(note).toHaveAttribute('data-blocked', 'loading');
+
+  // 2 — it must not say the lesson is alone.
+  await expect(note).not.toContainText('only lesson');
+  await expect(note).toContainText('Loading lessons in this time slot');
+
+  // 3 — and must not show any count, right or wrong.
+  const loadingText = `${await note.innerText()} ${await deleteSlot.innerText()}`;
+  expect(loadingText, 'no lesson count may appear while loading').not.toMatch(/\b\d+\b/);
+  // 3b — nor a teacher list.
+  for (const name of ['Teacher A', 'Teacher B', 'Teacher C']) {
+    expect(loadingText).not.toContain(name);
+  }
+
+  // 4 + bulk delete — neither can be chosen.
+  await expect(slotRadio).toBeDisabled();
+  await expect(deleteSlot).toBeDisabled();
+
+  // "This lesson only" stays usable throughout.
+  await expect(page.locator('[data-testid="scope-this"]')).toBeEnabled();
+
+  // 5 — once it resolves, the authoritative answer appears.
+  await expect(note).toHaveAttribute('data-blocked', '', { timeout: 10_000 });
+  await expect(note).toContainText('3 lessons');
+  for (const name of ['Teacher A', 'Teacher B', 'Teacher C']) {
+    await expect(note).toContainText(name);
+  }
+  await expect(deleteSlot).toContainText('3');
+
+  // 6 — and the bulk scope becomes available with the right target set.
+  await expect(slotRadio).toBeEnabled();
+  await expect(deleteSlot).toBeEnabled();
+  await setConflict(page, false);
+  await chooseScope(page, 'slot');
+  await page.locator('[data-testid="save-changes"]').click();
+  const writes = await applied(page);
+  expect(writes.map((w) => w.lessonId).sort()).toEqual([...SLOT].sort());
+  for (const other of OUTSIDE) expect(writes.map((w) => w.lessonId)).not.toContain(other);
+});
+
+test('a lesson genuinely alone in its slot still says so, once known', async ({ page }) => {
+  // The loading state must not swallow the real "only one" case.
+  await open(page, { single: true });
+  await selectOption(page, 'edit-duration', '60 minutes');
+  const note = page.locator('[data-testid="scope-slot-note"]');
+  await expect(note).toHaveAttribute('data-blocked', 'only_one');
+  await expect(note).toContainText('only lesson in this time slot');
+  await expect(page.locator('[data-testid="scope-slot"]')).toBeDisabled();
+});
+
+// ---------------------------------------------------------------------------
+// FINDING #2 — a failed preflight disables Save until something changes
+// ---------------------------------------------------------------------------
+
+test('A: a blocked preflight writes nothing and disables Save', async ({ page }) => {
+  await open(page);
+  await setConflict(page, false);
+  await selectOption(page, 'edit-teacher', 'Teacher Z');   // whole slot onto one teacher
+  await chooseScope(page, 'slot');
+
+  const save = page.locator('[data-testid="save-changes"]');
+  await expect(save).toBeEnabled();
+  await save.click();
+
+  await expect(page.locator('[data-testid="edit-verdict"]')).toHaveAttribute('data-ok', 'false');
+  await expect(save).toBeDisabled();
+  expect(await applied(page)).toHaveLength(0);
+});
+
+test('B: clicking Save repeatedly on the same invalid state still writes nothing', async ({ page }) => {
+  await open(page);
+  await setConflict(page, false);
+  await selectOption(page, 'edit-teacher', 'Teacher Z');
+  await chooseScope(page, 'slot');
+  await page.locator('[data-testid="save-changes"]').click();
+
+  for (let i = 0; i < 3; i++) {
+    await page.locator('[data-testid="save-changes"]').click({ force: true });
+  }
+  // The message stays up and nothing was written.
+  await expect(page.locator('[data-testid="edit-verdict"]')).toHaveAttribute('data-ok', 'false');
+  expect(await applied(page)).toHaveLength(0);
+});
+
+test('C: changing the offending field clears the block and re-enables Save', async ({ page }) => {
+  await open(page);
+  await setConflict(page, false);
+  await selectOption(page, 'edit-teacher', 'Teacher Z');
+  await chooseScope(page, 'slot');
+  await page.locator('[data-testid="save-changes"]').click();
+  await expect(page.locator('[data-testid="save-changes"]')).toBeDisabled();
+
+  // Change the field that caused it.
+  await selectOption(page, 'edit-teacher', 'Teacher A');
+  expect(await page.locator('[data-testid="edit-verdict"]').count(),
+    'the stale verdict must be cleared').toBe(0);
+  // Still dirty (duration/day/time unchanged, teacher back to original) —
+  // so change something real and confirm Save is usable again.
+  await selectOption(page, 'edit-duration', '60 minutes');
+  await expect(page.locator('[data-testid="save-changes"]')).toBeEnabled();
+});
+
+test('C2: changing the SCOPE also clears the block', async ({ page }) => {
+  await open(page);
+  await setConflict(page, false);
+  await selectOption(page, 'edit-teacher', 'Teacher Z');
+  await chooseScope(page, 'slot');
+  await page.locator('[data-testid="save-changes"]').click();
+  await expect(page.locator('[data-testid="save-changes"]')).toBeDisabled();
+
+  await chooseScope(page, 'this');
+  expect(await page.locator('[data-testid="edit-verdict"]').count()).toBe(0);
+  await expect(page.locator('[data-testid="save-changes"]')).toBeEnabled();
+});
+
+test('D: correcting the conflict then saving works', async ({ page }) => {
+  await open(page);
+  await setConflict(page, false);
+  await selectOption(page, 'edit-teacher', 'Teacher Z');
+  await chooseScope(page, 'slot');
+  await page.locator('[data-testid="save-changes"]').click();
+  await expect(page.locator('[data-testid="save-changes"]')).toBeDisabled();
+  expect(await applied(page)).toHaveLength(0);
+
+  // Narrow to a single lesson — the collision only existed across the batch.
+  await chooseScope(page, 'this');
+  await page.locator('[data-testid="save-changes"]').click();
+
+  await expect(page.locator('[data-testid="fixtures"]')).toHaveAttribute('data-saved', '1');
+  const writes = await applied(page);
+  expect(writes.map((w) => w.lessonId)).toEqual(['SUN-A']);
+  expect(writes[0].payload.new_teacher_id).toBe('TZ');
 });
 
 // ---------------------------------------------------------------------------

@@ -41,6 +41,12 @@ interface SupabaseStubControl {
    */
   failWriteForLessonIds: string[];
   /**
+   * Hold table reads for this long before resolving. The only way to observe
+   * the window where a query is genuinely still loading — which is where the
+   * card used to claim a lesson was alone in its slot.
+   */
+  tableDelayMs: number;
+  /**
    * Seeded table contents, in DB row shape (snake_case), keyed by table name.
    *
    * Without this a harness could only pre-fill React Query's cache, which
@@ -60,6 +66,7 @@ const control: SupabaseStubControl = {
   conflictMessage: 'Teacher is already booked at this time.',
   conflictLessonIds: [],
   failWriteForLessonIds: [],
+  tableDelayMs: 0,
   tables: {},
   reset() {
     control.rpcCalls.length = 0;
@@ -154,5 +161,8 @@ export async function fetchAllRows<T>(
 ): Promise<T[]> {
   const builder = buildQuery(0, 999) as { __table?: string } | undefined;
   const table = builder?.__table;
+  if (control.tableDelayMs > 0) {
+    await new Promise((resolve) => setTimeout(resolve, control.tableDelayMs));
+  }
   return ((table ? control.tables[table] : []) ?? []) as T[];
 }

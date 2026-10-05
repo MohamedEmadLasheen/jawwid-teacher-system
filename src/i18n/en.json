@@ -666,6 +666,8 @@
       "scopeSlot": "All lessons in the same time slot",
       "scopeSlotSummary": "{{n}} lessons on {{day}} at {{time}}, across all teachers: {{teachers}}.",
       "scopeSlotOnlyOne": "This is the only lesson in this time slot.",
+      "deleteSlotLoading": "Delete all in this slot…",
+      "scopeSlotLoading": "Loading lessons in this time slot…",
       "noConflicts": "No conflicts. {{n}} lesson(s) will be updated.",
       "batchStudentCollision": "Blocked — this would put {{name}} in more than one lesson at the same time. Nothing was changed.",
       "batchTeacherCollision": "Blocked — this would put {{name}} in {{n}} lessons at the same time. Nothing was changed.",

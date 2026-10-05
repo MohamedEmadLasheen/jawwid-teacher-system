@@ -31,6 +31,14 @@ const DIR = (params.get('dir') === 'rtl' ? 'rtl' : 'ltr') as 'ltr' | 'rtl';
 const SINGLE = params.get('slot') === 'single';
 /** ?mode=create exercises the untouched create path of LessonDetailDialog. */
 const MODE = params.get('mode') === 'create' ? 'create' : 'edit';
+/**
+ * ?slot=slow leaves the slot query to actually load — the cache is not
+ * pre-seeded and the stub holds the read — so a test can observe what the
+ * card says before the answer arrives. This is the cold-open case in the real
+ * app, where fetchLessons and fetchLessonParticipants are whole-table reads
+ * on their own query keys and are very likely cold when the dialog opens.
+ */
+const SLOW_SLOT = params.get('slot') === 'slow';
 i18n.changeLanguage(DIR === 'rtl' ? 'ar' : 'en');
 document.documentElement.dir = DIR;
 document.documentElement.lang = DIR === 'rtl' ? 'ar' : 'en';
@@ -166,8 +174,11 @@ const toRow = (l: LessonWithParticipants) => ({
   created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z',
 });
 
-const stub = (window as unknown as { __supabaseStub?: { tables: Record<string, unknown[]> } }).__supabaseStub;
+const stub = (window as unknown as {
+  __supabaseStub?: { tables: Record<string, unknown[]>; tableDelayMs: number };
+}).__supabaseStub;
 if (stub) {
+  if (SLOW_SLOT) stub.tableDelayMs = 1500;
   stub.tables.lessons = allLessons.map(toRow);
   stub.tables.lesson_participants = allLessons.flatMap((l) =>
     l.participants.map((p) => ({
@@ -183,12 +194,15 @@ queryClient.setQueryData(schedulingKeys.courses(), []);
 queryClient.setQueryData(schedulingKeys.parents(), []);
 queryClient.setQueryData(schedulingKeys.studentParents(), []);
 // What useSameTimeSlotLessons reads: the whole lessons table plus the
-// participant join, under the keys the app already defines.
-queryClient.setQueryData(schedulingKeys.lessons(), allLessons);
-queryClient.setQueryData(
-  schedulingKeys.lessonParticipants(),
-  allLessons.flatMap((l) => l.participants)
-);
+// participant join, under the keys the app already defines. Left unseeded in
+// SLOW_SLOT mode so the queries genuinely load from the stub.
+if (!SLOW_SLOT) {
+  queryClient.setQueryData(schedulingKeys.lessons(), allLessons);
+  queryClient.setQueryData(
+    schedulingKeys.lessonParticipants(),
+    allLessons.flatMap((l) => l.participants)
+  );
+}
 
 useTeacherStore.setState({ teachers } as any);
 useSupervisorStore.setState({ supervisors: [] } as any);
