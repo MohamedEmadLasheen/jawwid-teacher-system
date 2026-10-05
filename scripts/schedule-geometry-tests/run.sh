@@ -19,6 +19,7 @@ node_modules/esbuild/bin/esbuild \
   src/features/scheduling/utils/timeGrid.ts \
   src/features/scheduling/utils/lessonTimeOptions.ts \
   src/features/scheduling/utils/sameTimeSlot.ts \
+  src/features/scheduling/utils/bulkEditPreflight.ts \
   --bundle --format=esm --platform=node \
   --outdir="$OUT" --out-extension:.js=.mjs >/dev/null
 

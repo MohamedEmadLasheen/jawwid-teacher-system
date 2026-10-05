@@ -1,16 +1,18 @@
 /**
- * "Same time slot" membership (findSameTimeSlotLessons).
+ * "Same time slot" membership and bulk-edit preflight.
  *
- * This rule decides how many lessons a bulk edit or a bulk removal touches,
- * so the cost of getting it wrong is changing or ending records the admin did
- * not mean to. Most of what follows asserts what is NOT in the set.
+ * THE DEFINITION: one weekday + one start minute, across ALL teachers.
+ * Neither the teacher nor the student takes part in membership.
  *
- * The rule: same start minute AND at least one shared student, across days,
- * live lifecycles only.
+ * These decide how many lessons a bulk edit or a bulk removal touches, so the
+ * cost of getting them wrong is changing or ending records the admin did not
+ * choose. Most of what follows asserts what is NOT in the set, and what is
+ * NOT allowed to be written.
  *
  * Fixtures only — no database, no production lesson records.
  */
-import { findSameTimeSlotLessons, isLiveLesson, LIVE_LIFECYCLES } from './sameTimeSlot.mjs';
+import { findLessonsInSlot, findSlotTargets, isLiveLesson, LIVE_LIFECYCLES } from './sameTimeSlot.mjs';
+import { findBatchCollisions } from './bulkEditPreflight.mjs';
 
 let pass = 0, fail = 0;
 const results = [];
@@ -21,65 +23,66 @@ function check(name, got, want) {
     (ok ? '' : `\n        got:  ${JSON.stringify(got)}\n        want: ${JSON.stringify(want)}`));
 }
 
-let seq = 0;
-const lesson = (over = {}) => ({
-  id: over.id ?? `L${++seq}`,
-  teacherId: over.teacherId ?? 'T1',
-  dayOfWeek: over.dayOfWeek ?? 0,
-  startMinute: over.startMinute ?? 15 * 60,
+const lesson = (id, dayOfWeek, startMinute, over = {}) => ({
+  id,
+  teacherId: over.teacherId ?? `T-${id}`,
+  dayOfWeek,
+  startMinute,
   durationMinutes: over.durationMinutes ?? 30,
   lifecycleStatus: over.lifecycleStatus ?? 'active',
-  participants: (over.students ?? ['S1']).map((s, i) => ({ id: `${over.id ?? 'L'}-p${i}`, studentId: s })),
+  participants: (over.students ?? [`S-${id}`]).map((s, i) => ({ id: `${id}-p${i}`, studentId: s })),
 });
 const ids = (list) => list.map((l) => l.id);
 
+const SUN = 0, MON = 1, TUE = 2;
+const TEN = 10 * 60;
+
+// The reviewer's seed, exactly.
+const A = lesson('A', SUN, TEN, { teacherId: 'TA', students: ['SA'] });
+const B = lesson('B', SUN, TEN, { teacherId: 'TB', students: ['SB'] });
+const C = lesson('C', SUN, TEN, { teacherId: 'TC', students: ['SC'] });
+const D = lesson('D', SUN, TEN + 30, { teacherId: 'TD', students: ['SD'] });
+const E = lesson('E', MON, TEN, { teacherId: 'TE', students: ['SE'] });
+const WORLD = [A, B, C, D, E];
+
 console.log('='.repeat(78));
-console.log('THE SLOT IS: SAME START MINUTE + SHARED STUDENT, ACROSS DAYS');
+console.log('A SLOT IS ONE WEEKDAY + ONE START MINUTE, ACROSS ALL TEACHERS');
 console.log('='.repeat(78));
 
-{
-  const subject = lesson({ id: 'A', dayOfWeek: 0, startMinute: 900, students: ['S1'] });
-  const tue     = lesson({ id: 'B', dayOfWeek: 2, startMinute: 900, students: ['S1'] });
-  const thu     = lesson({ id: 'C', dayOfWeek: 4, startMinute: 900, students: ['S1'] });
-  const all = [subject, tue, thu];
-
-  check('the student\'s weekly pattern at that time is one slot',
-    ids(findSameTimeSlotLessons(subject, all)), ['A', 'B', 'C']);
-  check('   the subject is always first', findSameTimeSlotLessons(subject, all)[0].id, 'A');
-  check('   results are ordered by day',
-    findSameTimeSlotLessons(subject, all).map((l) => l.dayOfWeek), [0, 2, 4]);
-  check('   the subject is not duplicated when it is also in the list',
-    findSameTimeSlotLessons(subject, all).filter((l) => l.id === 'A').length, 1);
-}
+check('Sunday 10:00 is exactly A, B, C',
+  ids(findLessonsInSlot({ dayOfWeek: SUN, startMinute: TEN }, WORLD)), ['A', 'B', 'C']);
+check('   D (Sunday 10:30) is NOT in it',
+  ids(findLessonsInSlot({ dayOfWeek: SUN, startMinute: TEN }, WORLD)).includes('D'), false);
+check('   E (Monday 10:00) is NOT in it',
+  ids(findLessonsInSlot({ dayOfWeek: SUN, startMinute: TEN }, WORLD)).includes('E'), false);
+check('different teachers do not prevent membership',
+  findLessonsInSlot({ dayOfWeek: SUN, startMinute: TEN }, WORLD).map((l) => l.teacherId),
+  ['TA', 'TB', 'TC']);
+check('Sunday 10:30 is its own slot',
+  ids(findLessonsInSlot({ dayOfWeek: SUN, startMinute: TEN + 30 }, WORLD)), ['D']);
+check('Monday 10:00 is its own slot',
+  ids(findLessonsInSlot({ dayOfWeek: MON, startMinute: TEN }, WORLD)), ['E']);
+check('an empty slot is empty',
+  ids(findLessonsInSlot({ dayOfWeek: TUE, startMinute: TEN }, WORLD)), []);
 
 console.log();
 console.log('='.repeat(78));
-console.log('WHAT IS EXCLUDED — THE PART THAT PREVENTS UNINTENDED BULK CHANGES');
+console.log('A SHARED STUDENT DOES NOT GROUP LESSONS');
 console.log('='.repeat(78));
 
 {
-  const subject = lesson({ id: 'A', startMinute: 900, students: ['S1'] });
+  // Student SA appears on three different days and at two different times.
+  const sunA   = lesson('sunA', SUN, TEN, { teacherId: 'TA', students: ['SA'] });
+  const tueA   = lesson('tueA', TUE, TEN, { teacherId: 'TA', students: ['SA'] });
+  const sunLate = lesson('sunLateA', SUN, 14 * 60, { teacherId: 'TA', students: ['SA'] });
+  const sunB   = lesson('sunB', SUN, TEN, { teacherId: 'TB', students: ['SB'] });
+  const world = [sunA, tueA, sunLate, sunB];
 
-  check('a different start minute is a different slot',
-    ids(findSameTimeSlotLessons(subject, [subject, lesson({ id: 'X', dayOfWeek: 2, startMinute: 930, students: ['S1'] })])),
-    ['A']);
-
-  check('another student at the same time is NOT in the slot',
-    ids(findSameTimeSlotLessons(subject, [subject, lesson({ id: 'X', dayOfWeek: 2, startMinute: 900, students: ['S9'] })])),
-    ['A']);
-
-  check('same teacher but a different student is NOT in the slot',
-    ids(findSameTimeSlotLessons(subject, [subject, lesson({ id: 'X', dayOfWeek: 2, startMinute: 900, teacherId: 'T1', students: ['S9'] })])),
-    ['A']);
-
-  // The whole vertical column of the grid must never be swept up.
-  const column = [
-    subject,
-    lesson({ id: 'X1', dayOfWeek: 0, startMinute: 900, teacherId: 'T2', students: ['S2'] }),
-    lesson({ id: 'X2', dayOfWeek: 0, startMinute: 900, teacherId: 'T3', students: ['S3'] }),
-  ];
-  check('every teacher at the same day+time is NOT the slot',
-    ids(findSameTimeSlotLessons(subject, column)), ['A']);
+  const slot = ids(findLessonsInSlot({ dayOfWeek: SUN, startMinute: TEN }, world));
+  check('the same student on another DAY is not in the slot', slot.includes('tueA'), false);
+  check('the same student at another TIME is not in the slot', slot.includes('sunLateA'), false);
+  check('a different student at the same day+time IS in the slot', slot.includes('sunB'), true);
+  check('   so the slot is exactly the two same-minute lessons', slot, ['sunA', 'sunB']);
 }
 
 console.log();
@@ -88,61 +91,86 @@ console.log('ONLY LIVE LESSONS — HISTORY IS NEVER TOUCHED');
 console.log('='.repeat(78));
 
 {
-  const subject = lesson({ id: 'A', startMinute: 900, students: ['S1'] });
-  const ended  = lesson({ id: 'E', dayOfWeek: 2, startMinute: 900, students: ['S1'], lifecycleStatus: 'ended' });
-  const paused = lesson({ id: 'P', dayOfWeek: 3, startMinute: 900, students: ['S1'], lifecycleStatus: 'paused' });
-  const trial  = lesson({ id: 'R', dayOfWeek: 4, startMinute: 900, students: ['S1'], lifecycleStatus: 'trial' });
+  const ended  = lesson('ended', SUN, TEN, { lifecycleStatus: 'ended' });
+  const paused = lesson('paused', SUN, TEN, { lifecycleStatus: 'paused' });
+  const trial  = lesson('trial', SUN, TEN, { lifecycleStatus: 'trial' });
+  const world = [A, ended, paused, trial];
+  const slot = ids(findLessonsInSlot({ dayOfWeek: SUN, startMinute: TEN }, world));
 
-  check('ended lessons are excluded',
-    ids(findSameTimeSlotLessons(subject, [subject, ended])), ['A']);
-  check('paused lessons are excluded',
-    ids(findSameTimeSlotLessons(subject, [subject, paused])), ['A']);
-  check('trial lessons ARE included (they occupy the slot)',
-    ids(findSameTimeSlotLessons(subject, [subject, trial])), ['A', 'R']);
-  check('   the live set matches the EXCLUDE constraint\'s lifecycles',
-    [...LIVE_LIFECYCLES], ['trial', 'active']);
+  check('ended is excluded', slot.includes('ended'), false);
+  check('paused is excluded', slot.includes('paused'), false);
+  check('trial is included', slot.includes('trial'), true);
+  check('   live lifecycles match the EXCLUDE constraint', [...LIVE_LIFECYCLES], ['trial', 'active']);
   check('   isLiveLesson agrees',
-    [isLiveLesson({ lifecycleStatus: 'active' }), isLiveLesson({ lifecycleStatus: 'trial' }),
-     isLiveLesson({ lifecycleStatus: 'ended' }), isLiveLesson({ lifecycleStatus: 'paused' })],
+    ['active', 'trial', 'ended', 'paused'].map((s) => isLiveLesson({ lifecycleStatus: s })),
     [true, true, false, false]);
 }
 
 console.log();
 console.log('='.repeat(78));
-console.log('GROUP LESSONS — SHARING ANY STUDENT IS ENOUGH');
+console.log('THE TARGET LIST ALWAYS CONTAINS THE EDITED LESSON, FIRST');
 console.log('='.repeat(78));
 
+check('targets are the subject then the rest of the slot', ids(findSlotTargets(A, WORLD)), ['A', 'B', 'C']);
+check('   the subject is first', findSlotTargets(A, WORLD)[0].id, 'A');
+check('   never duplicated', ids(findSlotTargets(A, WORLD)).filter((i) => i === 'A').length, 1);
 {
-  const subject = lesson({ id: 'A', startMinute: 900, students: ['S1', 'S2'] });
-  check('a lesson sharing one of several students is in the slot',
-    ids(findSameTimeSlotLessons(subject, [subject, lesson({ id: 'G', dayOfWeek: 2, startMinute: 900, students: ['S2', 'S7'] })])),
-    ['A', 'G']);
-  check('a lesson sharing none of them is not',
-    ids(findSameTimeSlotLessons(subject, [subject, lesson({ id: 'G', dayOfWeek: 2, startMinute: 900, students: ['S7', 'S8'] })])),
-    ['A']);
+  // A lesson rescheduled for this one date is drawn at its override time, so
+  // the clicked subject may not match its own stored row. It must still be in
+  // its own target list.
+  const moved = { ...A, startMinute: 11 * 60 };
+  check('a subject that matches no stored row still appears', ids(findSlotTargets(moved, WORLD)), ['A']);
 }
 
 console.log();
 console.log('='.repeat(78));
-console.log('DEGENERATE INPUTS CANNOT WIDEN THE SET');
+console.log('PREFLIGHT: DOES THE BATCH COLLIDE WITH ITSELF?');
 console.log('='.repeat(78));
 
 {
-  // A lesson with no participants must match only itself — otherwise the
-  // "shares a student" test would be vacuously true against other orphans.
-  const orphan = { ...lesson({ id: 'O', startMinute: 900 }), participants: [] };
-  const otherOrphan = { ...lesson({ id: 'O2', dayOfWeek: 2, startMinute: 900 }), participants: [] };
-  check('a lesson with no participants matches only itself',
-    ids(findSameTimeSlotLessons(orphan, [orphan, otherOrphan])), ['O']);
+  const slot = [A, B, C];
 
-  const subject = lesson({ id: 'A', startMinute: 900, students: ['S1'] });
-  check('an empty world still returns the subject',
-    ids(findSameTimeSlotLessons(subject, [])), ['A']);
-  check('a world without the subject still returns it first',
-    ids(findSameTimeSlotLessons(subject, [lesson({ id: 'B', dayOfWeek: 2, startMinute: 900, students: ['S1'] })])),
-    ['A', 'B']);
-  check('   and never returns fewer than one lesson',
-    findSameTimeSlotLessons(subject, []).length >= 1, true);
+  check('no change proposed -> no collisions', findBatchCollisions(slot, {}).length, 0);
+  check('moving the slot to a new time keeps teachers apart',
+    findBatchCollisions(slot, { startMinute: 11 * 60 }).length, 0);
+  check('moving the slot to a new day keeps teachers apart',
+    findBatchCollisions(slot, { dayOfWeek: TUE }).length, 0);
+  check('lengthening every lesson in the slot is fine',
+    findBatchCollisions(slot, { durationMinutes: 60 }).length, 0);
+
+  // The case that cannot be caught by a per-lesson database check.
+  const teacherClash = findBatchCollisions(slot, { teacherId: 'TZ' });
+  check('putting the whole slot on ONE teacher collides', teacherClash.length > 0, true);
+  check('   and names the teacher', teacherClash[0].kind, 'teacher');
+  check('   with the two lessons that clash', teacherClash[0].subjectId, 'TZ');
+
+  // One lesson alone can always take the new teacher.
+  check('a single-lesson batch never self-collides',
+    findBatchCollisions([A], { teacherId: 'TZ' }).length, 0);
+}
+
+{
+  // A student in two lessons of the same slot would collide the moment the
+  // slot moves as a unit — the student EXCLUDE constraint, mirrored.
+  const x1 = lesson('x1', SUN, TEN, { teacherId: 'T1', students: ['SHARED'] });
+  const x2 = lesson('x2', SUN, TEN, { teacherId: 'T2', students: ['SHARED'] });
+  const found = findBatchCollisions([x1, x2], { startMinute: 11 * 60 });
+  check('two lessons sharing a student collide', found.length, 1);
+  check('   reported as a student collision', found[0].kind, 'student');
+  check('   naming the student', found[0].subjectId, 'SHARED');
+}
+
+{
+  // Durations matter: 10:00+60 overlaps 10:30, so lengthening lessons that
+  // sit next to each other on one teacher collides.
+  const a = lesson('a', SUN, TEN, { teacherId: 'TSAME' });
+  const b = lesson('b', SUN, TEN + 30, { teacherId: 'TSAME' });
+  check('adjacent lessons on one teacher do not collide at 30 minutes',
+    findBatchCollisions([a, b], {}).length, 0);
+  check('   but do once both are 60 minutes',
+    findBatchCollisions([a, b], { durationMinutes: 60 }).length, 1);
+  check('   touching end-to-start is not an overlap',
+    findBatchCollisions([a, b], { durationMinutes: 30 }).length, 0);
 }
 
 console.log();

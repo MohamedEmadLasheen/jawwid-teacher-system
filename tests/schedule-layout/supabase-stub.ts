@@ -26,6 +26,13 @@ interface SupabaseStubControl {
   conflict: boolean;
   conflictMessage: string;
   /**
+   * Lesson ids whose conflict check should come back positive, so a test can
+   * make ONE member of a bulk target set fail. A global flag cannot express
+   * "the third target conflicts", which is exactly the case that proves a
+   * bulk edit writes nothing when preflight finds a problem.
+   */
+  conflictLessonIds: string[];
+  /**
    * Seeded table contents, in DB row shape (snake_case), keyed by table name.
    *
    * Without this a harness could only pre-fill React Query's cache, which
@@ -43,10 +50,13 @@ const control: SupabaseStubControl = {
   tableOps: [],
   conflict: false,
   conflictMessage: 'Teacher is already booked at this time.',
+  conflictLessonIds: [],
   tables: {},
   reset() {
     control.rpcCalls.length = 0;
     control.tableOps.length = 0;
+    control.conflictLessonIds.length = 0;
+    control.conflict = false;
   },
 };
 
@@ -79,13 +89,16 @@ function chain(table: string): any {
 
 /** Shapes mirror the real RPCs' snake_case payloads, so the service-layer
  *  mappers under test (toConflictResult) run for real. */
-function rpcResult(fn: string): unknown {
+function rpcResult(fn: string, args?: unknown): unknown {
   if (fn === 'check_schedule_conflict') {
+    const excluded = (args as { p_exclude_lesson_id?: string } | undefined)?.p_exclude_lesson_id;
+    const hasConflict =
+      control.conflict || (!!excluded && control.conflictLessonIds.includes(excluded));
     return {
-      has_conflict: control.conflict,
-      teacher_conflict: control.conflict ? { lesson_id: 'other-lesson', teacher_id: 'T1' } : null,
+      has_conflict: hasConflict,
+      teacher_conflict: hasConflict ? { lesson_id: 'other-lesson', teacher_id: 'T1' } : null,
       student_conflicts: [],
-      message: control.conflict ? control.conflictMessage : 'No conflicts.',
+      message: hasConflict ? control.conflictMessage : 'No conflicts.',
     };
   }
   if (fn === 'apply_schedule_change') {
@@ -107,7 +120,7 @@ export const supabase: any = {
   from: (table: string) => chain(table),
   rpc: (fn: string, args: unknown) => {
     control.rpcCalls.push({ fn, args });
-    return Promise.resolve({ data: rpcResult(fn), error: null });
+    return Promise.resolve({ data: rpcResult(fn, args), error: null });
   },
   auth: {},
 };

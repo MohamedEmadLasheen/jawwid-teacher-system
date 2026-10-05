@@ -19,9 +19,9 @@ import { useStudents } from '../hooks/useStudents';
 import { useCheckScheduleConflict } from '../hooks/useScheduleRpc';
 import { useLessonActions } from '../hooks/useLessonActions';
 import { useSameTimeSlotLessons } from '../hooks/useSameTimeSlotLessons';
+import { findBatchCollisions } from '../utils/bulkEditPreflight';
 import { DAYS_OF_WEEK, GRID_COLUMNS } from '../constants/schedulingConstants';
 import { minuteToDisplayLabel } from '../utils/timeGrid';
-import { nextDateForDayOfWeek } from '../utils/nextDateForDayOfWeek';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
 import type { DayOfWeek } from '@/lib/types';
 
@@ -76,27 +76,19 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
     .filter((n): n is string => !!n);
   const currentTeacher = teachers.find((tc) => tc.id === lesson.teacherId);
 
-  const dayChanged = dayOfWeek !== lesson.dayOfWeek;
   const dirty =
     teacherId !== lesson.teacherId ||
-    dayChanged ||
+    dayOfWeek !== lesson.dayOfWeek ||
     startMinute !== lesson.startMinute ||
     duration !== lesson.durationMinutes;
 
   /**
-   * Why "all lessons in this time slot" can be unavailable.
-   *
-   * A slot is the student's weekly pattern at one time of day — Sunday,
-   * Tuesday and Thursday at 3:00 PM are three lessons in one slot. Moving
-   * that whole pattern to a single new day is not a thing the schedule can
-   * represent: all three would land on the same day at the same minute, and
-   * the student EXCLUDE constraint on (student_id, day_of_week, time_range)
-   * would reject the second and third. Rather than apply the day to one
-   * lesson and quietly skip it on the others — a silent partial — the wider
-   * scope is withdrawn and the reason is shown.
+   * The wider scope is only unavailable when there is nothing else in the
+   * slot. Changing the day does NOT withdraw it: the whole slot moves to the
+   * new day together, and whether that is legal is decided by preflight
+   * across every target — all of them or none.
    */
-  const slotScopeBlockedReason =
-    slotOthers.length === 0 ? 'only_one' : dayChanged ? 'day_changed' : null;
+  const slotScopeBlockedReason = slotOthers.length === 0 ? 'only_one' : null;
 
   /** Reset the verdict whenever the proposal changes — it no longer applies. */
   const change = <T,>(set: (v: T) => void) => (v: T) => {
@@ -105,10 +97,33 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
     setOutcome(null);
   };
 
-  // If the wider scope was selected and then became unavailable (the admin
-  // changed the day afterwards), it must not silently stay selected.
   const effectiveScope: SlotScope | null =
     scope === 'whole_slot' && slotScopeBlockedReason ? null : scope;
+
+  /**
+   * ONLY the fields the admin actually changed.
+   *
+   * This is what gets sent, and therefore what must be simulated. An
+   * unchanged field has to stay per-lesson: the slot holds several teachers,
+   * so projecting the subject's teacher onto all of them would both invent a
+   * collision that is not being requested and check the wrong teacher against
+   * the database. moveLesson drops unchanged fields for the same reason, and
+   * these two must not disagree.
+   */
+  const proposed = {
+    teacherId: teacherId !== lesson.teacherId ? teacherId : undefined,
+    dayOfWeek: dayOfWeek !== lesson.dayOfWeek ? dayOfWeek : undefined,
+    startMinute: startMinute !== lesson.startMinute ? startMinute : undefined,
+    durationMinutes: duration !== lesson.durationMinutes ? duration : undefined,
+  };
+
+  /** What `target` would look like after the change — unchanged fields kept. */
+  const resolveFor = (target: LessonWithParticipants) => ({
+    teacherId: proposed.teacherId ?? target.teacherId,
+    dayOfWeek: proposed.dayOfWeek ?? target.dayOfWeek,
+    startMinute: proposed.startMinute ?? target.startMinute,
+    durationMinutes: proposed.durationMinutes ?? target.durationMinutes,
+  });
 
   const targets = useMemo(
     () => (effectiveScope === 'whole_slot' ? slotLessons : [lesson]),
@@ -116,19 +131,51 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
   );
 
   /**
-   * Checks every lesson the save would touch, before touching any of them.
-   * Bulk writes are not transactional across lessons, so the only way to keep
-   * a partial apply rare is to ask first.
+   * PREFLIGHT — the whole batch is validated before a single lesson is
+   * written, and a failure anywhere means nothing is written at all.
+   *
+   * Two independent checks, because one is not enough:
+   *
+   *   1. check_schedule_conflict per target, against what is stored. This is
+   *      the existing authority on teacher/student double-booking.
+   *   2. findBatchCollisions across the projected batch. The RPC compares one
+   *      lesson against the database and cannot see the batch colliding with
+   *      ITSELF — moving a whole slot onto one teacher asks for several
+   *      lessons at the same teacher/day/time, each individually fine, and the
+   *      second would hit the EXCLUDE constraint at write time after the
+   *      first had already committed.
+   *
+   * Returns true only when every target passes both.
    */
-  const verify = async () => {
+  const preflight = async (): Promise<boolean> => {
     setOutcome(null);
+
+    const collisions = findBatchCollisions(targets, proposed);
+    if (collisions.length > 0) {
+      const c = collisions[0];
+      const name = c.kind === 'teacher'
+        ? teachers.find((tc) => tc.id === c.subjectId)?.fullName ?? c.subjectId
+        : students.find((st) => st.id === c.subjectId)?.fullName ?? c.subjectId;
+      setVerdict({
+        ok: false,
+        message: t(
+          c.kind === 'teacher'
+            ? 'scheduling.edit.batchTeacherCollision'
+            : 'scheduling.edit.batchStudentCollision',
+          { name, n: targets.length }
+        ),
+      });
+      return false;
+    }
+
     for (const target of targets) {
+      const next = resolveFor(target);
       const result = await checkConflict.mutateAsync({
-        teacherId,
+        teacherId: next.teacherId,
         studentIds: target.participants.map((p) => p.studentId),
-        dayOfWeek,
-        startMinute,
-        durationMinutes: duration,
+        dayOfWeek: next.dayOfWeek,
+        startMinute: next.startMinute,
+        durationMinutes: next.durationMinutes,
         excludeLessonId: target.id,
       });
       if (result.hasConflict) {
@@ -136,38 +183,47 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
           ok: false,
           message: t('scheduling.edit.conflictOn', {
             day: t(DAYS_OF_WEEK[target.dayOfWeek].labelKey),
+            teacher: teachers.find((tc) => tc.id === target.teacherId)?.fullName ?? '—',
             message: result.message,
           }),
         });
         return false;
       }
     }
+
     setVerdict({ ok: true, message: t('scheduling.edit.noConflicts', { n: targets.length }) });
     return true;
   };
 
   const handleSave = async () => {
     if (!effectiveScope) return;
-    if (!(await verify())) return;
+    // Nothing is written unless every target passes.
+    if (!(await preflight())) return;
 
     const { succeeded, failed } = await actions.applyToEach(targets, (target) =>
+      // Only the changed fields travel, so an untouched teacher or day stays
+      // whatever that particular lesson already had. The target list was
+      // resolved from the ORIGINAL slot before any write, so the set never
+      // shifts to the destination slot as lessons move.
       actions.moveLesson({
         lesson: target,
-        newTeacherId: teacherId,
-        // Safe to send unconditionally: the wider scope is unavailable
-        // whenever the day has changed, so either this is the only target or
-        // the day is unchanged and the field is a no-op.
-        newDayOfWeek: dayOfWeek,
-        newStartMinute: startMinute,
-        newDurationMinutes: duration,
+        newTeacherId: proposed.teacherId,
+        newDayOfWeek: proposed.dayOfWeek as DayOfWeek | undefined,
+        newStartMinute: proposed.startMinute,
+        newDurationMinutes: proposed.durationMinutes,
         scope: 'all_future',
       })
     );
 
     if (failed) {
+      // Preflight passed and a write still failed, so the schedule is now
+      // partly changed. Say so explicitly rather than letting it pass as a
+      // success: which lesson failed, how many had already been applied, and
+      // that the operation was not atomic.
       setOutcome(t('scheduling.edit.partialApply', {
         done: succeeded.length,
         total: targets.length,
+        failedId: failed.lesson.id,
         message: failed.error instanceof Error ? failed.error.message : String(failed.error),
       }));
       return;
@@ -175,32 +231,46 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
     onSaved();
   };
 
+  /**
+   * Removal, for both scopes, is end_lesson.
+   *
+   * What this card acts on is the RECURRING lesson record: useScheduleGrid
+   * loads lessons rows and only overlays this occurrence's lesson_exceptions
+   * for display, and the id on the card is the lessons row id. So "delete
+   * this lesson" has to end the recurrence — cancel_occurrence would cancel a
+   * single date while the weekly lesson quietly carried on, which is not what
+   * the admin asked for.
+   *
+   * end_lesson sets lifecycle_status='ended' and effective_until. No row is
+   * deleted, the id is stable, and the history stays.
+   */
   const handleDelete = async () => {
     const which = confirmDelete;
     setConfirmDelete(null);
     if (!which) return;
 
-    if (which === 'this_lesson') {
-      // One dated occurrence; the weekly lesson survives.
-      await actions.cancelOccurrence({ lesson });
-    } else {
-      // Every lesson in the slot stops recurring from today forward.
-      const { succeeded, failed } = await actions.applyToEach(slotLessons, (target) =>
-        actions.endLesson({ lesson: target })
-      );
-      if (failed) {
-        setOutcome(t('scheduling.edit.partialApply', {
-          done: succeeded.length,
-          total: slotLessons.length,
-          message: failed.error instanceof Error ? failed.error.message : String(failed.error),
-        }));
-        return;
-      }
+    const toEnd = which === 'this_lesson' ? [lesson] : slotLessons;
+    const { succeeded, failed } = await actions.applyToEach(toEnd, (target) =>
+      actions.endLesson({ lesson: target })
+    );
+    if (failed) {
+      setOutcome(t('scheduling.edit.partialApply', {
+        done: succeeded.length,
+        total: toEnd.length,
+        failedId: failed.lesson.id,
+        message: failed.error instanceof Error ? failed.error.message : String(failed.error),
+      }));
+      return;
     }
     onSaved();
   };
 
   const busy = checkConflict.isPending || actions.isPending;
+
+  /** The teachers whose lessons are in the slot, for the scope summary. */
+  const slotTeacherNames = slotLessons
+    .map((l) => teachers.find((tc) => tc.id === l.teacherId)?.fullName ?? '—')
+    .join('، ');
 
   /** One line naming exactly what a scope would touch. */
   const scopeSummary = (which: SlotScope) =>
@@ -211,7 +281,9 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
         })
       : t('scheduling.edit.scopeSlotSummary', {
           n: slotLessons.length,
-          days: slotLessons.map((l) => t(DAYS_OF_WEEK[l.dayOfWeek].labelKey)).join('، '),
+          day: t(DAYS_OF_WEEK[lesson.dayOfWeek].labelKey),
+          time: minuteToDisplayLabel(lesson.startMinute),
+          teachers: slotTeacherNames,
         });
 
   return (
@@ -341,9 +413,7 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
                       >
                         {slotScopeBlockedReason === 'only_one'
                           ? t('scheduling.edit.scopeSlotOnlyOne')
-                          : slotScopeBlockedReason === 'day_changed'
-                            ? t('scheduling.edit.scopeSlotDayChanged')
-                            : scopeSummary('whole_slot')}
+                          : scopeSummary('whole_slot')}
                       </span>
                     </span>
                   </label>
@@ -436,10 +506,14 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
               {confirmDelete === 'whole_slot'
                 ? t('scheduling.edit.confirmSlotBody', {
                     n: slotLessons.length,
-                    days: slotLessons.map((l) => t(DAYS_OF_WEEK[l.dayOfWeek].labelKey)).join('، '),
+                    day: t(DAYS_OF_WEEK[lesson.dayOfWeek].labelKey),
+                    time: minuteToDisplayLabel(lesson.startMinute),
+                    teachers: slotTeacherNames,
                   })
                 : t('scheduling.edit.confirmThisBody', {
-                    date: nextDateForDayOfWeek(lesson.dayOfWeek as DayOfWeek),
+                    day: t(DAYS_OF_WEEK[lesson.dayOfWeek].labelKey),
+                    time: minuteToDisplayLabel(lesson.startMinute),
+                    teacher: currentTeacher?.fullName ?? '—',
                   })}
             </AlertDialogDescription>
           </AlertDialogHeader>

@@ -29,16 +29,20 @@ import type { LessonWithParticipants } from '@/services/scheduling/lessons.servi
 const params = new URLSearchParams(window.location.search);
 const DIR = (params.get('dir') === 'rtl' ? 'rtl' : 'ltr') as 'ltr' | 'rtl';
 const SINGLE = params.get('slot') === 'single';
+/** ?mode=create exercises the untouched create path of LessonDetailDialog. */
+const MODE = params.get('mode') === 'create' ? 'create' : 'edit';
 i18n.changeLanguage(DIR === 'rtl' ? 'ar' : 'en');
 document.documentElement.dir = DIR;
 document.documentElement.lang = DIR === 'rtl' ? 'ar' : 'en';
 
-const START = 15 * 60; // 3:00 PM
-
 const teachers = [
-  { id: 'T1', fullName: 'Mohamed Hussein' },
-  { id: 'T2', fullName: 'Rokaya Ramadan' },
-  { id: 'T3', fullName: 'Zainab Hazem' },
+  { id: 'TA', fullName: 'Teacher A' },
+  { id: 'TB', fullName: 'Teacher B' },
+  { id: 'TC', fullName: 'Teacher C' },
+  { id: 'TD', fullName: 'Teacher D' },
+  { id: 'TE', fullName: 'Teacher E' },
+  { id: 'TF', fullName: 'Teacher F' },
+  { id: 'TZ', fullName: 'Teacher Z' },
 ].map((t) => ({
   ...t, phone: '', email: '', nationality: '', joiningDate: null, monthlySalary: 0,
   salaryCurrency: 'EGP', salaryType: 'fixed', teachingMarket: 'arab', specializations: [],
@@ -48,8 +52,12 @@ const teachers = [
 })) as any[];
 
 const students = [
-  { id: 'S1', fullName: 'Ahmed Mohamed' },
-  { id: 'S9', fullName: 'Fatima Ali' },
+  { id: 'SA', fullName: 'Student A' },
+  { id: 'SB', fullName: 'Student B' },
+  { id: 'SC', fullName: 'Student C' },
+  { id: 'SD', fullName: 'Student D' },
+  { id: 'SE', fullName: 'Student E' },
+  { id: 'SF', fullName: 'Student F' },
 ].map((s) => ({
   ...s, parentId: null, supervisorId: null, gender: 'male', birthDate: null,
   country: '', timezone: 'Asia/Dubai', level: '', notes: '', status: 'active',
@@ -61,28 +69,42 @@ const makeLesson = (
   id: string, dayOfWeek: number, startMinute: number, studentId: string,
   extra: Partial<{ lifecycleStatus: string; teacherId: string }> = {}
 ) => ({
-  id, branchId: null, teacherId: extra.teacherId ?? 'T1', courseId: null, dayOfWeek,
+  id, branchId: null, teacherId: extra.teacherId ?? 'TA', courseId: null, dayOfWeek,
   startMinute, durationMinutes: 30, endMinute: startMinute + 30,
   timezone: 'Asia/Dubai', lifecycleStatus: (extra.lifecycleStatus ?? 'active') as 'active',
-  effectiveFrom: '2026-01-01', effectiveUntil: null, originalTeacherId: 'T1',
+  effectiveFrom: '2026-01-01', effectiveUntil: null, originalTeacherId: extra.teacherId ?? 'TA',
   sameDaySince: '2026-01-01', sameTimeSince: '2026-01-01', notes: '',
   createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
   participants: [{ id: `${id}-p`, lessonId: id, studentId, createdAt: '2026-01-01T00:00:00Z' }],
 }) as unknown as LessonWithParticipants;
 
 /**
- * Ahmed's 3:00 PM pattern is Sunday / Tuesday / Thursday — three lessons in
- * one slot. Everything else exists to prove it is NOT swept in:
- *   DECOY-TIME     same student, different minute
- *   DECOY-STUDENT  same minute, different student
- *   DECOY-ENDED    same student and minute, but already ended
+ * The seed is the reviewer's, exactly:
+ *
+ *   Sunday 10:00   A/StudentA   B/StudentB   C/StudentC   <- the slot
+ *   Sunday 10:30   D/StudentD                             <- different minute
+ *   Monday 10:00   E/StudentE                             <- different day
+ *
+ * Plus a second group proving a shared STUDENT does not group lessons:
+ * Student A also has Tuesday 10:00 and Sunday 14:00. Neither is in the
+ * Sunday-10:00 slot, because membership is day+minute and nothing else.
+ *
+ * ?conflict=third makes the third slot member (SUN-C) the one that fails its
+ * conflict check, so a test can prove the first two are never written.
  */
-const subject = makeLesson('L-SUN', 0, START, 'S1');
-const slotSiblings = SINGLE ? [] : [makeLesson('L-TUE', 2, START, 'S1'), makeLesson('L-THU', 4, START, 'S1')];
+const SLOT_START = 10 * 60;
+const subject  = makeLesson('SUN-A', 0, SLOT_START, 'SA', { teacherId: 'TA' });
+const slotB    = makeLesson('SUN-B', 0, SLOT_START, 'SB', { teacherId: 'TB' });
+const slotC    = makeLesson('SUN-C', 0, SLOT_START, 'SC', { teacherId: 'TC' });
+const slotSiblings = SINGLE ? [] : [slotB, slotC];
 const decoys = [
-  makeLesson('DECOY-TIME', 1, START + 30, 'S1'),
-  makeLesson('DECOY-STUDENT', 2, START, 'S9', { teacherId: 'T2' }),
-  makeLesson('DECOY-ENDED', 3, START, 'S1', { lifecycleStatus: 'ended' }),
+  makeLesson('SUN-1030-D', 0, SLOT_START + 30, 'SD', { teacherId: 'TD' }),
+  makeLesson('MON-1000-E', 1, SLOT_START, 'SE', { teacherId: 'TE' }),
+  // Same student as the subject, other days/times — must never be grouped in.
+  makeLesson('TUE-1000-A', 2, SLOT_START, 'SA', { teacherId: 'TA' }),
+  makeLesson('SUN-1400-A', 0, 14 * 60, 'SA', { teacherId: 'TA' }),
+  // Same slot but already ended — history, never touched.
+  makeLesson('SUN-ENDED', 0, SLOT_START, 'SF', { teacherId: 'TF', lifecycleStatus: 'ended' }),
 ];
 const allLessons = [subject, ...slotSiblings, ...decoys];
 
@@ -92,10 +114,20 @@ function Harness() {
 
   return (
     <div style={{ padding: 8 }}>
-      {open && (
+      {open && MODE === 'edit' && (
         <LessonDetailDialog
           mode="edit"
           lesson={subject}
+          onClose={() => setOpen(false)}
+          onSaved={() => { setSaved((n) => n + 1); setOpen(false); }}
+        />
+      )}
+      {open && MODE === 'create' && (
+        <LessonDetailDialog
+          mode="create"
+          teacherId="TA"
+          dayOfWeek={0}
+          startMinute={SLOT_START}
           onClose={() => setOpen(false)}
           onSaved={() => { setSaved((n) => n + 1); setOpen(false); }}
         />
@@ -107,6 +139,8 @@ function Harness() {
         data-saved={saved}
         data-subject={subject.id}
         data-slot-ids={[subject, ...slotSiblings].map((l) => l.id).join(',')}
+        data-slot-start={SLOT_START}
+        data-mode={MODE}
         data-decoy-ids={decoys.map((l) => l.id).join(',')}
       />
       <div data-testid="ready" />

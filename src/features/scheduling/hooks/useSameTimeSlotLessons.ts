@@ -2,16 +2,18 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import * as lessonsSvc from '@/services/scheduling/lessons.service';
 import { schedulingKeys } from '../api/queryKeys';
-import { findSameTimeSlotLessons } from '../utils/sameTimeSlot';
+import { findSlotTargets } from '../utils/sameTimeSlot';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
 
 /**
- * The lessons that share `subject`'s time slot — see findSameTimeSlotLessons
- * for what that means.
+ * The lessons that share `subject`'s time slot — same weekday, same start
+ * minute, any teacher. See findSlotTargets.
  *
- * The slot spans every day of the week, so the per-day grid query
- * (schedulingKeys.grid(day)) cannot answer it: it only ever holds one day.
- * This reads the two whole-table queries the app already defines —
+ * It reads the whole lessons table rather than the per-day grid query
+ * (schedulingKeys.grid(day)) because the grid's rows are the UI's FILTERED
+ * view: a lesson hidden by a teacher or course filter is still in the slot
+ * and would still be changed, so a bulk edit must count it. This uses the two
+ * whole-table queries the app already defines —
  * fetchLessons and fetchLessonParticipants, under their existing keys — and
  * joins them here. No new service function, no new endpoint, and any other
  * screen already using those keys shares the cache.
@@ -50,10 +52,10 @@ export function useSameTimeSlotLessons(subject: LessonWithParticipants | null) {
       participants: byLessonId.get(lesson.id) ?? [],
     }));
 
-    // The subject comes from the grid, which has already applied this
-    // occurrence's exceptions; prefer that copy over the raw row so the
-    // displayed time matches what was clicked.
-    return findSameTimeSlotLessons(subject, withParticipants);
+    // Resolved from the subject's ORIGINAL day and start, once. The caller
+    // holds on to this list for the whole operation: recomputing it after the
+    // first lesson has moved would resolve the destination slot instead.
+    return findSlotTargets(subject, withParticipants);
   }, [subject, lessonsQuery.data, participantsQuery.data]);
 
   return {

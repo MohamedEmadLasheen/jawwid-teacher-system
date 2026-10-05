@@ -14,53 +14,60 @@ export function isLiveLesson(lesson: Pick<LessonWithParticipants, 'lifecycleStat
   return (LIVE_LIFECYCLES as readonly string[]).includes(lesson.lifecycleStatus);
 }
 
+/** The coordinates that define a slot: one weekday, one start minute. */
+export interface TimeSlot {
+  dayOfWeek: number;
+  startMinute: number;
+}
+
 /**
- * The lessons that count as "the same time slot" as `subject`.
+ * THE definition of "the same time slot": same day of week, same start
+ * minute, ANY teacher.
  *
- * THE DEFINITION, because the schema did not have one: a lesson is in the
- * slot when it starts at the same minute of the day AND shares at least one
- * student with the subject. Day of week is deliberately NOT part of the
- * match — the set is the student's recurring weekly pattern at that time
- * ("Ahmed's 3:00 PM lessons"), which is the thing an admin means when they
- * move "the 3 o'clock" to 4 o'clock.
+ * On Sunday at 10:00, teacher A/student X, teacher B/student Y and teacher
+ * C/student Z are one slot — the vertical column of the grid. Sunday 10:30,
+ * Monday 10:00 and Sunday 11:00 are different slots. Neither the teacher nor
+ * the student participates in membership: two lessons are in the same slot
+ * when they happen at the same time on the same weekday, full stop.
  *
- * Two readings were rejected:
- *   * same teacher + day + start — the EXCLUDE constraint on
- *     (teacher_id, day_of_week, time_range) makes that set exactly one
- *     lesson, always, so the scope would be a no-op dressed up as a bulk
- *     action.
- *   * same day + start across every teacher — a vertical column of unrelated
- *     students, which no single edit can sensibly apply to (changing the
- *     teacher would collide them all into one).
+ * `slot` must be the ORIGINAL day and start of the lesson being edited, read
+ * before anything is written. The caller resolves the target set once and
+ * reuses it: recomputing after the first lesson moves would resolve the
+ * DESTINATION slot instead and could sweep in lessons that merely happen to
+ * live at the new time.
  *
- * The subject itself is always included and always first, so callers can use
- * the result as the complete work list and `length` as an honest count.
- *
- * Matching is by participant student id, not by name: two students may share
- * a name, and a lesson may be a group lesson, where sharing ANY student is
- * enough to make it the same weekly commitment.
+ * Only live lessons are returned, so ended and paused records — history —
+ * are never modified.
  */
-export function findSameTimeSlotLessons(
+export function findLessonsInSlot(
+  slot: TimeSlot,
+  allLessons: LessonWithParticipants[]
+): LessonWithParticipants[] {
+  return allLessons
+    .filter(
+      (lesson) =>
+        isLiveLesson(lesson) &&
+        lesson.dayOfWeek === slot.dayOfWeek &&
+        lesson.startMinute === slot.startMinute
+    )
+    .sort((a, b) => a.id.localeCompare(b.id));
+}
+
+/**
+ * The slot's lessons with `subject` guaranteed present and first.
+ *
+ * The subject is pinned rather than assumed: the grid overlays this
+ * occurrence's lesson_exceptions onto what it draws, so a lesson rescheduled
+ * for this one date is displayed at its override time while its stored row
+ * still holds the original. Resolving the slot from what the admin clicked
+ * and then pinning the subject keeps the edited lesson in its own target set
+ * either way.
+ */
+export function findSlotTargets(
   subject: LessonWithParticipants,
   allLessons: LessonWithParticipants[]
 ): LessonWithParticipants[] {
-  const subjectStudentIds = new Set(subject.participants.map((p) => p.studentId));
-
-  // A lesson with no participants can only ever match itself; without this
-  // the empty-intersection test would quietly pull in every other orphan
-  // lesson that happens to start at the same minute.
-  if (subjectStudentIds.size === 0) return [subject];
-
-  const others = allLessons.filter(
-    (lesson) =>
-      lesson.id !== subject.id &&
-      isLiveLesson(lesson) &&
-      lesson.startMinute === subject.startMinute &&
-      lesson.participants.some((p) => subjectStudentIds.has(p.studentId))
-  );
-
-  // Stable, readable order: by day, then by lesson id so repeated runs agree.
-  others.sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.id.localeCompare(b.id));
-
-  return [subject, ...others];
+  const slot: TimeSlot = { dayOfWeek: subject.dayOfWeek, startMinute: subject.startMinute };
+  const inSlot = findLessonsInSlot(slot, allLessons).filter((l) => l.id !== subject.id);
+  return [subject, ...inSlot];
 }
