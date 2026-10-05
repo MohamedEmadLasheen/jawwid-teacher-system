@@ -44,7 +44,7 @@ export function ScheduleGridRow({ row, columnWidth, teacherColumnWidth, isCompac
     <div className="flex h-full border-b border-gray-100">
       <div
         style={{ width: teacherColumnWidth }}
-        className={`shrink-0 sticky start-0 z-30 bg-white border-e border-gray-200 flex items-center ${isCompact ? 'px-2' : 'px-3'}`}
+        className={`shrink-0 sticky start-0 z-30 bg-white border-e border-gray-200 flex items-center ${isCompact ? 'px-1.5' : 'px-3'}`}
       >
         {/* Two lines before ellipsis on compact: most teacher names fit, and a
             name the admin cannot read defeats the point of a frozen column. */}

@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { DndContext } from '@dnd-kit/core';
 import '@/index.css';
-import '@/i18n';
+import i18n from '@/i18n';
 
 import { ScheduleTimeHeader } from '@/features/scheduling/components/ScheduleTimeHeader';
 import { ScheduleGridRow } from '@/features/scheduling/components/ScheduleGridRow';
@@ -11,7 +11,7 @@ import { CurrentTimeIndicator } from '@/features/scheduling/components/CurrentTi
 import { timelineWidth } from '@/features/scheduling/utils/timelineGeometry';
 import { GRID_ROW_HEIGHT, GRID_TEACHER_COLUMN_WIDTH } from '@/features/scheduling/constants/schedulingConstants';
 import { useScheduleMetrics } from '@/features/scheduling/hooks/useScheduleMetrics';
-import { GRID_COLUMNS } from '@/features/scheduling/constants/schedulingConstants';
+import { DAYS_OF_WEEK, GRID_COLUMNS } from '@/features/scheduling/constants/schedulingConstants';
 import { schedulingKeys } from '@/features/scheduling/api/queryKeys';
 import { useSupervisorStore } from '@/store/supervisorStore';
 
@@ -34,6 +34,21 @@ const DIR = (params.get('dir') === 'rtl' ? 'rtl' : 'ltr') as 'ltr' | 'rtl';
 const COLUMN_WIDTH = Number(params.get('cw') ?? 96);
 /** ?responsive=1 drops the fixed cw and uses the real useScheduleMetrics ladder. */
 const RESPONSIVE = params.get('responsive') === '1';
+
+// The frozen column is sized from its content, so the probe rows below must
+// hold the REAL strings it has to carry: the seven translated day names (day
+// grid) and the roster's own teacher names (master grid). Arabic is the
+// shorter label set; English "Wednesday" and the name "Mohammed" are the
+// single words that set the floor, because a single word cannot wrap.
+i18n.changeLanguage(DIR === 'rtl' ? 'ar' : 'en');
+
+const ROSTER_NAMES = [
+  'Arwa Ahmed', 'Ashraf', 'Asmaa Magdy', 'Aya Mustafa', 'Doaa Zakaria',
+  'Ghada Ragab', 'Hend Mohammed', 'Menna Ebrahim', 'Menna Ramadan',
+  'Mohamed Hussein', 'Rokaya Ramadan', 'Yasmeen Saad', 'Yasmin Asaad',
+  'Zainab Hazem',
+];
+const LABEL_PROBES = [...DAYS_OF_WEEK.map((d) => i18n.t(d.labelKey)), ...ROSTER_NAMES];
 
 const SHIFT_START = 12 * 60;   // 12:00 — full-time working-window start
 const SHIFT_END = 19 * 60;     // 19:00 — full-time working-window end
@@ -125,6 +140,25 @@ function Harness() {
             </div>
           </div>
         </div>
+      </div>
+      {/* Label-clipping probe. Rendered through the real ScheduleGridRow so the
+          padding, font, border and truncation classes are the production ones;
+          no lessons or availability, because only the frozen label cell is
+          under test here. */}
+      <div className="border rounded-lg overflow-hidden bg-white mt-2" style={{ width: teacherColumnWidth }}>
+        {LABEL_PROBES.map((text) => (
+          <div key={text} style={{ height: rowHeight }} data-testid="label-row" data-label={text}>
+            <ScheduleGridRow
+              row={{ teacher, availability: [], lessons: [] }}
+              columnWidth={columnWidth}
+              teacherColumnWidth={teacherColumnWidth}
+              isCompact={isCompact}
+              label={text}
+              onEmptyClick={() => {}}
+              onLessonClick={() => {}}
+            />
+          </div>
+        ))}
       </div>
       <div
         data-testid="metrics"

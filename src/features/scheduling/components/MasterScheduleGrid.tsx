@@ -165,7 +165,7 @@ export function MasterScheduleGrid({ onEmptyClick, onLessonClick, onProposeMove 
                           <div className="flex h-full items-center border-b border-gray-200 bg-muted/60">
                             <div
                               style={{ width: teacherColumnWidth }}
-                              className="shrink-0 sticky start-0 z-30 bg-muted/60 h-full flex items-center px-2"
+                              className="shrink-0 sticky start-0 z-30 bg-muted/60 h-full flex items-center px-1.5"
                             >
                               <span className="text-[11px] font-bold uppercase tracking-wide truncate">
                                 {item.name}
