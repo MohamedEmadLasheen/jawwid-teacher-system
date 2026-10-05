@@ -1,4 +1,6 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useApplyScheduleChange } from './useScheduleRpc';
+import { schedulingKeys } from '../api/queryKeys';
 import { nextDateForDayOfWeek } from '../utils/nextDateForDayOfWeek';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
 import type { DayOfWeek } from '@/lib/types';
@@ -33,6 +35,19 @@ export type LessonChangeScope = 'this_occurrence' | 'all_future';
  */
 export function useLessonActions() {
   const applyChange = useApplyScheduleChange();
+  const queryClient = useQueryClient();
+
+  /**
+   * Re-read the schedule from the database.
+   *
+   * Needed on the FAILURE path specifically: a successful write invalidates
+   * the scheduling queries on its own, but a bulk run that dies partway
+   * leaves the screen showing a mixture of applied and unapplied lessons with
+   * no refetch behind the one that failed. Reconciling makes the UI show what
+   * the database actually holds, so the admin can see the real state before
+   * deciding what to do about it.
+   */
+  const reconcile = () => queryClient.invalidateQueries({ queryKey: schedulingKeys.all });
 
   /**
    * Moves a lesson's time and/or teacher. Only the fields that actually
@@ -44,11 +59,16 @@ export function useLessonActions() {
     lesson: LessonWithParticipants;
     newStartMinute?: number;
     newTeacherId?: string;
+    newDayOfWeek?: DayOfWeek;
+    newDurationMinutes?: number;
     scope: LessonChangeScope;
   }) => {
-    const { lesson, newStartMinute, newTeacherId, scope } = args;
+    const { lesson, newStartMinute, newTeacherId, newDayOfWeek, newDurationMinutes, scope } = args;
     const timeChanged = newStartMinute !== undefined && newStartMinute !== lesson.startMinute;
     const teacherChanged = newTeacherId !== undefined && newTeacherId !== lesson.teacherId;
+    const dayChanged = newDayOfWeek !== undefined && newDayOfWeek !== lesson.dayOfWeek;
+    const durationChanged =
+      newDurationMinutes !== undefined && newDurationMinutes !== lesson.durationMinutes;
 
     return applyChange.mutateAsync({
       action: 'move_lesson',
@@ -56,7 +76,11 @@ export function useLessonActions() {
         lesson_id: lesson.id,
         new_start_minute: timeChanged ? newStartMinute : undefined,
         new_teacher_id: teacherChanged ? newTeacherId : undefined,
+        new_day_of_week: dayChanged ? newDayOfWeek : undefined,
+        new_duration_minutes: durationChanged ? newDurationMinutes : undefined,
         scope,
+        // A dated exception needs the date of the occurrence being changed,
+        // which follows the lesson's own day — not the new one.
         occurrence_date:
           scope === 'this_occurrence'
             ? nextDateForDayOfWeek(lesson.dayOfWeek as DayOfWeek)
@@ -86,10 +110,40 @@ export function useLessonActions() {
       payload: { lesson_id: args.lesson.id },
     });
 
+  /**
+   * Applies one action across several lessons, in order, and reports what
+   * happened to each.
+   *
+   * apply_schedule_change is atomic per call but there is no multi-lesson
+   * transaction, so a bulk edit is N calls and the Nth can fail (a conflict
+   * on one day) after the first N-1 have committed. Rather than hide that,
+   * each outcome is returned: the caller shows exactly which lessons changed
+   * and which did not. Callers are expected to pre-check conflicts so this
+   * stays the rare path, and it stops on the first failure rather than
+   * ploughing on, so the damage is a prefix and not a scatter.
+   */
+  const applyToEach = async <T>(
+    lessons: T[],
+    run: (lesson: T) => Promise<unknown>
+  ): Promise<{ succeeded: T[]; failed: { lesson: T; error: unknown } | null }> => {
+    const succeeded: T[] = [];
+    for (const lesson of lessons) {
+      try {
+        await run(lesson);
+        succeeded.push(lesson);
+      } catch (error) {
+        return { succeeded, failed: { lesson, error } };
+      }
+    }
+    return { succeeded, failed: null };
+  };
+
   return {
     moveLesson,
     cancelOccurrence,
     endLesson,
+    applyToEach,
+    reconcile,
     isPending: applyChange.isPending,
     error: applyChange.error,
     reset: applyChange.reset,

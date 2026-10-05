@@ -446,13 +446,15 @@ test('view details opens the existing LessonDetailDialog', async ({ page }) => {
   await tapLesson(page, SUBJECT_START);
   await page.locator('[data-testid="qa-view-details"]').click();
 
-  // Quick Actions hands over; the full dialog takes the lesson.
+  // Quick Actions hands over; the Lesson Details card takes the lesson.
   await expect(page.locator('[data-testid="quick-actions"]')).toHaveCount(0);
-  const dialog = page.locator('[role="dialog"]');
-  await expect(dialog).toBeVisible();
-  // Capabilities only the full dialog has.
-  await expect(dialog).toContainText('Students');
-  expect(await dialog.locator('input[type="time"]').count()).toBeGreaterThan(0);
+  await expect(page.locator('[data-testid="lesson-edit"]')).toBeVisible();
+  // The card's own scheduling controls, which the sheet does not have: day
+  // and duration, plus the separated removal section. (It no longer carries
+  // a raw <input type="time"> — the redesign replaced that with a Select.)
+  for (const id of ['edit-teacher', 'edit-day', 'edit-time', 'edit-duration', 'delete-section']) {
+    await expect(page.locator(`[data-testid="${id}"]`)).toBeVisible();
+  }
   // Opening it writes nothing.
   expect(await appliedActions(page)).toHaveLength(0);
 });
@@ -518,14 +520,13 @@ test('desktop regression: a lesson click still opens the full dialog, not the sh
 
   await tapLesson(page, SUBJECT_START);
 
-  // The full dialog, not the sheet.
-  await expect(page.locator('[role="dialog"]')).toBeVisible();
+  // The Lesson Details card, not the sheet.
+  await expect(page.locator('[data-testid="lesson-edit"]')).toBeVisible();
   expect(await page.locator('[data-testid="quick-actions"]').count()).toBe(0);
-  // And its desktop capabilities are intact, including the time input the
-  // mobile flow deliberately avoids.
-  const dialog = page.locator('[role="dialog"]');
-  await expect(dialog).toContainText('Students');
-  expect(await dialog.locator('input[type="time"]').count()).toBeGreaterThan(0);
+  // Its scheduling controls are intact.
+  for (const id of ['edit-teacher', 'edit-day', 'edit-time', 'edit-duration', 'delete-section']) {
+    await expect(page.locator(`[data-testid="${id}"]`)).toBeVisible();
+  }
   expect(await appliedActions(page)).toHaveLength(0);
 });
 
@@ -536,7 +537,7 @@ test('mobile routing: the same click below 768px opens the sheet instead', async
 
   await tapLesson(page, SUBJECT_START);
   await waitForSheetSettled(page);
-  expect(await page.locator('[role="dialog"] input[type="time"]').count()).toBe(0);
+  expect(await page.locator('[data-testid="lesson-edit"]').count()).toBe(0);
 });
 
 test('closing the sheet without confirming mutates nothing', async ({ page }) => {

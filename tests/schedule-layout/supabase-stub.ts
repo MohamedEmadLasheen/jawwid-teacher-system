@@ -25,6 +25,37 @@ interface SupabaseStubControl {
   tableOps: StubTableOp[];
   conflict: boolean;
   conflictMessage: string;
+  /**
+   * Lesson ids whose conflict check should come back positive, so a test can
+   * make ONE member of a bulk target set fail. A global flag cannot express
+   * "the third target conflicts", which is exactly the case that proves a
+   * bulk edit writes nothing when preflight finds a problem.
+   */
+  conflictLessonIds: string[];
+  /**
+   * Lesson ids whose apply_schedule_change WRITE should throw, after
+   * preflight has already passed. This is the only way to exercise the
+   * partial-failure path: a runtime error mid-batch, which no amount of
+   * validation can rule out while the mutation is N calls rather than one
+   * transaction.
+   */
+  failWriteForLessonIds: string[];
+  /**
+   * Hold table reads for this long before resolving. The only way to observe
+   * the window where a query is genuinely still loading — which is where the
+   * card used to claim a lesson was alone in its slot.
+   */
+  tableDelayMs: number;
+  /**
+   * Seeded table contents, in DB row shape (snake_case), keyed by table name.
+   *
+   * Without this a harness could only pre-fill React Query's cache, which
+   * survives exactly until the first mutation: useApplyScheduleChange
+   * invalidates the scheduling keys on success, the queries refetch, and the
+   * stub hands back [] — so a second action in the same session sees an empty
+   * schedule. Serving the rows here keeps a multi-step test honest.
+   */
+  tables: Record<string, unknown[]>;
   reset: () => void;
 }
 
@@ -33,9 +64,16 @@ const control: SupabaseStubControl = {
   tableOps: [],
   conflict: false,
   conflictMessage: 'Teacher is already booked at this time.',
+  conflictLessonIds: [],
+  failWriteForLessonIds: [],
+  tableDelayMs: 0,
+  tables: {},
   reset() {
     control.rpcCalls.length = 0;
     control.tableOps.length = 0;
+    control.conflictLessonIds.length = 0;
+    control.failWriteForLessonIds.length = 0;
+    control.conflict = false;
   },
 };
 
@@ -46,11 +84,16 @@ if (typeof window !== 'undefined') {
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 function chain(table: string): any {
-  const settled = Promise.resolve({ data: [], error: null });
-  const proxy: any = new Proxy(settled, {
-    get(target, prop) {
+  const rows = () => control.tables[table] ?? [];
+  const settled = () => Promise.resolve({ data: rows(), error: null });
+  const proxy: any = new Proxy({} as any, {
+    get(_target, prop) {
+      // The table this builder is for, so the fetchAllRows stub below can
+      // resolve the right rows without parsing a query.
+      if (prop === '__table') return table;
       if (prop === 'then' || prop === 'catch' || prop === 'finally') {
-        return (target as any)[prop].bind(target);
+        const p = settled();
+        return (p as any)[prop].bind(p);
       }
       return (..._args: unknown[]) => {
         control.tableOps.push({ table, op: String(prop) });
@@ -63,13 +106,16 @@ function chain(table: string): any {
 
 /** Shapes mirror the real RPCs' snake_case payloads, so the service-layer
  *  mappers under test (toConflictResult) run for real. */
-function rpcResult(fn: string): unknown {
+function rpcResult(fn: string, args?: unknown): unknown {
   if (fn === 'check_schedule_conflict') {
+    const excluded = (args as { p_exclude_lesson_id?: string } | undefined)?.p_exclude_lesson_id;
+    const hasConflict =
+      control.conflict || (!!excluded && control.conflictLessonIds.includes(excluded));
     return {
-      has_conflict: control.conflict,
-      teacher_conflict: control.conflict ? { lesson_id: 'other-lesson', teacher_id: 'T1' } : null,
+      has_conflict: hasConflict,
+      teacher_conflict: hasConflict ? { lesson_id: 'other-lesson', teacher_id: 'T1' } : null,
       student_conflicts: [],
-      message: control.conflict ? control.conflictMessage : 'No conflicts.',
+      message: hasConflict ? control.conflictMessage : 'No conflicts.',
     };
   }
   if (fn === 'apply_schedule_change') {
@@ -91,9 +137,32 @@ export const supabase: any = {
   from: (table: string) => chain(table),
   rpc: (fn: string, args: unknown) => {
     control.rpcCalls.push({ fn, args });
-    return Promise.resolve({ data: rpcResult(fn), error: null });
+    if (fn === 'apply_schedule_change') {
+      const lessonId = (args as { p_payload?: { lesson_id?: string } } | undefined)?.p_payload?.lesson_id;
+      if (lessonId && control.failWriteForLessonIds.includes(lessonId)) {
+        return Promise.resolve({
+          data: null,
+          error: { message: `simulated write failure for ${lessonId}` },
+        });
+      }
+    }
+    return Promise.resolve({ data: rpcResult(fn, args), error: null });
   },
   auth: {},
 };
 export const supabaseAdmin: any = supabase;
-export async function fetchAllRows<T>(): Promise<T[]> { return []; }
+/**
+ * Mirrors the real paginating helper closely enough for the services under
+ * test: it calls the builder exactly as they do, then serves the seeded rows
+ * for whichever table the builder was for. One page — fixtures are small.
+ */
+export async function fetchAllRows<T>(
+  buildQuery: (from: number, to: number) => unknown
+): Promise<T[]> {
+  const builder = buildQuery(0, 999) as { __table?: string } | undefined;
+  const table = builder?.__table;
+  if (control.tableDelayMs > 0) {
+    await new Promise((resolve) => setTimeout(resolve, control.tableDelayMs));
+  }
+  return ((table ? control.tables[table] : []) ?? []) as T[];
+}
