@@ -1,59 +1,45 @@
-import { useDroppable } from '@dnd-kit/core';
 import { DraggableLessonCard } from './DraggableLessonCard';
 import { LessonHoverCard } from './LessonHoverCard';
-import { isColumnInPrimeTime } from '../utils/primeTime';
-import type { RowCellState } from '../utils/computeRowCells';
+import { minuteToX, minuteSpanToWidth } from '../utils/timelineGeometry';
+import { GRID_START_MINUTE, GRID_END_MINUTE } from '../constants/schedulingConstants';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
 
 interface LessonCellProps {
-  teacherId: string;
-  columnStart: number;
+  lesson: LessonWithParticipants;
   columnWidth: number;
-  state: Exclude<RowCellState, { kind: 'continuation' }>;
-  onEmptyClick: (teacherId: string, startMinute: number) => void;
   onLessonClick: (lesson: LessonWithParticipants) => void;
 }
 
-/** Continuation cells (the rest of a spanning lesson) are filtered out by
- * ScheduleGridRow before reaching here — the lesson's own cell already
- * reserves that width, so rendering a placeholder for them would double it. */
-export function LessonCell({ teacherId, columnStart, columnWidth, state, onEmptyClick, onLessonClick }: LessonCellProps) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: `${teacherId}:${columnStart}`,
-    data: { teacherId, startMinute: columnStart },
-  });
+/**
+ * A lesson positioned on the canonical timeline: its left edge is its real
+ * start minute and its width is its real duration, both resolved through
+ * timelineGeometry — the same functions the time header uses for its column
+ * boundaries. So a 15:30 lesson starts exactly under the 15:30 label, and a
+ * 40-minute lesson ends exactly under 16:40 instead of being rounded up to
+ * the next 30-minute column.
+ */
+export function LessonCell({ lesson, columnWidth, onLessonClick }: LessonCellProps) {
+  const endMinute = lesson.startMinute + lesson.durationMinutes;
 
-  const primeTime = isColumnInPrimeTime(columnStart);
+  // Entirely outside the visible window — nothing to draw.
+  if (endMinute <= GRID_START_MINUTE || lesson.startMinute >= GRID_END_MINUTE) return null;
 
-  if (state.kind === 'lesson') {
-    return (
-      <div
-        ref={setNodeRef}
-        style={{ width: columnWidth * state.span }}
-        className={`shrink-0 h-full border-e border-gray-100 p-0.5 ${isOver ? 'bg-blue-50' : ''}`}
-      >
-        <LessonHoverCard lesson={state.lesson}>
-          <DraggableLessonCard lesson={state.lesson} onClick={() => onLessonClick(state.lesson)} />
-        </LessonHoverCard>
-      </div>
-    );
-  }
-
-  const isAvailable = state.kind === 'available';
-
-  // No availability record for a teacher (common for the legacy-imported
-  // schedule, since the source spreadsheet never captured working hours)
-  // must not block booking — availability is informational shading only,
-  // every empty cell is a valid slot to create a lesson in.
   return (
-    <button
-      ref={setNodeRef}
-      type="button"
-      onClick={() => onEmptyClick(teacherId, columnStart)}
-      style={{ width: columnWidth }}
-      className={`shrink-0 h-full border-e border-gray-100 transition-colors hover:bg-gray-50 cursor-pointer ${
-        isOver ? 'bg-blue-50' : primeTime ? 'bg-amber-50/60' : isAvailable ? '' : 'bg-gray-50/80'
-      }`}
-    />
+    <div
+      className="absolute top-0 h-full p-0.5 z-20"
+      style={{
+        // insetInlineStart, never `left`: the time axis is a flex row, so it
+        // reverses under dir="rtl" (Arabic). A physical `left` would stay
+        // anchored to the viewport's left edge and mirror away from the
+        // header. The logical inset resolves to `right` in RTL, which is
+        // exactly where the flex header puts the same minute.
+        insetInlineStart: minuteToX(lesson.startMinute, columnWidth),
+        width: minuteSpanToWidth(lesson.startMinute, endMinute, columnWidth),
+      }}
+    >
+      <LessonHoverCard lesson={lesson}>
+        <DraggableLessonCard lesson={lesson} onClick={() => onLessonClick(lesson)} />
+      </LessonHoverCard>
+    </div>
   );
 }

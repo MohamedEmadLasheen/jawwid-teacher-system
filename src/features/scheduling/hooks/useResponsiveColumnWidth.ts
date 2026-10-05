@@ -5,7 +5,14 @@ const MIN_COLUMN_WIDTH = 40;
 
 /** Computes a column width that fits every column into the container's
  * width (minimal horizontal scrolling), never shrinking below a legible
- * minimum — below that, horizontal scroll takes back over naturally. */
+ * minimum — below that, horizontal scroll takes back over naturally.
+ *
+ * The returned width is always a whole number of pixels, and the entire
+ * header/lesson alignment guarantee rests on that: the header lays out N
+ * fixed-width columns so boundary k sits at exactly `k * columnWidth`, and
+ * timelineGeometry's `minuteToX` of that boundary minute evaluates to the
+ * same integer. A fractional width would let the two accumulate different
+ * rounding and drift apart across the axis. */
 export function useResponsiveColumnWidth(containerRef: RefObject<HTMLElement | null>, columnCount: number): number {
   const [width, setWidth] = useState(GRID_COLUMN_WIDTH);
 

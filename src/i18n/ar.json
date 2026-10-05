@@ -718,7 +718,11 @@
       "occupancyPct": "نسبة الإشغال"
     },
     "allStudents": "كل الطلاب",
-    "filterSelectedCount": "{{count}} محدد"
+    "filterSelectedCount": "{{count}} محدد",
+    "dayColumn": "اليوم",
+    "teacherColumn": "المعلم",
+    "freeCapacity": "متاح (داخل الشيفت)",
+    "outsideShift": "خارج الشيفت"
   },
   "operations": {
     "attendance": {
