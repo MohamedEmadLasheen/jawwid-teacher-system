@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/jpeg" href="/assets/jawwid-logo.jpg" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>أكاديمية جوِّد — نظام إدارة المعلمين والجودة</title>
     <meta name="description" content="منصة إدارة المعلمين والإشراف والجودة لأكاديمية جوِّد" />
     <meta name="author" content="Jawwid Academy" />
@@ -24,6 +24,17 @@
 
     <!-- PWA manifest -->
     <link rel="manifest" href="/manifest.json" />
+
+    <!-- Installed-app (Home Screen) metadata.
+         `mobile-web-app-capable` is the standard; the `apple-` twin is still
+         what iOS < 16.4 reads to launch without Safari chrome. The translucent
+         status bar pairs with `viewport-fit=cover` above: the app paints edge
+         to edge and the safe-area insets in index.css keep content clear of
+         the notch and home indicator. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="جوِّد" />
   </head>
 
   <body>

@@ -81,7 +81,7 @@ function DataLoader() {
 // Full-screen spinner shown during the initial Supabase session check
 function AppLoadingScreen() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary to-primary/80 flex flex-col items-center justify-center gap-4">
+    <div className="app-viewport-min bg-gradient-to-br from-primary to-primary/80 flex flex-col items-center justify-center gap-4">
       <AcademyLogo size={72} ring className="animate-pulse" />
       <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin" />
     </div>

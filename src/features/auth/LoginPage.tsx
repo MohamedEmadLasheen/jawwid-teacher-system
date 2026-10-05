@@ -62,10 +62,10 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center p-4">
+    <div className="app-viewport-min bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center p-4">
       <button
         onClick={toggleLanguage}
-        className="fixed top-4 end-4 flex items-center gap-2 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-full text-sm transition-colors"
+        className="fixed top-[calc(1rem+env(safe-area-inset-top))] end-4 flex items-center gap-2 px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white rounded-full text-sm transition-colors"
       >
         <Globe className="h-4 w-4" />
         {isAr ? 'English' : 'العربية'}

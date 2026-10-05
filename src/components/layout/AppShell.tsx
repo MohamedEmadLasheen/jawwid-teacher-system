@@ -25,7 +25,9 @@ function AppFooter() {
   const { branding } = useBrandingStore();
 
   return (
-    <footer className="border-t border-gray-200 bg-white px-4 py-2 flex items-center justify-between print:flex shrink-0">
+    // The footer is the app's bottom edge, so it carries the home-indicator
+    // inset — the white bar simply extends into it instead of leaving a strip.
+    <footer className="border-t border-gray-200 bg-white px-4 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] flex items-center justify-between print:flex shrink-0">
       <div className="flex items-center gap-2">
         <AcademyLogo size={22} />
         <div>
@@ -54,7 +56,11 @@ export function AppShell() {
   const title = t(titleKey);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#F8F8F8]">
+    // bg-primary is only ever visible in the safe-area strips an installed iOS
+    // app leaves around the content (0px everywhere else); teal there matches
+    // the header and keeps the translucent status bar legible. The page
+    // background moves onto the content column below.
+    <div className="app-viewport flex overflow-hidden bg-primary">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -67,6 +73,9 @@ export function AppShell() {
       <div
         className={cn(
           'fixed inset-y-0 start-0 z-30 md:relative md:flex md:flex-shrink-0 transition-transform duration-300',
+          // The drawer is fixed, so it escapes the shell's safe-area padding
+          // and has to keep clear of the status bar / home indicator itself.
+          'pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] md:pt-0 md:pb-0',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
           // RTL: drawer slides from right
           'rtl:translate-x-full rtl:md:translate-x-0',
@@ -77,7 +86,7 @@ export function AppShell() {
       </div>
 
       {/* Main content */}
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden bg-[#F8F8F8]">
         <DemoModeBanner />
         <Header onMenuToggle={() => setSidebarOpen(!sidebarOpen)} title={title} />
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 md:p-6">
