@@ -10,6 +10,8 @@ import { ScheduleGridRow } from '@/features/scheduling/components/ScheduleGridRo
 import { CurrentTimeIndicator } from '@/features/scheduling/components/CurrentTimeIndicator';
 import { timelineWidth } from '@/features/scheduling/utils/timelineGeometry';
 import { GRID_ROW_HEIGHT, GRID_TEACHER_COLUMN_WIDTH } from '@/features/scheduling/constants/schedulingConstants';
+import { useScheduleMetrics } from '@/features/scheduling/hooks/useScheduleMetrics';
+import { GRID_COLUMNS } from '@/features/scheduling/constants/schedulingConstants';
 import { schedulingKeys } from '@/features/scheduling/api/queryKeys';
 import { useSupervisorStore } from '@/store/supervisorStore';
 
@@ -30,6 +32,8 @@ import { useSupervisorStore } from '@/store/supervisorStore';
 const params = new URLSearchParams(window.location.search);
 const DIR = (params.get('dir') === 'rtl' ? 'rtl' : 'ltr') as 'ltr' | 'rtl';
 const COLUMN_WIDTH = Number(params.get('cw') ?? 96);
+/** ?responsive=1 drops the fixed cw and uses the real useScheduleMetrics ladder. */
+const RESPONSIVE = params.get('responsive') === '1';
 
 const SHIFT_START = 12 * 60;   // 12:00 — full-time working-window start
 const SHIFT_END = 19 * 60;     // 19:00 — full-time working-window end
@@ -85,7 +89,12 @@ function Harness() {
     document.documentElement.lang = DIR === 'rtl' ? 'ar' : 'en';
   }, []);
 
-  const contentWidth = GRID_TEACHER_COLUMN_WIDTH + timelineWidth(COLUMN_WIDTH);
+  const live = useScheduleMetrics(scrollRef, GRID_COLUMNS.length);
+  const columnWidth = RESPONSIVE ? live.columnWidth : COLUMN_WIDTH;
+  const teacherColumnWidth = RESPONSIVE ? live.teacherColumnWidth : GRID_TEACHER_COLUMN_WIDTH;
+  const rowHeight = RESPONSIVE ? live.rowHeight : GRID_ROW_HEIGHT;
+  const isCompact = RESPONSIVE ? live.isCompact : false;
+  const contentWidth = teacherColumnWidth + timelineWidth(columnWidth);
 
   return (
     <div style={{ padding: 8 }}>
@@ -94,17 +103,19 @@ function Harness() {
           ref={scrollRef}
           data-testid="scroller"
           className="overflow-auto"
-          style={{ maxHeight: 220, width: 640 }}
+          style={{ maxHeight: 220, width: RESPONSIVE ? '100%' : 640 }}
         >
           <div style={{ width: contentWidth, position: 'relative' }}>
-            <ScheduleTimeHeader columnWidth={COLUMN_WIDTH} cornerLabel="Day" />
+            <ScheduleTimeHeader columnWidth={columnWidth} teacherColumnWidth={teacherColumnWidth} isCompact={isCompact} cornerLabel="Day" />
             <div style={{ position: 'relative' }}>
-              <CurrentTimeIndicator columnWidth={COLUMN_WIDTH} height={GRID_ROW_HEIGHT} />
+              <CurrentTimeIndicator columnWidth={columnWidth} teacherColumnWidth={teacherColumnWidth} height={rowHeight} />
               <DndContext>
-                <div style={{ height: GRID_ROW_HEIGHT }} data-testid="row">
+                <div style={{ height: rowHeight }} data-testid="row">
                   <ScheduleGridRow
                     row={{ teacher, availability: availability as any, lessons }}
-                    columnWidth={COLUMN_WIDTH}
+                    columnWidth={columnWidth}
+                    teacherColumnWidth={teacherColumnWidth}
+                    isCompact={isCompact}
                     label="Sunday"
                     onEmptyClick={() => {}}
                     onLessonClick={() => {}}
@@ -115,6 +126,13 @@ function Harness() {
           </div>
         </div>
       </div>
+      <div
+        data-testid="metrics"
+        data-column-width={columnWidth}
+        data-teacher-column-width={teacherColumnWidth}
+        data-row-height={rowHeight}
+        data-compact={String(isCompact)}
+      />
       <div data-testid="ready" />
     </div>
   );

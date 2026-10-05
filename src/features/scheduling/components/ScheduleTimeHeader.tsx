@@ -1,10 +1,14 @@
 import { minuteToDisplayLabel } from '../utils/timeGrid';
 import { isColumnInPrimeTime } from '../utils/primeTime';
 import { timelineWidth } from '../utils/timelineGeometry';
-import { GRID_COLUMNS, GRID_TEACHER_COLUMN_WIDTH } from '../constants/schedulingConstants';
+import { GRID_COLUMNS } from '../constants/schedulingConstants';
 
 interface ScheduleTimeHeaderProps {
   columnWidth: number;
+  /** Width of the frozen leading column — responsive, from useScheduleMetrics. */
+  teacherColumnWidth: number;
+  /** Below desktop: larger labels, since the columns are wider there. */
+  isCompact?: boolean;
   /** Label for the frozen leading column (e.g. "Day" / "Teacher"). */
   cornerLabel?: string;
 }
@@ -19,11 +23,11 @@ interface ScheduleTimeHeaderProps {
  * timelineGeometry turns into lesson positions, so label boundaries and
  * lesson edges coincide by construction rather than by coincidence.
  */
-export function ScheduleTimeHeader({ columnWidth, cornerLabel }: ScheduleTimeHeaderProps) {
+export function ScheduleTimeHeader({ columnWidth, teacherColumnWidth, isCompact = false, cornerLabel }: ScheduleTimeHeaderProps) {
   return (
     <div className="flex sticky top-0 z-40 bg-gray-50 border-b border-gray-200">
       <div
-        style={{ width: GRID_TEACHER_COLUMN_WIDTH }}
+        style={{ width: teacherColumnWidth }}
         className="shrink-0 sticky start-0 z-50 bg-gray-50 border-e border-gray-200 flex items-center px-3"
       >
         {cornerLabel && (
@@ -37,7 +41,7 @@ export function ScheduleTimeHeader({ columnWidth, cornerLabel }: ScheduleTimeHea
           <div
             key={minute}
             style={{ width: columnWidth }}
-            className={`shrink-0 text-[9px] leading-tight text-center py-2 border-e border-gray-100 truncate ${
+            className={`shrink-0 leading-tight text-center border-e border-gray-100 truncate ${isCompact ? 'text-[11px] py-2.5 font-medium' : 'text-[9px] py-2'} ${
               isColumnInPrimeTime(minute) ? 'bg-amber-50 font-medium text-amber-700' : 'text-muted-foreground'
             }`}
           >

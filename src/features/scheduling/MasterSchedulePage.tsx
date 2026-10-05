@@ -57,10 +57,24 @@ export function MasterSchedulePage() {
       <div className="space-y-3">
         <ScheduleFilterBar />
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <Tabs value={String(selectedDay)} onValueChange={(v) => setSelectedDay(Number(v) as DayOfWeek)}>
-            <TabsList>
+          {/* The day selector is the primary mobile control: only one day is
+              shown at a time, so it has to stay reachable. It scrolls
+              horizontally rather than wrapping, and the triggers carry a
+              touch-sized hit area instead of the default compact one. */}
+          <Tabs
+            value={String(selectedDay)}
+            onValueChange={(v) => setSelectedDay(Number(v) as DayOfWeek)}
+            className="w-full sm:w-auto min-w-0"
+          >
+            <TabsList className="w-full sm:w-auto justify-start overflow-x-auto overflow-y-hidden flex-nowrap h-auto p-1">
               {DAYS_OF_WEEK.map((d) => (
-                <TabsTrigger key={d.value} value={String(d.value)}>{t(d.labelKey)}</TabsTrigger>
+                <TabsTrigger
+                  key={d.value}
+                  value={String(d.value)}
+                  className="shrink-0 min-h-11 px-3 text-xs sm:text-sm sm:min-h-0 sm:px-3"
+                >
+                  {t(d.labelKey)}
+                </TabsTrigger>
               ))}
             </TabsList>
           </Tabs>

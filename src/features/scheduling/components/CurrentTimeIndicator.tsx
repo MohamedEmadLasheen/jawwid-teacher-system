@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { minuteToX } from '../utils/timelineGeometry';
-import { GRID_START_MINUTE, GRID_END_MINUTE, GRID_TEACHER_COLUMN_WIDTH } from '../constants/schedulingConstants';
+import { GRID_START_MINUTE, GRID_END_MINUTE } from '../constants/schedulingConstants';
 
 function nowMinutes(): number {
   const d = new Date();
@@ -19,7 +19,7 @@ function nowMinutes(): number {
  * the lesson cards, so the marker lands exactly on the current minute
  * instead of being snapped to a 30-minute column.
  */
-export function CurrentTimeIndicator({ columnWidth, height }: { columnWidth: number; height: number }) {
+export function CurrentTimeIndicator({ columnWidth, teacherColumnWidth, height }: { columnWidth: number; teacherColumnWidth: number; height: number }) {
   const [minutes, setMinutes] = useState(nowMinutes());
 
   useEffect(() => {
@@ -29,7 +29,7 @@ export function CurrentTimeIndicator({ columnWidth, height }: { columnWidth: num
 
   if (minutes < GRID_START_MINUTE || minutes >= GRID_END_MINUTE) return null;
 
-  const offsetPx = GRID_TEACHER_COLUMN_WIDTH + minuteToX(minutes, columnWidth);
+  const offsetPx = teacherColumnWidth + minuteToX(minutes, columnWidth);
 
   return (
     <div

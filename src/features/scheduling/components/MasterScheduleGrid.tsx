@@ -1,15 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DndContext, type DragEndEvent } from '@dnd-kit/core';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useScheduleUiStore } from '@/store/scheduleUiStore';
 import { useScheduleGrid } from '../hooks/useScheduleGrid';
-import { useResponsiveColumnWidth } from '../hooks/useResponsiveColumnWidth';
+import { useScheduleMetrics } from '../hooks/useScheduleMetrics';
+import { useScheduleRoster } from '../hooks/useScheduleRoster';
 import { ScheduleGridRow } from './ScheduleGridRow';
 import { ScheduleTimeHeader } from './ScheduleTimeHeader';
 import { CurrentTimeIndicator } from './CurrentTimeIndicator';
 import { timelineWidth } from '../utils/timelineGeometry';
-import { GRID_COLUMNS, GRID_ROW_HEIGHT, GRID_TEACHER_COLUMN_WIDTH } from '../constants/schedulingConstants';
+import { GRID_COLUMNS } from '../constants/schedulingConstants';
+import { minuteToDisplayLabel } from '../utils/timeGrid';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
 
 interface MasterScheduleGridProps {
@@ -38,8 +40,36 @@ export function MasterScheduleGrid({ onEmptyClick, onLessonClick, onProposeMove 
   const listRef = useRef<HTMLDivElement>(null);
   const { selectedDay, filters, searchQuery } = useScheduleUiStore();
   const { rows, isLoading, error } = useScheduleGrid(selectedDay, filters, searchQuery);
-  const columnWidth = useResponsiveColumnWidth(scrollRef, GRID_COLUMNS.length);
+  const { columnWidth, teacherColumnWidth, rowHeight, isCompact } = useScheduleMetrics(scrollRef, GRID_COLUMNS.length);
+  const { groups } = useScheduleRoster();
   const isToday = selectedDay === new Date().getDay();
+
+  // One flat list of group headers + teacher rows, so a single virtualizer
+  // covers both. Group membership and labels come from the roster, so nothing
+  // here enumerates teachers or hours.
+  const GROUP_HEADER_HEIGHT = 34;
+  const items = useMemo(() => {
+    const groupOf = new Map<string, string>();
+    groups.forEach((g) => g.teachers.forEach((tc) => groupOf.set(tc.id, g.templateId)));
+    const byTemplate = new Map(groups.map((g) => [g.templateId, g]));
+
+    const out: Array<
+      | { kind: 'group'; key: string; name: string; startMinute: number; endMinute: number; count: number }
+      | { kind: 'row'; key: string; row: (typeof rows)[number] }
+    > = [];
+    let current: string | null = null;
+    for (const row of rows) {
+      const templateId = groupOf.get(row.teacher.id);
+      if (templateId && templateId !== current) {
+        current = templateId;
+        const g = byTemplate.get(templateId)!;
+        const count = rows.filter((r) => groupOf.get(r.teacher.id) === templateId).length;
+        out.push({ kind: 'group', key: `g-${templateId}`, name: g.name, startMinute: g.startMinute, endMinute: g.endMinute, count });
+      }
+      out.push({ kind: 'row', key: row.teacher.id, row });
+    }
+    return out;
+  }, [rows, groups]);
 
   // Distance from the top of the scroll container to the top of the row list
   // (i.e. the sticky header's height). Measured rather than hardcoded so a
@@ -60,12 +90,12 @@ export function MasterScheduleGrid({ onEmptyClick, onLessonClick, onProposeMove 
     observer.observe(scroller);
     observer.observe(list);
     return () => observer.disconnect();
-  }, [isLoading, rows.length]);
+  }, [isLoading, items.length]);
 
   const virtualizer = useVirtualizer({
-    count: rows.length,
+    count: items.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => GRID_ROW_HEIGHT,
+    estimateSize: (index) => (items[index]?.kind === 'group' ? GROUP_HEADER_HEIGHT : rowHeight),
     overscan: 8,
     scrollMargin: listOffset,
   });
@@ -87,14 +117,19 @@ export function MasterScheduleGrid({ onEmptyClick, onLessonClick, onProposeMove 
     return <p className="text-sm text-red-600 p-4">{message}</p>;
   }
 
-  const contentWidth = GRID_TEACHER_COLUMN_WIDTH + timelineWidth(columnWidth);
+  const contentWidth = teacherColumnWidth + timelineWidth(columnWidth);
 
   return (
     <DndContext onDragEnd={handleDragEnd}>
       <div className="border rounded-lg overflow-hidden bg-white">
         <div ref={scrollRef} className="overflow-auto" style={{ height: '65vh' }}>
           <div style={{ width: contentWidth }}>
-            <ScheduleTimeHeader columnWidth={columnWidth} cornerLabel={t('scheduling.teacherColumn')} />
+            <ScheduleTimeHeader
+              columnWidth={columnWidth}
+              teacherColumnWidth={teacherColumnWidth}
+              isCompact={isCompact}
+              cornerLabel={t('scheduling.teacherColumn')}
+            />
 
             <div ref={listRef}>
               {isLoading ? (
@@ -104,28 +139,55 @@ export function MasterScheduleGrid({ onEmptyClick, onLessonClick, onProposeMove 
               ) : (
                 <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
                   {isToday && (
-                    <CurrentTimeIndicator columnWidth={columnWidth} height={virtualizer.getTotalSize()} />
+                    <CurrentTimeIndicator
+                      columnWidth={columnWidth}
+                      teacherColumnWidth={teacherColumnWidth}
+                      height={virtualizer.getTotalSize()}
+                    />
                   )}
-                  {virtualizer.getVirtualItems().map((virtualRow) => (
-                    <div
-                      key={rows[virtualRow.index].teacher.id}
-                      style={{
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        width: '100%',
-                        height: virtualRow.size,
-                        transform: `translateY(${virtualRow.start - virtualizer.options.scrollMargin}px)`,
-                      }}
-                    >
-                      <ScheduleGridRow
-                        row={rows[virtualRow.index]}
-                        columnWidth={columnWidth}
-                        onEmptyClick={onEmptyClick}
-                        onLessonClick={onLessonClick}
-                      />
-                    </div>
-                  ))}
+                  {virtualizer.getVirtualItems().map((virtualRow) => {
+                    const item = items[virtualRow.index];
+                    return (
+                      <div
+                        key={item.key}
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          height: virtualRow.size,
+                          transform: `translateY(${virtualRow.start - virtualizer.options.scrollMargin}px)`,
+                        }}
+                      >
+                        {item.kind === 'group' ? (
+                          // Group banner. Sticky on the inline axis so the label
+                          // stays readable while the timeline scrolls sideways.
+                          <div className="flex h-full items-center border-b border-gray-200 bg-muted/60">
+                            <div
+                              style={{ width: teacherColumnWidth }}
+                              className="shrink-0 sticky start-0 z-30 bg-muted/60 h-full flex items-center px-2"
+                            >
+                              <span className="text-[11px] font-bold uppercase tracking-wide truncate">
+                                {item.name}
+                              </span>
+                            </div>
+                            <span className="text-[11px] text-muted-foreground whitespace-nowrap px-2">
+                              {minuteToDisplayLabel(item.startMinute)}–{minuteToDisplayLabel(item.endMinute)} · {item.count}
+                            </span>
+                          </div>
+                        ) : (
+                          <ScheduleGridRow
+                            row={item.row}
+                            columnWidth={columnWidth}
+                            teacherColumnWidth={teacherColumnWidth}
+                            isCompact={isCompact}
+                            onEmptyClick={onEmptyClick}
+                            onLessonClick={onLessonClick}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

@@ -10,7 +10,7 @@ import { GRID_START_MINUTE, GRID_END_MINUTE, SLOT_MINUTES, GRID_COLUMNS } from '
  * element can drift away from the header.
  *
  * The scale is driven entirely by `columnWidth` (the rendered width of one
- * SLOT_MINUTES column, chosen by useResponsiveColumnWidth). Because the
+ * SLOT_MINUTES column, chosen by useScheduleMetrics). Because the
  * header lays out N fixed-width columns, column boundary k sits at exactly
  * `k * columnWidth`; `minuteToX` of that same boundary minute evaluates to
  * `k * columnWidth` too, so boundaries coincide to the pixel at every

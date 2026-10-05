@@ -2,13 +2,11 @@ import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DndContext, type DragEndEvent } from '@dnd-kit/core';
 import { useScheduleGrid } from '../hooks/useScheduleGrid';
-import { useResponsiveColumnWidth } from '../hooks/useResponsiveColumnWidth';
+import { useScheduleMetrics } from '../hooks/useScheduleMetrics';
 import { ScheduleGridRow } from './ScheduleGridRow';
 import { ScheduleTimeHeader } from './ScheduleTimeHeader';
 import { timelineWidth } from '../utils/timelineGeometry';
-import {
-  DAYS_OF_WEEK, GRID_COLUMNS, GRID_ROW_HEIGHT, GRID_TEACHER_COLUMN_WIDTH,
-} from '../constants/schedulingConstants';
+import { DAYS_OF_WEEK, GRID_COLUMNS } from '../constants/schedulingConstants';
 import { DEFAULT_FILTERS, type ScheduleFilters } from '@/store/scheduleUiStore';
 import type { DayOfWeek } from '@/lib/types';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
@@ -39,7 +37,7 @@ interface TeacherWeekGridProps {
 export function TeacherWeekGrid({ teacherId, onEmptyClick, onLessonClick, onProposeMove }: TeacherWeekGridProps) {
   const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const columnWidth = useResponsiveColumnWidth(scrollRef, GRID_COLUMNS.length);
+  const { columnWidth, teacherColumnWidth, rowHeight, isCompact } = useScheduleMetrics(scrollRef, GRID_COLUMNS.length);
   const filters: ScheduleFilters = { ...DEFAULT_FILTERS, teacherIds: [teacherId] };
 
   // Fixed 7 calls (one per real calendar day) — not a .map() over a hook,
@@ -63,13 +61,18 @@ export function TeacherWeekGrid({ teacherId, onEmptyClick, onLessonClick, onProp
     return <p className="text-sm text-red-600 p-4">{message}</p>;
   }
 
-  const contentWidth = GRID_TEACHER_COLUMN_WIDTH + timelineWidth(columnWidth);
+  const contentWidth = teacherColumnWidth + timelineWidth(columnWidth);
 
   return (
     <div className="border rounded-lg overflow-hidden bg-white">
       <div ref={scrollRef} className="overflow-auto" style={{ maxHeight: '70vh' }}>
         <div style={{ width: contentWidth }}>
-          <ScheduleTimeHeader columnWidth={columnWidth} cornerLabel={t('scheduling.dayColumn')} />
+          <ScheduleTimeHeader
+            columnWidth={columnWidth}
+            teacherColumnWidth={teacherColumnWidth}
+            isCompact={isCompact}
+            cornerLabel={t('scheduling.dayColumn')}
+          />
 
           {isLoading ? (
             <p className="text-sm text-muted-foreground p-4">…</p>
@@ -90,10 +93,12 @@ export function TeacherWeekGrid({ teacherId, onEmptyClick, onLessonClick, onProp
 
               return (
                 <DndContext key={dayOfWeek} onDragEnd={handleDragEnd}>
-                  <div style={{ height: GRID_ROW_HEIGHT }}>
+                  <div style={{ height: rowHeight }}>
                     <ScheduleGridRow
                       row={row}
                       columnWidth={columnWidth}
+                      teacherColumnWidth={teacherColumnWidth}
+                      isCompact={isCompact}
                       label={t(labelKey)}
                       onEmptyClick={(tId, startMinute) => onEmptyClick(tId, dayOfWeek, startMinute)}
                       onLessonClick={onLessonClick}
