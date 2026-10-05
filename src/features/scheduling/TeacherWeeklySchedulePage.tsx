@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
-import { useTeacherStore } from '@/store/teacherStore';
 import { useAcademyHealth } from './hooks/useAcademyHealth';
+import { useScheduleRoster } from './hooks/useScheduleRoster';
+import { minuteToLabel } from './utils/timeGrid';
 import { TeacherWeekGrid } from './components/TeacherWeekGrid';
 import { ColorLegend } from './components/ColorLegend';
+import { ScheduleRosterLegend } from './components/ScheduleRosterLegend';
 import { LessonDetailDialog } from './components/LessonDetailDialog';
 import { ChangeSimulatorDialog } from './components/ChangeSimulatorDialog';
 import { Card, CardContent } from '@/components/ui/card';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import type { DayOfWeek } from '@/lib/types';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
@@ -29,8 +31,11 @@ interface ProposedMove {
  */
 export function TeacherWeeklySchedulePage() {
   const { t } = useTranslation();
-  const { teachers } = useTeacherStore();
-  const activeTeachers = teachers.filter((tc) => !tc.isDeleted);
+  // The selector offers exactly the Schedule roster — teachers with an
+  // active shift assignment — grouped by their working window. Every other
+  // teacher in the academy is deliberately absent.
+  const { groups, rosterTeachers } = useScheduleRoster();
+  const activeTeachers = rosterTeachers;
   const [searchParams] = useSearchParams();
   const [teacherId, setTeacherId] = useState('');
   const { health: academyHealth } = useAcademyHealth();
@@ -64,11 +69,19 @@ export function TeacherWeeklySchedulePage() {
         <Select value={teacherId} onValueChange={setTeacherId}>
           <SelectTrigger className="h-9 text-sm w-64"><SelectValue placeholder={t('scheduling.selectTeacher')} /></SelectTrigger>
           <SelectContent>
-            {activeTeachers.map((tc) => (
-              <SelectItem key={tc.id} value={tc.id}>{tc.fullName}</SelectItem>
+            {groups.map((group) => (
+              <SelectGroup key={group.templateId}>
+                <SelectLabel className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  {group.name} — {minuteToLabel(group.startMinute)}–{minuteToLabel(group.endMinute)}
+                </SelectLabel>
+                {group.teachers.map((tc) => (
+                  <SelectItem key={tc.id} value={tc.id}>{tc.fullName}</SelectItem>
+                ))}
+              </SelectGroup>
             ))}
           </SelectContent>
         </Select>
+        <ScheduleRosterLegend />
         <ColorLegend />
       </div>
 

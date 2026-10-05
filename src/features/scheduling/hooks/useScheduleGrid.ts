@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useTeacherStore } from '@/store/teacherStore';
+import { useScheduleRoster } from './useScheduleRoster';
 import { useSupervisorStore } from '@/store/supervisorStore';
 import * as lessonsSvc from '@/services/scheduling/lessons.service';
 import * as availabilitySvc from '@/services/scheduling/teacherAvailability.service';
@@ -26,9 +26,13 @@ export interface ScheduleGridTeacherRow {
  * reduced to one row per visible teacher. Used as-is by the Master Grid
  * today and by the future per-teacher view (parametrized by teacherId
  * filter) — never duplicated.
+ *
+ * Rows come from useScheduleRoster, i.e. teachers holding an active shift
+ * assignment — not every teacher in the academy. A teacher outside the
+ * configured roster never appears in the Schedule.
  */
 export function useScheduleGrid(dayOfWeek: number, filters: ScheduleFilters, searchQuery: string) {
-  const { teachers } = useTeacherStore();
+  const { rosterTeachers } = useScheduleRoster();
   const { supervisors } = useSupervisorStore();
   const { data: students = [] } = useStudents();
   const { data: courses = [] } = useCourses();
@@ -76,7 +80,11 @@ export function useScheduleGrid(dayOfWeek: number, filters: ScheduleFilters, sea
 
     const studentNameById = new Map(students.map((s) => [s.id, s.fullName]));
 
-    return teachers
+    // The grid shows the Schedule roster — teachers with an active shift
+    // assignment — in roster order, never every teacher in the academy.
+    // Membership comes from the availability configuration, so nothing here
+    // enumerates who belongs; `rosterTeachers` is already ordered.
+    return rosterTeachers
       .filter((t) => !t.isDeleted)
       .filter((t) => filters.teacherIds.length === 0 || filters.teacherIds.includes(t.id))
       .filter((t) => !filters.teacherType || t.teacherType === filters.teacherType)
@@ -135,7 +143,7 @@ export function useScheduleGrid(dayOfWeek: number, filters: ScheduleFilters, sea
           l.participants.some((p) => (studentNameById.get(p.studentId) ?? '').toLowerCase().includes(search))
         );
       });
-  }, [teachers, students, lessonsQuery.data, availabilityQuery.data, exceptionsQuery.data, filters, searchQuery]);
+  }, [rosterTeachers, students, lessonsQuery.data, availabilityQuery.data, exceptionsQuery.data, filters, searchQuery]);
 
   return {
     rows,

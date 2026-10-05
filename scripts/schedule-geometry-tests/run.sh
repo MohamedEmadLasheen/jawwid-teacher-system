@@ -12,14 +12,18 @@ trap 'rm -rf "$OUT"' EXIT
 node_modules/esbuild/bin/esbuild \
   src/features/scheduling/utils/timelineGeometry.ts \
   src/features/scheduling/utils/computeRowLayout.ts \
+  src/features/scheduling/utils/buildScheduleRoster.ts \
   --bundle --format=esm --platform=node \
   --outdir="$OUT" --out-extension:.js=.mjs >/dev/null
 
 cp scripts/schedule-geometry-tests/timeline.test.mjs "$OUT/"
 cp scripts/schedule-geometry-tests/acceptance.test.mjs "$OUT/"
+cp scripts/schedule-geometry-tests/roster.test.mjs "$OUT/"
 
 status=0
 node "$OUT/timeline.test.mjs"   || status=1
 echo
 node "$OUT/acceptance.test.mjs" || status=1
+echo
+node "$OUT/roster.test.mjs"     || status=1
 exit $status

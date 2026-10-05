@@ -110,8 +110,10 @@ for (const dir of DIRECTIONS) {
         // fractional-duration lesson (16:00+40m) and the window end (19:00).
         const [lStart, lMid, l40, lEnd] = m.lessons;
 
-        expect(lStart.start).toBeCloseTo(m.headerCells['14:00'], 1);
-        expect(lStart.end).toBeCloseTo(m.headerCells['14:30'], 1);
+        // Window start is now 12:00 (full-time). This also proves the new
+        // boundary flows through the same geometry as every other time.
+        expect(lStart.start).toBeCloseTo(m.headerCells['12:00'], 1);
+        expect(lStart.end).toBeCloseTo(m.headerCells['12:30'], 1);
 
         expect(lMid.start).toBeCloseTo(m.headerCells['15:30'], 1);
         expect(lMid.end).toBeCloseTo(m.headerCells['16:00'], 1);
@@ -135,17 +137,27 @@ for (const dir of DIRECTIONS) {
         expect(lEnd.end).toBeCloseTo(m.headerCells['19:00'], 1);
 
         // --- Availability bands ---------------------------------------
-        // Free capacity = the 14:00-19:00 window minus the four lessons.
-        // First band starts at 14:30 (after the 14:00 lesson); last band ends
+        // Free capacity = the 12:00-19:00 window minus the four lessons.
+        // First band starts at 12:30 (after the 12:00 lesson); last band ends
         // at 18:30 (where the closing lesson begins).
         expect(m.bands.length).toBeGreaterThan(0);
-        expect(m.bands[0].start).toBeCloseTo(m.headerCells['14:30'], 1);
+        expect(m.bands[0].start).toBeCloseTo(m.headerCells['12:30'], 1);
         expect(m.bands[m.bands.length - 1].end).toBeCloseTo(m.headerCells['18:30'], 1);
 
-        // No band may start before the window or end after it.
+        // No band may start before the window or end after it. 12:00 and
+        // 19:00 are the configured full-time boundaries.
         for (const b of m.bands) {
-          expect(b.start).toBeGreaterThanOrEqual(m.headerCells['14:00'] - 0.5);
+          expect(b.start).toBeGreaterThanOrEqual(m.headerCells['12:00'] - 0.5);
           expect(b.end).toBeLessThanOrEqual(m.headerCells['19:00'] + 0.5);
+        }
+
+        // The four boundaries named in the roster spec must sit exactly the
+        // right number of columns apart. Measured as offsets FROM 12:00 so the
+        // assertion is independent of the frozen label column's width and of
+        // the scroll position, and valid in both directions.
+        for (const [label, minute] of [['14:00', 840], ['18:00', 1080], ['19:00', 1140]] as const) {
+          const columnsFromNoon = (minute - 720) / 30;
+          expect(m.headerCells[label] - m.headerCells['12:00']).toBeCloseTo(columnsFromNoon * cw, 1);
         }
       });
     }
@@ -211,7 +223,7 @@ for (const dir of DIRECTIONS) {
         // E. Alignment must survive every scroll position, both directions.
         expect(m.lessons[1].start).toBeCloseTo(m.headerCells['15:30'], 1);
         expect(m.lessons[2].start).toBeCloseTo(m.headerCells['16:00'], 1);
-        expect(m.bands[0].start).toBeCloseTo(m.headerCells['14:30'], 1);
+        expect(m.bands[0].start).toBeCloseTo(m.headerCells['12:30'], 1);
 
         // The frozen day column must not move with the timeline.
         expect(m.labelViewportLeft).toBeCloseTo(frozenAt!, 1);

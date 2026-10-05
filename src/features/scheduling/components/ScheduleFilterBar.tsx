@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { useTeacherStore } from '@/store/teacherStore';
+import { useScheduleRoster } from '../hooks/useScheduleRoster';
 import { useSupervisorStore } from '@/store/supervisorStore';
 import { useCourses } from '../hooks/useCourses';
 import { useStudents } from '../hooks/useStudents';
@@ -22,7 +22,8 @@ const ALL = '__all__';
 export function ScheduleFilterBar() {
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === 'ar';
-  const { teachers } = useTeacherStore();
+  // Filter options are the Schedule roster, not every teacher on record.
+  const { rosterTeachers } = useScheduleRoster();
   const { supervisors } = useSupervisorStore();
   const { data: courses = [] } = useCourses();
   const { data: students = [] } = useStudents();
@@ -45,7 +46,7 @@ export function ScheduleFilterBar() {
         placeholder={t('scheduling.allTeachers')}
         selectedIds={filters.teacherIds}
         onChange={(ids) => setFilter('teacherIds', ids)}
-        options={teachers.filter((tc) => !tc.isDeleted).map((tc) => ({ id: tc.id, label: tc.fullName, searchText: tc.id }))}
+        options={rosterTeachers.map((tc) => ({ id: tc.id, label: tc.fullName, searchText: tc.id }))}
       />
 
       <MultiSelectFilter
