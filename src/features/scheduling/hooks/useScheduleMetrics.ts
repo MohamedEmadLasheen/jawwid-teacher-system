@@ -18,6 +18,14 @@ export interface ScheduleMetrics {
  * a column has to clear ~41px before it clips at all, and wants meaningfully
  * more than that to be comfortable on a phone held at arm's length.
  *
+ * The frozen label column is sized from its own content, measured at the
+ * compact 13px semibold face: the widest single word it must hold is
+ * "Wednesday" (74.2px) on the day grid and "Mohammed" (74.5px) on the teacher
+ * grid — a single word cannot wrap, so it is what actually sets the floor.
+ * With the compact 6px side padding and the 1px divider that needs ~87px,
+ * which is why 88 is the narrowest honest value here. Arabic is far shorter
+ * (widest is "الخميس" at 43.6px) and never binds.
+ *
  * Below `desktop` the timeline does NOT fit itself to the viewport. It keeps a
  * comfortable fixed column and lets the user scroll horizontally on purpose —
  * squeezing twenty-four columns into a 375px phone is what made the old
@@ -25,8 +33,8 @@ export interface ScheduleMetrics {
  * which then clamped to the 40px floor and simply overflowed anyway).
  */
 const BREAKPOINTS = [
-  { maxWidth: 400, columnWidth: 80, teacherColumnWidth: 112, rowHeight: 68, isCompact: true },
-  { maxWidth: 768, columnWidth: 84, teacherColumnWidth: 124, rowHeight: 68, isCompact: true },
+  { maxWidth: 400, columnWidth: 80, teacherColumnWidth: 88, rowHeight: 68, isCompact: true },
+  { maxWidth: 768, columnWidth: 84, teacherColumnWidth: 96, rowHeight: 68, isCompact: true },
   { maxWidth: 1024, columnWidth: 80, teacherColumnWidth: 150, rowHeight: 66, isCompact: true },
 ] as const;
 

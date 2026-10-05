@@ -1,5 +1,12 @@
 <!doctype html>
 <html>
-  <head><meta charset="utf-8" /><title>Schedule layout harness</title></head>
+  <head>
+    <meta charset="utf-8" />
+    <!-- Mirrors the real app's index.html. Without it, mobile emulation falls
+         back to a 980px layout viewport and the compact breakpoints never
+         engage, so a mobile check would silently measure the desktop path. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Schedule layout harness</title>
+  </head>
   <body><div id="root"></div><script type="module" src="/tests/schedule-layout/harness.tsx"></script></body>
 </html>
