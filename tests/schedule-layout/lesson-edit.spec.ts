@@ -3,16 +3,18 @@ import { test, expect, type Page } from '@playwright/test';
 /**
  * The redesigned Lesson Details card: scheduling only, with an explicit scope.
  *
+ * CANONICAL CONTRACT under test:
+ *   Same time slot = same original day_of_week
+ *                  + same original start_minute
+ *                  + across all live teachers.
+ *
  * The risk this feature carries is touching more lessons than the admin
  * chose, so almost every test below asserts the exact set of lesson ids that
  * reached apply_schedule_change — recorded by the supabase stub — and not
- * merely that "a save happened".
- *
- * A slot is one weekday at one start minute, across ALL teachers. The
- * fixtures deliberately include lessons that are near-misses on every axis —
- * adjacent minute, other day, same student elsewhere, and an ended lesson
- * sitting in the slot — so "all in slot" has something to wrongly sweep up
- * if the rule ever drifts.
+ * merely that "a save happened". The fixtures include a near-miss on every
+ * axis (adjacent minute, other day, the same student elsewhere, and an ended
+ * lesson sitting in the slot) so a drifting rule has something to wrongly
+ * sweep up.
  */
 
 /**
@@ -340,6 +342,62 @@ test('the slot is resolved from the ORIGINAL day and time, not the destination',
 });
 
 // ---------------------------------------------------------------------------
+// The payload must carry ONLY what the admin changed
+// ---------------------------------------------------------------------------
+
+const SINGLE_FIELD_CASES = [
+  { key: 'teacher',  testId: 'edit-teacher',  label: 'Teacher Z',  sent: 'new_teacher_id',       value: 'TZ' },
+  { key: 'day',      testId: 'edit-day',      label: 'Wednesday',  sent: 'new_day_of_week',      value: 3 },
+  { key: 'time',     testId: 'edit-time',     label: '11:00 AM',   sent: 'new_start_minute',     value: 11 * 60 },
+  { key: 'duration', testId: 'edit-duration', label: '60 minutes', sent: 'new_duration_minutes', value: 60 },
+] as const;
+
+const ALL_FIELDS = ['new_teacher_id', 'new_day_of_week', 'new_start_minute', 'new_duration_minutes'] as const;
+
+for (const field of SINGLE_FIELD_CASES) {
+  test(`changing only ${field.key} sends only ${field.key}`, async ({ page }) => {
+    // The preflight projection and the move_lesson payload must agree, and
+    // both must leave untouched fields alone: changing a duration must not
+    // implicitly restate a teacher, which on a multi-teacher slot would both
+    // invent a collision and validate the wrong teacher.
+    await open(page);
+    await setConflict(page, false);
+    await selectOption(page, field.testId, field.label);
+    await chooseScope(page, 'this');
+    await page.locator('[data-testid="save-changes"]').click();
+
+    const writes = await applied(page);
+    expect(writes).toHaveLength(1);
+    expect(writes[0].payload[field.sent]).toBe(field.value);
+
+    for (const other of ALL_FIELDS) {
+      if (other === field.sent) continue;
+      expect(writes[0].payload[other], `${other} must not be sent when only ${field.key} changed`)
+        .toBeUndefined();
+    }
+  });
+}
+
+test('the conflict check for each target uses that target\'s own unchanged fields', async ({ page }) => {
+  // Changing only the duration across a slot of three different teachers must
+  // check each lesson against ITS OWN teacher, not the subject's.
+  await open(page);
+  await setConflict(page, false);
+  await selectOption(page, 'edit-duration', '60 minutes');
+  await chooseScope(page, 'slot');
+  await page.locator('[data-testid="save-changes"]').click();
+
+  const checks = (await rpcCalls(page)).filter((c) => c.fn === 'check_schedule_conflict');
+  expect(checks.length).toBe(SLOT.length);
+  const byLesson = new Map(checks.map((c) => [c.args.p_exclude_lesson_id, c.args]));
+  expect(byLesson.get('SUN-A')!.p_teacher_id).toBe('TA');
+  expect(byLesson.get('SUN-B')!.p_teacher_id).toBe('TB');
+  expect(byLesson.get('SUN-C')!.p_teacher_id).toBe('TC');
+  // And every one carries the new duration.
+  for (const args of byLesson.values()) expect(args.p_duration_minutes).toBe(60);
+});
+
+// ---------------------------------------------------------------------------
 // I–J — removal
 // ---------------------------------------------------------------------------
 
@@ -349,10 +407,18 @@ test('removal requires confirmation and states the consequence', async ({ page }
 
   const confirm = page.locator('[data-testid="delete-confirm"]');
   await expect(confirm).toBeVisible();
-  await expect(page.locator('[data-testid="delete-confirm-body"]'))
-    .toContainText('stops recurring from today forward');
-  await expect(page.locator('[data-testid="delete-confirm-body"]'))
-    .toContainText('No other lesson is affected');
+  // Every statement the single-delete confirmation must make.
+  const body = page.locator('[data-testid="delete-confirm-body"]');
+  await expect(body).toContainText('1 recurring lesson will be ended');  // the count
+  await expect(body).toContainText('recurring');                        // what it is
+  await expect(body).toContainText('Sunday');                           // which one
+  await expect(body).toContainText('10:00 AM');
+  await expect(body).toContainText('Teacher A');
+  await expect(body).toContainText('stops repeating from today forward');
+  await expect(body).toContainText('end-of-lesson lifecycle');           // the mechanism
+  await expect(body).toContainText('No database row is deleted');        // not a delete
+  await expect(body).toContainText('historical records are preserved');
+  await expect(body).toContainText('No other lesson is affected');
   // Nothing has happened yet.
   expect(await applied(page)).toHaveLength(0);
 
@@ -384,11 +450,16 @@ test('delete all in slot — end_lesson on each, nothing outside the slot', asyn
   await open(page);
   await page.locator('[data-testid="delete-slot"]').click();
 
+  // Every statement the bulk-delete confirmation must make.
   const body = page.locator('[data-testid="delete-confirm-body"]');
-  await expect(body).toContainText('3 in total');
-  await expect(body).toContainText('Sunday');
-  await expect(body).toContainText('10:00 AM');
-  await expect(body).toContainText('from today forward');
+  await expect(body).toContainText('3 recurring lessons will be ended');  // exact count
+  await expect(body).toContainText('Sunday');                            // original day
+  await expect(body).toContainText('10:00 AM');                          // original time
+  await expect(body).toContainText('across all teachers');               // scope is all teachers
+  await expect(body).toContainText('stop repeating from today forward');
+  await expect(body).toContainText('end-of-lesson lifecycle');
+  await expect(body).toContainText('No database rows are physically deleted');
+  await expect(body).toContainText('historical records are preserved');
   // The teachers whose lessons are about to end are named.
   for (const name of ['Teacher A', 'Teacher B', 'Teacher C']) {
     await expect(body).toContainText(name);
@@ -400,6 +471,80 @@ test('delete all in slot — end_lesson on each, nothing outside the slot', asyn
   for (const w of writes) expect(w.action).toBe('end_lesson');
   for (const other of OUTSIDE) expect(writes.map((w) => w.lessonId)).not.toContain(other);
   expect((await tableOps(page)).filter((o) => o.op === 'delete')).toHaveLength(0);
+});
+
+test('deleting a recurring lesson ENDS it — never cancels one occurrence, row survives', async ({ page }) => {
+  /**
+   * The specific regression this guards: the card renders a recurring lessons
+   * row, so a "delete" that wrote a dated lesson_exceptions row would hide
+   * one date while the weekly lesson silently kept running. It must be a
+   * lifecycle end, and the row must still be there afterwards.
+   */
+  await open(page);
+
+  const rowsBefore = await page.evaluate(() =>
+    ((window as any).__supabaseStub.tables.lessons as { id: string }[]).map((r) => r.id)
+  );
+  expect(rowsBefore).toContain('SUN-A');
+
+  await page.locator('[data-testid="delete-this"]').click();
+  await page.locator('[data-testid="delete-confirm-action"]').click();
+
+  const writes = await applied(page);
+  expect(writes.map((w) => w.action)).toEqual(['end_lesson']);
+  expect(writes[0].lessonId).toBe('SUN-A');
+  // Explicitly NOT an occurrence cancellation.
+  expect(writes.map((w) => w.action)).not.toContain('cancel_occurrence');
+  expect(writes[0].payload.occurrence_date).toBeUndefined();
+
+  // No DELETE reached any table, and the lesson row is still present.
+  expect((await tableOps(page)).filter((o) => o.op === 'delete')).toHaveLength(0);
+  const rowsAfter = await page.evaluate(() =>
+    ((window as any).__supabaseStub.tables.lessons as { id: string }[]).map((r) => r.id)
+  );
+  expect(rowsAfter).toEqual(rowsBefore);
+  expect(rowsAfter).toContain('SUN-A');
+});
+
+test('a mid-batch failure stops at once, reports it, and reconciles the schedule', async ({ page }) => {
+  /**
+   * Preflight passes, then a write fails — the only way a partial update can
+   * happen without a backend transaction. The run must stop immediately, name
+   * the failed lesson, say how many were applied, state that it was not
+   * atomic, and re-read the schedule so the screen matches the database.
+   */
+  await open(page);
+  await setConflict(page, false);
+  // Let preflight through, then make the THIRD write throw.
+  await page.evaluate(() => {
+    (window as any).__supabaseStub.failWriteForLessonIds = ['SUN-C'];
+  });
+
+  await selectOption(page, 'edit-time', '11:00 AM');
+  await chooseScope(page, 'slot');
+  await page.locator('[data-testid="save-changes"]').click();
+
+  const outcome = page.locator('[data-testid="edit-outcome"]');
+  await expect(outcome).toBeVisible();
+  await expect(outcome).toContainText('SUN-C');            // which lesson failed
+  await expect(outcome).toContainText('2 of 3');           // how many applied
+  await expect(outcome).toContainText('not atomic');       // no false claim
+
+  // It stopped: only the first two were attempted, the third failed, and
+  // nothing after it ran.
+  const writes = await applied(page);
+  expect(writes.map((w) => w.lessonId)).toEqual(['SUN-A', 'SUN-B', 'SUN-C']);
+
+  // The card stays open with the message visible — nothing overwrites it.
+  await expect(page.locator('[data-testid="lesson-edit"]')).toBeVisible();
+  await expect(page.locator('[data-testid="fixtures"]')).toHaveAttribute('data-saved', '0');
+
+  // And the schedule was re-read so the UI reflects the real state.
+  const refetched = await page.evaluate(() =>
+    ((window as any).__supabaseStub.tableOps as { table: string }[])
+      .some((o) => o.table === 'lessons')
+  );
+  expect(refetched, 'the schedule should be re-read after a partial failure').toBe(true);
 });
 
 test('no path produces a hard delete or an unexpected action', async ({ page }) => {

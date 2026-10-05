@@ -131,6 +131,25 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
   );
 
   /**
+   * A run died partway. Surface exactly what happened and re-read the
+   * schedule, so the screen stops showing a mix of applied and unapplied
+   * lessons that no longer matches the database.
+   */
+  const reportPartial = (
+    done: number,
+    total: number,
+    failed: { lesson: LessonWithParticipants; error: unknown }
+  ) => {
+    setOutcome(t('scheduling.edit.partialApply', {
+      done,
+      total,
+      failedId: failed.lesson.id,
+      message: failed.error instanceof Error ? failed.error.message : String(failed.error),
+    }));
+    void actions.reconcile();
+  };
+
+  /**
    * PREFLIGHT — the whole batch is validated before a single lesson is
    * written, and a failure anywhere means nothing is written at all.
    *
@@ -219,13 +238,9 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
       // Preflight passed and a write still failed, so the schedule is now
       // partly changed. Say so explicitly rather than letting it pass as a
       // success: which lesson failed, how many had already been applied, and
-      // that the operation was not atomic.
-      setOutcome(t('scheduling.edit.partialApply', {
-        done: succeeded.length,
-        total: targets.length,
-        failedId: failed.lesson.id,
-        message: failed.error instanceof Error ? failed.error.message : String(failed.error),
-      }));
+      // that the operation was not atomic. The card stays open with the
+      // message visible — nothing overwrites or hides it.
+      reportPartial(succeeded.length, targets.length, failed);
       return;
     }
     onSaved();
@@ -254,12 +269,7 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
       actions.endLesson({ lesson: target })
     );
     if (failed) {
-      setOutcome(t('scheduling.edit.partialApply', {
-        done: succeeded.length,
-        total: toEnd.length,
-        failedId: failed.lesson.id,
-        message: failed.error instanceof Error ? failed.error.message : String(failed.error),
-      }));
+      reportPartial(succeeded.length, toEnd.length, failed);
       return;
     }
     onSaved();

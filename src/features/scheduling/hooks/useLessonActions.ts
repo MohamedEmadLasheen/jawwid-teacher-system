@@ -1,4 +1,6 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { useApplyScheduleChange } from './useScheduleRpc';
+import { schedulingKeys } from '../api/queryKeys';
 import { nextDateForDayOfWeek } from '../utils/nextDateForDayOfWeek';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
 import type { DayOfWeek } from '@/lib/types';
@@ -33,6 +35,19 @@ export type LessonChangeScope = 'this_occurrence' | 'all_future';
  */
 export function useLessonActions() {
   const applyChange = useApplyScheduleChange();
+  const queryClient = useQueryClient();
+
+  /**
+   * Re-read the schedule from the database.
+   *
+   * Needed on the FAILURE path specifically: a successful write invalidates
+   * the scheduling queries on its own, but a bulk run that dies partway
+   * leaves the screen showing a mixture of applied and unapplied lessons with
+   * no refetch behind the one that failed. Reconciling makes the UI show what
+   * the database actually holds, so the admin can see the real state before
+   * deciding what to do about it.
+   */
+  const reconcile = () => queryClient.invalidateQueries({ queryKey: schedulingKeys.all });
 
   /**
    * Moves a lesson's time and/or teacher. Only the fields that actually
@@ -128,6 +143,7 @@ export function useLessonActions() {
     cancelOccurrence,
     endLesson,
     applyToEach,
+    reconcile,
     isPending: applyChange.isPending,
     error: applyChange.error,
     reset: applyChange.reset,

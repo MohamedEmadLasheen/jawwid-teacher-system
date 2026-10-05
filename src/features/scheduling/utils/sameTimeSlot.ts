@@ -1,6 +1,22 @@
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
 
 /**
+ * THE CANONICAL DEFINITION — part of the scheduling contract.
+ *
+ *   Same time slot = same original day_of_week
+ *                  + same original start_minute
+ *                  + across all live teachers.
+ *
+ * The student takes no part in membership. The teacher takes no part in
+ * membership. Other days take no part. "Live" means lifecycle 'trial' or
+ * 'active'. The set is resolved ONCE from the originally clicked lesson,
+ * before any mutation.
+ *
+ * Do not redefine this without changing the contract deliberately —
+ * sametimeslot.test.mjs guards every edge of it.
+ */
+
+/**
  * Lifecycles a schedule change may touch.
  *
  * The same two the database's EXCLUDE constraints police

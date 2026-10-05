@@ -10,17 +10,13 @@ import type { LessonWithParticipants } from '@/services/scheduling/lessons.servi
  * minute, any teacher. See findSlotTargets.
  *
  * It reads the whole lessons table rather than the per-day grid query
- * (schedulingKeys.grid(day)) because the grid's rows are the UI's FILTERED
- * view: a lesson hidden by a teacher or course filter is still in the slot
- * and would still be changed, so a bulk edit must count it. This uses the two
- * whole-table queries the app already defines —
- * fetchLessons and fetchLessonParticipants, under their existing keys — and
- * joins them here. No new service function, no new endpoint, and any other
- * screen already using those keys shares the cache.
- *
- * It reads the lessons table directly rather than the grid's filtered rows on
- * purpose: a bulk edit must see every lesson it is about to change, not the
- * subset the UI's filters happen to be showing.
+ * (schedulingKeys.grid(day)) for two reasons: the grid holds one day, and its
+ * rows are the UI's FILTERED view — a lesson hidden by a teacher or course
+ * filter is still in the slot and would still be changed, so a bulk edit must
+ * count it. This uses the two whole-table queries the app already defines,
+ * fetchLessons and fetchLessonParticipants, under their existing keys. No new
+ * service function, no new endpoint, and any screen already using those keys
+ * shares the cache.
  */
 export function useSameTimeSlotLessons(subject: LessonWithParticipants | null) {
   const lessonsQuery = useQuery({

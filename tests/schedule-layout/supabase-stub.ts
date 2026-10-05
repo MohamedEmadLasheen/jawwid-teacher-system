@@ -33,6 +33,14 @@ interface SupabaseStubControl {
    */
   conflictLessonIds: string[];
   /**
+   * Lesson ids whose apply_schedule_change WRITE should throw, after
+   * preflight has already passed. This is the only way to exercise the
+   * partial-failure path: a runtime error mid-batch, which no amount of
+   * validation can rule out while the mutation is N calls rather than one
+   * transaction.
+   */
+  failWriteForLessonIds: string[];
+  /**
    * Seeded table contents, in DB row shape (snake_case), keyed by table name.
    *
    * Without this a harness could only pre-fill React Query's cache, which
@@ -51,11 +59,13 @@ const control: SupabaseStubControl = {
   conflict: false,
   conflictMessage: 'Teacher is already booked at this time.',
   conflictLessonIds: [],
+  failWriteForLessonIds: [],
   tables: {},
   reset() {
     control.rpcCalls.length = 0;
     control.tableOps.length = 0;
     control.conflictLessonIds.length = 0;
+    control.failWriteForLessonIds.length = 0;
     control.conflict = false;
   },
 };
@@ -120,6 +130,15 @@ export const supabase: any = {
   from: (table: string) => chain(table),
   rpc: (fn: string, args: unknown) => {
     control.rpcCalls.push({ fn, args });
+    if (fn === 'apply_schedule_change') {
+      const lessonId = (args as { p_payload?: { lesson_id?: string } } | undefined)?.p_payload?.lesson_id;
+      if (lessonId && control.failWriteForLessonIds.includes(lessonId)) {
+        return Promise.resolve({
+          data: null,
+          error: { message: `simulated write failure for ${lessonId}` },
+        });
+      }
+    }
     return Promise.resolve({ data: rpcResult(fn, args), error: null });
   },
   auth: {},

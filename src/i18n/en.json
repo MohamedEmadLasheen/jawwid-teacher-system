@@ -672,13 +672,13 @@
       "conflictOn": "Blocked — conflict for {{teacher}} on {{day}}: {{message}} Nothing was changed.",
       "partialApply": "Applied to {{done}} of {{total}} lessons, then stopped at {{failedId}}: {{message}} This operation was not atomic — the schedule is partly changed.",
       "save": "Save Changes",
-      "deleteExplainer": "Nothing is deleted. The lessons stop recurring from today forward; their records and history are kept.",
+      "deleteExplainer": "Nothing is physically deleted. The recurring lessons stop repeating from today forward; their rows and historical records are preserved.",
       "deleteThis": "Delete this lesson",
       "deleteSlot": "Delete all {{n}} in this slot",
-      "confirmThisTitle": "End this lesson?",
-      "confirmThisBody": "{{day}} at {{time}} with {{teacher}} stops recurring from today forward and leaves the schedule. The record and its history are kept. No other lesson is affected.",
-      "confirmSlotTitle": "End all {{n}} lessons in this time slot?",
-      "confirmSlotBody": "This ends every lesson on {{day}} at {{time}} — {{n}} in total, across teachers {{teachers}} — from today forward. They stop recurring and leave the schedule. Records and history are kept.",
+      "confirmThisTitle": "End this recurring lesson?",
+      "confirmThisBody": "1 recurring lesson will be ended: {{day}} at {{time}} with {{teacher}}. It stops repeating from today forward under the existing end-of-lesson lifecycle. No database row is deleted and its historical records are preserved. No other lesson is affected.",
+      "confirmSlotTitle": "End all {{n}} recurring lessons in this time slot?",
+      "confirmSlotBody": "{{n}} recurring lessons will be ended — every live lesson on {{day}} at {{time}}, across all teachers in that slot ({{teachers}}). They stop repeating from today forward under the existing end-of-lesson lifecycle. No database rows are physically deleted and all historical records are preserved.",
       "confirmAction": "Yes, continue"
     },
     "quick": {

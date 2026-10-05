@@ -67,6 +67,39 @@ check('an empty slot is empty',
 
 console.log();
 console.log('='.repeat(78));
+console.log('CANONICAL GUARD — slot(day, start) AND NOTHING ELSE');
+console.log('='.repeat(78));
+
+{
+  /**
+   * The contract, one assertion per axis. If a future change redefines
+   * "same time slot", one of these six fails.
+   *
+   *   Same time slot = same original day_of_week
+   *                  + same original start_minute
+   *                  + across all live teachers.
+   */
+  const target = { dayOfWeek: SUN, startMinute: TEN };
+  const base = lesson('base', SUN, TEN, { teacherId: 'T1', students: ['S1'] });
+  const cases = [
+    ['same day + same start + DIFFERENT TEACHER', lesson('c1', SUN, TEN, { teacherId: 'T2', students: ['S2'] }), true],
+    ['same day + DIFFERENT START', lesson('c2', SUN, TEN + 30, { teacherId: 'T3', students: ['S3'] }), false],
+    ['DIFFERENT DAY + same start', lesson('c3', MON, TEN, { teacherId: 'T4', students: ['S4'] }), false],
+    ['same STUDENT + different day', lesson('c4', MON, TEN, { teacherId: 'T1', students: ['S1'] }), false],
+    ['same STUDENT + different start', lesson('c5', SUN, TEN + 30, { teacherId: 'T1', students: ['S1'] }), false],
+    ['ENDED + same day/start', lesson('c6', SUN, TEN, { teacherId: 'T5', students: ['S5'], lifecycleStatus: 'ended' }), false],
+  ];
+
+  for (const [name, candidate, included] of cases) {
+    const slot = ids(findLessonsInSlot(target, [base, candidate]));
+    check(`${name} -> ${included ? 'INCLUDED' : 'EXCLUDED'}`, slot.includes(candidate.id), included);
+  }
+  check('   the base lesson is always in its own slot',
+    ids(findLessonsInSlot(target, [base])), ['base']);
+}
+
+console.log();
+console.log('='.repeat(78));
 console.log('A SHARED STUDENT DOES NOT GROUP LESSONS');
 console.log('='.repeat(78));
 
