@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { QueryClientProvider } from '@tanstack/react-query';
 import App from './App';
 import { queryClient } from './lib/queryClient';
+import { registerServiceWorker } from './lib/registerServiceWorker';
 import './index.css';
 import './i18n/index';
 
@@ -13,3 +14,5 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </QueryClientProvider>
   </React.StrictMode>
 );
+
+registerServiceWorker();

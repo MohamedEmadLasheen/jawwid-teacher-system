@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#0E5A6B" />
+    <title>لا يوجد اتصال — أكاديمية جوِّد</title>
+    <!--
+      Shown by sw.js only when a navigation fails with no network. Fully
+      self-contained: no fonts, images or scripts to fetch, because by
+      definition nothing can be fetched when this page is rendered.
+    -->
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        min-height: 100dvh;
+        padding: calc(24px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom));
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        text-align: center;
+        background: linear-gradient(135deg, #0E5A6B, #0a4a58);
+        color: #fff;
+        font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      }
+      .mark {
+        width: 72px; height: 72px;
+        border-radius: 50%;
+        background: #D9A441;
+        color: #0E5A6B;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 32px; font-weight: 700;
+      }
+      h1 { font-size: 20px; margin: 0; }
+      p { margin: 0; max-width: 32ch; line-height: 1.6; color: rgba(255,255,255,.8); font-size: 14px; }
+      .en { font-size: 13px; color: rgba(255,255,255,.6); direction: ltr; }
+      button {
+        margin-top: 8px;
+        padding: 10px 28px;
+        min-height: 44px;
+        border: 0; border-radius: 999px;
+        background: #D9A441; color: #0E5A6B;
+        font-size: 15px; font-weight: 700; font-family: inherit;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="mark">ج</div>
+    <h1>لا يوجد اتصال بالإنترنت</h1>
+    <p>يحتاج نظام إدارة المعلمين إلى اتصال بالإنترنت لعرض بياناتك. تحقّق من الاتصال ثم أعد المحاولة.</p>
+    <p class="en">You’re offline. The Teacher System needs a connection to load your data.</p>
+    <button type="button" onclick="location.reload()">إعادة المحاولة · Retry</button>
+  </body>
+</html>
