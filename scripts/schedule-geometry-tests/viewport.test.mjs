@@ -68,6 +68,17 @@ check('6  noon is 12 PM, not 0 PM', minuteToDisplayLabel(720).startsWith('12:'),
 check('6  midnight is 12 AM, not 0 AM', minuteToDisplayLabel(0).startsWith('12:'), true);
 check('6  minutes stay zero-padded', minuteToDisplayLabel(13 * 60 + 5), '1:05 PM');
 
+// Every afternoon hour an admin could mistake for 24-hour notation. These are
+// the exact labels the previous build was reported to be showing.
+for (const [h24, want] of [[13, '1:00 PM'], [14, '2:00 PM'], [15, '3:00 PM'], [16, '4:00 PM'],
+                           [17, '5:00 PM'], [18, '6:00 PM'], [19, '7:00 PM'], [20, '8:00 PM']]) {
+  check(`11  internal ${h24}:00 renders as "${want}", never "${h24}:00"`, minuteToDisplayLabel(h24 * 60), want);
+}
+check('11  8:00 internal renders as "8:00 AM"', minuteToDisplayLabel(8 * 60), '8:00 AM');
+check('11  12:00 internal renders as "12:00 PM"', minuteToDisplayLabel(12 * 60), '12:00 PM');
+check('11  no header label matches a 24-hour pattern',
+  GRID_COLUMNS.map(minuteToDisplayLabel).filter((l) => /^(1[3-9]|2[0-3]):[0-5]\d/.test(l)), []);
+
 // The 24-hour formatter must be untouched — <input type="time"> depends on it.
 check('   minuteToLabel still returns 24h "HH:MM" for form round-trips', minuteToLabel(13 * 60 + 30), '13:30');
 check('   minuteToLabel still zero-pads the hour', minuteToLabel(8 * 60), '08:00');

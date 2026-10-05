@@ -4,7 +4,7 @@ import {
   useShiftTemplates, useCreateShiftTemplate, useUpdateShiftTemplate, useDeleteShiftTemplate,
 } from './hooks/useShiftTemplates';
 import { ShiftTemplateForm } from './components/ShiftTemplateForm';
-import { minuteToLabel } from './utils/timeGrid';
+import { minuteToDisplayLabel } from './utils/timeGrid';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -69,7 +69,7 @@ export function ShiftTemplatesPage() {
                   <div className="min-w-0">
                     <p className="font-semibold text-sm truncate">{template.name}</p>
                     <p className="text-xs text-muted-foreground truncate">
-                      {minuteToLabel(template.startMinute)}–{minuteToLabel(template.endMinute)}
+                      {minuteToDisplayLabel(template.startMinute)}–{minuteToDisplayLabel(template.endMinute)}
                     </p>
                   </div>
                   <Badge className={`shrink-0 text-xs ${template.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'}`}>

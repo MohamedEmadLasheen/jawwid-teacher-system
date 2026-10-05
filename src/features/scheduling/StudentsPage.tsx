@@ -6,7 +6,7 @@ import { useLogStore } from '@/store/logStore';
 import { useSupervisorStore } from '@/store/supervisorStore';
 import { useTeacherStore } from '@/store/teacherStore';
 import { useLessons, useLessonParticipants } from './hooks/useLessons';
-import { minuteToLabel } from './utils/timeGrid';
+import { minuteToDisplayLabel } from './utils/timeGrid';
 import { DAYS_OF_WEEK } from './constants/schedulingConstants';
 import {
   useStudents, useCreateStudent, useUpdateStudent, useSoftDeleteStudent, useRestoreStudent,
@@ -228,7 +228,7 @@ export function StudentsPage() {
                   </p>
                   <p className="text-muted-foreground">
                     {t('students.regularSchedule')}: <span className="text-foreground font-medium">
-                      {schedule && dayLabelKey ? `${t(dayLabelKey)} ${minuteToLabel(schedule.startMinute)}` : t('students.noSchedule')}
+                      {schedule && dayLabelKey ? `${t(dayLabelKey)} ${minuteToDisplayLabel(schedule.startMinute)}` : t('students.noSchedule')}
                     </span>
                   </p>
                 </div>

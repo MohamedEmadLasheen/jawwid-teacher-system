@@ -6,7 +6,7 @@ import { useCourses } from './hooks/useCourses';
 import { useLessons, useLessonParticipants } from './hooks/useLessons';
 import { useCheckScheduleConflict, useApplyScheduleChange } from './hooks/useScheduleRpc';
 import { DAYS_OF_WEEK } from './constants/schedulingConstants';
-import { labelToMinute, minuteToLabel } from './utils/timeGrid';
+import { labelToMinute, minuteToDisplayLabel } from './utils/timeGrid';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -196,7 +196,7 @@ export function LessonsPage() {
                 <div>
                   <p className="font-medium">{teacher?.fullName ?? '—'}</p>
                   <p className="text-xs text-muted-foreground">
-                    {t(DAYS_OF_WEEK.find((d) => d.value === lesson.dayOfWeek)!.labelKey)} · {minuteToLabel(lesson.startMinute)}–{minuteToLabel(lesson.endMinute)} ·{' '}
+                    {t(DAYS_OF_WEEK.find((d) => d.value === lesson.dayOfWeek)!.labelKey)} · {minuteToDisplayLabel(lesson.startMinute)}–{minuteToDisplayLabel(lesson.endMinute)} ·{' '}
                     {course ? (isAr ? course.nameAr : course.nameEn) : t('students.coursePending')}
                   </p>
                   <p className="text-xs text-muted-foreground">{lessonStudents.map((s) => s.fullName).join(', ') || '—'}</p>
