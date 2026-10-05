@@ -8,6 +8,7 @@ import { minuteToDisplayLabel } from '../utils/timeGrid';
 import {
   HoverCard, HoverCardContent, HoverCardTrigger,
 } from '@/components/ui/hover-card';
+import { useIsMobile } from '@/hooks/use-mobile';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
 import type { ReactNode } from 'react';
 
@@ -20,8 +21,20 @@ interface LessonHoverCardProps {
  * elsewhere in the grid (students, courses, teachers, supervisors, parents);
  * no new queries. Attendance/Payment Status have no data source anywhere in
  * the schema yet, so they render as honest "Coming Soon" lines rather than
- * invented values, matching the same convention used on the Dashboard. */
+ * invented values, matching the same convention used on the Dashboard.
+ *
+ * DESKTOP ONLY, and it enforces that itself.
+ *
+ * Radix ignores touch for hovering but still opens on FOCUS, and a tap
+ * focuses the trigger — so on a phone this unfurled over the schedule on
+ * every tap, which is exactly what mobile Quick Actions replaces. LessonCell
+ * already declines to render it below 768px; this second gate means a future
+ * call site cannot reintroduce the problem by forgetting, and that the
+ * preview is never merely hidden while its interaction stays live. Below the
+ * breakpoint the children are returned bare: no trigger, no portal, no
+ * listeners, nothing to open. */
 export function LessonHoverCard({ lesson, children }: LessonHoverCardProps) {
+  const isMobile = useIsMobile();
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === 'ar';
   const { data: students = [] } = useStudents();
@@ -38,6 +51,10 @@ export function LessonHoverCard({ lesson, children }: LessonHoverCardProps) {
   const parentNames = lessonStudents
     .map((s) => (s ? parentNameByStudentId.get(s.id) : undefined))
     .filter(Boolean);
+
+  // Hooks above run unconditionally (they are the same cached queries the
+  // grid already reads); only the hover machinery is skipped.
+  if (isMobile) return <>{children}</>;
 
   return (
     <HoverCard openDelay={200}>

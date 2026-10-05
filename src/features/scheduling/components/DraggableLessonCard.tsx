@@ -4,6 +4,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { useStudents } from '../hooks/useStudents';
 import { useCourses } from '../hooks/useCourses';
 import { useSupervisorStore } from '@/store/supervisorStore';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { getLessonSupervisorColor, getLessonBorderStyle } from '../utils/lessonColor';
 import { minuteToDisplayLabel } from '../utils/timeGrid';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
@@ -19,6 +20,9 @@ interface DraggableLessonCardProps {
 export function DraggableLessonCard({ lesson, onClick, isCompact = false }: DraggableLessonCardProps) {
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === 'ar';
+  // Touch dragging is off below 768px (see useScheduleDragSensors), so the
+  // card must not advertise a grab affordance it will not honour there.
+  const isMobile = useIsMobile();
   const { data: students = [] } = useStudents();
   const { data: courses = [] } = useCourses();
   const { supervisors } = useSupervisorStore();
@@ -46,7 +50,7 @@ export function DraggableLessonCard({ lesson, onClick, isCompact = false }: Drag
         borderStyle,
         opacity: isDragging ? 0.4 : 1,
       }}
-      className={`w-full h-full text-start rounded-md border-2 bg-white hover:shadow-md transition-shadow overflow-hidden cursor-grab active:cursor-grabbing flex flex-col justify-center ${isCompact ? "px-1.5 py-1.5 gap-0.5" : "px-1.5 py-1"}`}
+      className={`w-full h-full text-start rounded-md border-2 bg-white hover:shadow-md transition-shadow overflow-hidden ${isMobile ? '' : 'cursor-grab active:cursor-grabbing'} flex flex-col justify-center ${isCompact ? "px-1.5 py-1.5 gap-0.5" : "px-1.5 py-1"}`}
     >
       <p className={`font-semibold leading-tight ${isCompact ? 'text-[12px] line-clamp-2 break-words' : 'text-[11px] truncate'}`}>
         {isGroup ? `${firstStudentName} +${lesson.participants.length - 1}` : firstStudentName}
