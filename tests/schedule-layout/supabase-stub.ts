@@ -3,20 +3,97 @@
  * scheduling components with fixture data seeded directly into React Query,
  * so no query ever needs to reach the network — and the test suite can never
  * touch the real database.
+ *
+ * It also RECORDS what the components asked the database to do, which is how
+ * the quick-actions tests prove the negative cases: that "Remove from
+ * schedule" issues cancel_occurrence / end_lesson and never a DELETE, and
+ * that closing a sheet without confirming issues nothing at all. Assertions
+ * about an absence need a witness; this is it.
+ *
+ * Everything is exposed on window.__supabaseStub:
+ *   rpcCalls   [{ fn, args }]            every .rpc(...) call, in order
+ *   tableOps   [{ table, op }]           every .from(table).<op>() call
+ *   conflict   boolean                   drives check_schedule_conflict
+ *   conflictMessage string
+ *   reset()                              clears both logs
  */
-function chain(): any {
+export interface StubRpcCall { fn: string; args: unknown }
+export interface StubTableOp { table: string; op: string }
+
+interface SupabaseStubControl {
+  rpcCalls: StubRpcCall[];
+  tableOps: StubTableOp[];
+  conflict: boolean;
+  conflictMessage: string;
+  reset: () => void;
+}
+
+const control: SupabaseStubControl = {
+  rpcCalls: [],
+  tableOps: [],
+  conflict: false,
+  conflictMessage: 'Teacher is already booked at this time.',
+  reset() {
+    control.rpcCalls.length = 0;
+    control.tableOps.length = 0;
+  },
+};
+
+if (typeof window !== 'undefined') {
+  (window as unknown as { __supabaseStub: SupabaseStubControl }).__supabaseStub = control;
+}
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+function chain(table: string): any {
   const settled = Promise.resolve({ data: [], error: null });
   const proxy: any = new Proxy(settled, {
     get(target, prop) {
       if (prop === 'then' || prop === 'catch' || prop === 'finally') {
         return (target as any)[prop].bind(target);
       }
-      return () => proxy;
+      return (..._args: unknown[]) => {
+        control.tableOps.push({ table, op: String(prop) });
+        return proxy;
+      };
     },
   });
   return proxy;
 }
 
-export const supabase: any = { from: () => chain(), rpc: () => chain(), auth: {} };
+/** Shapes mirror the real RPCs' snake_case payloads, so the service-layer
+ *  mappers under test (toConflictResult) run for real. */
+function rpcResult(fn: string): unknown {
+  if (fn === 'check_schedule_conflict') {
+    return {
+      has_conflict: control.conflict,
+      teacher_conflict: control.conflict ? { lesson_id: 'other-lesson', teacher_id: 'T1' } : null,
+      student_conflicts: [],
+      message: control.conflict ? control.conflictMessage : 'No conflicts.',
+    };
+  }
+  if (fn === 'apply_schedule_change') {
+    return { lesson_id: 'L-mid', ok: true };
+  }
+  // RPCs that return a scalar or a single JSONB object must answer null when
+  // they have nothing, NOT []. get_teacher_preservation_score is the one that
+  // matters: its service mapper only short-circuits on a falsy value, so an
+  // empty array would be mapped into an object of undefined fields and crash
+  // TeacherPreservationScoreBadge on `breakdown.teacher`. The real function
+  // returns an object or NULL, so [] was never a shape worth emulating.
+  if (fn.startsWith('get_') && fn !== 'get_active_schedule_conflicts') {
+    return null;
+  }
+  return [];
+}
+
+export const supabase: any = {
+  from: (table: string) => chain(table),
+  rpc: (fn: string, args: unknown) => {
+    control.rpcCalls.push({ fn, args });
+    return Promise.resolve({ data: rpcResult(fn), error: null });
+  },
+  auth: {},
+};
 export const supabaseAdmin: any = supabase;
 export async function fetchAllRows<T>(): Promise<T[]> { return []; }

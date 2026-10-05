@@ -5,6 +5,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useScheduleUiStore } from '@/store/scheduleUiStore';
 import { useScheduleGrid } from '../hooks/useScheduleGrid';
 import { useScheduleMetrics } from '../hooks/useScheduleMetrics';
+import { useScheduleDragSensors } from '../hooks/useScheduleDragSensors';
 import { useScheduleRoster } from '../hooks/useScheduleRoster';
 import { ScheduleGridRow } from './ScheduleGridRow';
 import { ScheduleTimeHeader } from './ScheduleTimeHeader';
@@ -100,6 +101,10 @@ export function MasterScheduleGrid({ onEmptyClick, onLessonClick, onProposeMove 
     scrollMargin: listOffset,
   });
 
+  // Drag must not steal the tap: see useScheduleDragSensors for why the
+  // defaults are unusable on touch and what each constraint is for.
+  const sensors = useScheduleDragSensors();
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over) return;
@@ -120,7 +125,7 @@ export function MasterScheduleGrid({ onEmptyClick, onLessonClick, onProposeMove 
   const contentWidth = teacherColumnWidth + timelineWidth(columnWidth);
 
   return (
-    <DndContext onDragEnd={handleDragEnd}>
+    <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
       <div className="border rounded-lg overflow-hidden bg-white">
         <div ref={scrollRef} className="overflow-auto" style={{ height: '65vh' }}>
           <div style={{ width: contentWidth }}>

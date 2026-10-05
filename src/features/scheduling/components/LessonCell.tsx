@@ -1,5 +1,6 @@
 import { DraggableLessonCard } from './DraggableLessonCard';
 import { LessonHoverCard } from './LessonHoverCard';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { minuteToX, minuteSpanToWidth } from '../utils/timelineGeometry';
 import { GRID_START_MINUTE, GRID_END_MINUTE } from '../constants/schedulingConstants';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
@@ -21,6 +22,12 @@ interface LessonCellProps {
  */
 export function LessonCell({ lesson, columnWidth, isCompact = false, onLessonClick }: LessonCellProps) {
   const endMinute = lesson.startMinute + lesson.durationMinutes;
+  // The hover preview is desktop-only. Radix ignores touch for hovering, but
+  // it still opens on FOCUS — and a tap focuses the card, so on a phone the
+  // full preview panel used to unfurl behind the quick-actions sheet every
+  // time a lesson was tapped. Mobile gets its context from the sheet's own
+  // header instead; "View details" still reaches the full dialog.
+  const isMobile = useIsMobile();
 
   // Entirely outside the visible window — nothing to draw.
   if (endMinute <= GRID_START_MINUTE || lesson.startMinute >= GRID_END_MINUTE) return null;
@@ -38,9 +45,13 @@ export function LessonCell({ lesson, columnWidth, isCompact = false, onLessonCli
         width: minuteSpanToWidth(lesson.startMinute, endMinute, columnWidth),
       }}
     >
-      <LessonHoverCard lesson={lesson}>
+      {isMobile ? (
         <DraggableLessonCard lesson={lesson} isCompact={isCompact} onClick={() => onLessonClick(lesson)} />
-      </LessonHoverCard>
+      ) : (
+        <LessonHoverCard lesson={lesson}>
+          <DraggableLessonCard lesson={lesson} isCompact={isCompact} onClick={() => onLessonClick(lesson)} />
+        </LessonHoverCard>
+      )}
     </div>
   );
 }
