@@ -11,9 +11,12 @@ import type { LessonWithParticipants } from '@/services/scheduling/lessons.servi
 interface DraggableLessonCardProps {
   lesson: LessonWithParticipants;
   onClick: () => void;
+  /** Below desktop: bigger type, and secondary details dropped so the student
+   *  name and time stay legible in a card only ~80px wide. */
+  isCompact?: boolean;
 }
 
-export function DraggableLessonCard({ lesson, onClick }: DraggableLessonCardProps) {
+export function DraggableLessonCard({ lesson, onClick, isCompact = false }: DraggableLessonCardProps) {
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === 'ar';
   const { data: students = [] } = useStudents();
@@ -43,16 +46,20 @@ export function DraggableLessonCard({ lesson, onClick }: DraggableLessonCardProp
         borderStyle,
         opacity: isDragging ? 0.4 : 1,
       }}
-      className="w-full h-full text-start px-1.5 py-1 rounded-md border-2 bg-white hover:shadow-md transition-shadow overflow-hidden cursor-grab active:cursor-grabbing flex flex-col"
+      className={`w-full h-full text-start rounded-md border-2 bg-white hover:shadow-md transition-shadow overflow-hidden cursor-grab active:cursor-grabbing flex flex-col justify-center ${isCompact ? "px-1.5 py-1.5 gap-0.5" : "px-1.5 py-1"}`}
     >
-      <p className="text-[11px] font-medium truncate leading-tight">
+      <p className={`font-semibold leading-tight ${isCompact ? 'text-[12px] line-clamp-2 break-words' : 'text-[11px] truncate'}`}>
         {isGroup ? `${firstStudentName} +${lesson.participants.length - 1}` : firstStudentName}
       </p>
-      <p className="text-[10px] text-muted-foreground truncate leading-tight">
-        {minuteToDisplayLabel(lesson.startMinute)}–{minuteToDisplayLabel(lesson.endMinute)}
+      <p className={`text-muted-foreground truncate leading-tight ${isCompact ? 'text-[11px]' : 'text-[10px]'}`}>
+        {minuteToDisplayLabel(lesson.startMinute)}
       </p>
-      {course && <p className="text-[9px] text-muted-foreground truncate leading-tight">{isAr ? course.nameAr : course.nameEn}</p>}
-      {isGroup && (
+      {/* Course and participant count are desktop-only: at mobile card widths
+          they crowd out the two things an admin actually scans for. */}
+      {!isCompact && course && (
+        <p className="text-[9px] text-muted-foreground truncate leading-tight">{isAr ? course.nameAr : course.nameEn}</p>
+      )}
+      {!isCompact && isGroup && (
         <p className="text-[9px] font-medium text-primary truncate leading-tight mt-auto">
           {t('scheduling.participantsCount', { count: lesson.participants.length })}
         </p>

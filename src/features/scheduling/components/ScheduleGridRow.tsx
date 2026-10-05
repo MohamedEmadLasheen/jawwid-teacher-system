@@ -3,13 +3,17 @@ import { LessonCell } from './LessonCell';
 import { ScheduleSlotCell } from './ScheduleSlotCell';
 import { computeRowLayout } from '../utils/computeRowLayout';
 import { minuteToX, minuteSpanToWidth, timelineWidth } from '../utils/timelineGeometry';
-import { GRID_COLUMNS, GRID_TEACHER_COLUMN_WIDTH } from '../constants/schedulingConstants';
+import { GRID_COLUMNS } from '../constants/schedulingConstants';
 import type { ScheduleGridTeacherRow } from '../hooks/useScheduleGrid';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
 
 interface ScheduleGridRowProps {
   row: ScheduleGridTeacherRow;
   columnWidth: number;
+  /** Width of the frozen label column — responsive, from useScheduleMetrics. */
+  teacherColumnWidth: number;
+  /** Below desktop: larger, wrappable label text. */
+  isCompact?: boolean;
   onEmptyClick: (teacherId: string, startMinute: number) => void;
   onLessonClick: (lesson: LessonWithParticipants) => void;
   /** Overrides the row's leading-column label (defaults to the teacher's name) — used by the per-teacher weekly view, where each row is a day rather than a teacher. */
@@ -32,17 +36,23 @@ interface ScheduleGridRowProps {
  * grid's single horizontal scroll container while every layer above scrolls
  * together as one timeline.
  */
-export function ScheduleGridRow({ row, columnWidth, onEmptyClick, onLessonClick, label }: ScheduleGridRowProps) {
+export function ScheduleGridRow({ row, columnWidth, teacherColumnWidth, isCompact = false, onEmptyClick, onLessonClick, label }: ScheduleGridRowProps) {
   const layout = useMemo(() => computeRowLayout(row.lessons, row.availability), [row.lessons, row.availability]);
   const axisWidth = timelineWidth(columnWidth);
 
   return (
     <div className="flex h-full border-b border-gray-100">
       <div
-        style={{ width: GRID_TEACHER_COLUMN_WIDTH }}
-        className="shrink-0 sticky start-0 z-30 bg-white border-e border-gray-200 flex items-center px-3"
+        style={{ width: teacherColumnWidth }}
+        className={`shrink-0 sticky start-0 z-30 bg-white border-e border-gray-200 flex items-center ${isCompact ? 'px-2' : 'px-3'}`}
       >
-        <p className="text-sm font-medium truncate">{label ?? row.teacher.fullName}</p>
+        {/* Two lines before ellipsis on compact: most teacher names fit, and a
+            name the admin cannot read defeats the point of a frozen column. */}
+        <p className={isCompact
+          ? 'text-[13px] font-semibold leading-tight line-clamp-2 break-words'
+          : 'text-sm font-medium truncate'}>
+          {label ?? row.teacher.fullName}
+        </p>
       </div>
 
       <div className="relative shrink-0 h-full" style={{ width: axisWidth }}>
@@ -87,6 +97,7 @@ export function ScheduleGridRow({ row, columnWidth, onEmptyClick, onLessonClick,
             key={lesson.id}
             lesson={lesson}
             columnWidth={columnWidth}
+            isCompact={isCompact}
             onLessonClick={onLessonClick}
           />
         ))}

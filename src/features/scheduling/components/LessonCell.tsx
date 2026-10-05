@@ -7,6 +7,7 @@ import type { LessonWithParticipants } from '@/services/scheduling/lessons.servi
 interface LessonCellProps {
   lesson: LessonWithParticipants;
   columnWidth: number;
+  isCompact?: boolean;
   onLessonClick: (lesson: LessonWithParticipants) => void;
 }
 
@@ -18,7 +19,7 @@ interface LessonCellProps {
  * 40-minute lesson ends exactly under 16:40 instead of being rounded up to
  * the next 30-minute column.
  */
-export function LessonCell({ lesson, columnWidth, onLessonClick }: LessonCellProps) {
+export function LessonCell({ lesson, columnWidth, isCompact = false, onLessonClick }: LessonCellProps) {
   const endMinute = lesson.startMinute + lesson.durationMinutes;
 
   // Entirely outside the visible window — nothing to draw.
@@ -38,7 +39,7 @@ export function LessonCell({ lesson, columnWidth, onLessonClick }: LessonCellPro
       }}
     >
       <LessonHoverCard lesson={lesson}>
-        <DraggableLessonCard lesson={lesson} onClick={() => onLessonClick(lesson)} />
+        <DraggableLessonCard lesson={lesson} isCompact={isCompact} onClick={() => onLessonClick(lesson)} />
       </LessonHoverCard>
     </div>
   );
