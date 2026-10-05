@@ -31,8 +31,8 @@ const params = new URLSearchParams(window.location.search);
 const DIR = (params.get('dir') === 'rtl' ? 'rtl' : 'ltr') as 'ltr' | 'rtl';
 const COLUMN_WIDTH = Number(params.get('cw') ?? 96);
 
-const SHIFT_START = 14 * 60;   // 14:00 — working-window start
-const SHIFT_END = 19 * 60;     // 19:00 — working-window end
+const SHIFT_START = 12 * 60;   // 12:00 — full-time working-window start
+const SHIFT_END = 19 * 60;     // 19:00 — full-time working-window end
 
 const availability = [{
   teacherId: 'T', dayOfWeek: 0,
@@ -53,7 +53,7 @@ const makeLesson = (id: string, startMinute: number, durationMinutes: number) =>
 // Working-window start, an interior half-hour, a 40-minute (fractional-width)
 // lesson, and one ending exactly on the window's end boundary.
 const lessons = [
-  makeLesson('L-start', SHIFT_START, 30),       // 14:00-14:30
+  makeLesson('L-start', SHIFT_START, 30),       // 12:00-12:30 (window start)
   makeLesson('L-mid', 15 * 60 + 30, 30),        // 15:30-16:00
   makeLesson('L-40', 16 * 60, 40),              // 16:00-16:40
   makeLesson('L-end', 18 * 60 + 30, 30),        // 18:30-19:00 (window end)

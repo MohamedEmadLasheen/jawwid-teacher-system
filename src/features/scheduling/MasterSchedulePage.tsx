@@ -8,6 +8,7 @@ import { ScheduleHealthPanel } from './components/ScheduleHealthPanel';
 import { ScheduleIntelligenceCenter } from './components/ScheduleIntelligenceCenter';
 import { ScheduleFilterBar } from './components/ScheduleFilterBar';
 import { ColorLegend } from './components/ColorLegend';
+import { ScheduleRosterLegend } from './components/ScheduleRosterLegend';
 import { PrimeTimeIndicator } from './components/PrimeTimeIndicator';
 import { MasterScheduleGrid } from './components/MasterScheduleGrid';
 import { LessonDetailDialog } from './components/LessonDetailDialog';
@@ -65,6 +66,7 @@ export function MasterSchedulePage() {
           </Tabs>
           <PrimeTimeIndicator />
         </div>
+        <ScheduleRosterLegend />
         <ColorLegend />
       </div>
 
