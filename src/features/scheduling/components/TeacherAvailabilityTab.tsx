@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import type { DayOfWeek } from '@/lib/types';
 import { DAYS_OF_WEEK } from '../constants/schedulingConstants';
-import { labelToMinute, minuteToLabel } from '../utils/timeGrid';
+import { labelToMinute, minuteToDisplayLabel } from '../utils/timeGrid';
 import {
   useTeacherAvailability, useCreateTeacherAvailability, useDeleteTeacherAvailability,
 } from '../hooks/useTeacherAvailability';
@@ -55,7 +55,7 @@ function HourlyAvailabilityEditor({ teacherId }: { teacherId: string }) {
         {blocks.length === 0 && <p className="text-xs text-muted-foreground">{t('scheduling.noAvailability')}</p>}
         {blocks.map((b) => (
           <Badge key={b.id} variant="outline" className="gap-1 py-1">
-            {t(DAYS_OF_WEEK.find((d) => d.value === b.dayOfWeek)!.labelKey)} · {minuteToLabel(b.startMinute)}–{minuteToLabel(b.endMinute)}
+            {t(DAYS_OF_WEEK.find((d) => d.value === b.dayOfWeek)!.labelKey)} · {minuteToDisplayLabel(b.startMinute)}–{minuteToDisplayLabel(b.endMinute)}
             <button type="button" onClick={() => deleteBlock.mutate(b.id)}>
               <X className="h-3 w-3" />
             </button>
@@ -130,7 +130,7 @@ function ShiftAssignmentEditor({ teacherId }: { teacherId: string }) {
           <SelectTrigger className="h-9 text-sm w-48"><SelectValue placeholder={t('scheduling.selectShift')} /></SelectTrigger>
           <SelectContent>
             {templates.map((s) => (
-              <SelectItem key={s.id} value={s.id}>{s.name} ({minuteToLabel(s.startMinute)}–{minuteToLabel(s.endMinute)})</SelectItem>
+              <SelectItem key={s.id} value={s.id}>{s.name} ({minuteToDisplayLabel(s.startMinute)}–{minuteToDisplayLabel(s.endMinute)})</SelectItem>
             ))}
           </SelectContent>
         </Select>

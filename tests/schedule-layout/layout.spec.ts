@@ -62,7 +62,16 @@ async function inlineStartOffsets(page: Page) {
     const bands = bandEls.map((el) => ({
       start: inlineStart(el)!, end: inlineEnd(el)!,
       width: +el.getBoundingClientRect().width.toFixed(3),
+      className: el.className,
+      backgroundColor: getComputedStyle(el).backgroundColor,
+      borderTopColor: getComputedStyle(el).borderTopColor,
     })).sort((a, b) => a.start - b.start);
+
+    // Everything the grid renders as text — used to prove no 24-hour label leaks.
+    const renderedText = (scroller.textContent ?? '');
+    const slotEls = Array.from(row.querySelectorAll('button'));
+    const outsideShiftSlot = slotEls.find((b) => /repeating-linear-gradient/.test(getComputedStyle(b).backgroundImage))
+      ?? slotEls[0];
 
     const nowEl = scroller.querySelector('div.w-0\\.5.bg-red-500');
 
@@ -78,6 +87,11 @@ async function inlineStartOffsets(page: Page) {
       bands,
       now: nowEl ? inlineStart(nowEl) : null,
       labelViewportLeft: labelEl ? +labelEl.getBoundingClientRect().left.toFixed(2) : null,
+      renderedText,
+      outsideShiftBg: outsideShiftSlot ? getComputedStyle(outsideShiftSlot).backgroundColor : null,
+      lessonZ: (() => { const l = row.querySelector('div.absolute.top-0.h-full.z-20'); return l ? getComputedStyle(l).zIndex : null; })(),
+      bandZ: bandEls[0] ? getComputedStyle(bandEls[0]).zIndex : null,
+      bandPointerEvents: bandEls[0] ? getComputedStyle(bandEls[0]).pointerEvents : null,
       scrollLeft: Math.round(scroller.scrollLeft),
       maxScroll: scroller.scrollWidth - scroller.clientWidth,
     };
@@ -174,6 +188,50 @@ for (const dir of DIRECTIONS) {
         }
       });
     }
+
+
+    test('header renders 12-hour labels only, 8:00 AM to 7:30 PM', async ({ page }) => {
+      await openHarness(page, dir, 96);
+      const m = await inlineStartOffsets(page);
+
+      const labels = Object.keys(m.headerCells);
+      expect(labels).toHaveLength(24);
+      expect(labels).toEqual(expect.arrayContaining([
+        '8:00 AM', '11:30 AM', '12:00 PM', '12:30 PM', '1:00 PM',
+        '2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM', '6:00 PM', '7:00 PM', '7:30 PM',
+      ]));
+
+      // The exact labels previously reported as wrong must not be rendered
+      // anywhere in the grid — header, lesson cards or bands.
+      for (const bad of ['13:00', '13:30', '14:00', '14:30', '15:00', '15:30',
+                         '16:00', '17:00', '18:00', '19:00', '20:00']) {
+        expect(m.renderedText).not.toContain(bad);
+      }
+      expect(m.renderedText).toMatch(/\b24:00\b/.source ? /^(?!.*\b(1[3-9]|2[0-3]):[0-5]\d\b).*$/s : /.*/);
+    });
+
+    test('free time inside the shift renders RED; outside stays neutral; lessons stay on top', async ({ page }) => {
+      await openHarness(page, dir, 96);
+      const m = await inlineStartOffsets(page);
+
+      // B. Inside working window + no lesson => red.
+      expect(m.bands.length).toBeGreaterThan(0);
+      for (const b of m.bands) {
+        expect(b.className).toContain('bg-red-100/80');
+        expect(b.className).toContain('border-red-300');
+        // tailwind red-100 at 80% opacity
+        expect(b.backgroundColor).toBe('rgba(254, 226, 226, 0.8)');
+        expect(b.className).not.toMatch(/emerald|green|teal/);
+      }
+
+      // A. Outside the working window must NOT be red.
+      expect(m.outsideShiftBg).not.toBe('rgba(254, 226, 226, 0.8)');
+
+      // C. The lesson layer stays above the band, and the band never steals
+      //    pointer events from the slot underneath.
+      expect(Number(m.lessonZ)).toBeGreaterThan(Number(m.bandZ));
+      expect(m.bandPointerEvents).toBe('none');
+    });
 
     test('current-time indicator sits on the same axis as the header', async ({ page }) => {
       await openHarness(page, dir, 96);

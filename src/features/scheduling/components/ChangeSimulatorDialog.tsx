@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTeacherStore } from '@/store/teacherStore';
 import { useCheckScheduleConflict, useApplyScheduleChange } from '../hooks/useScheduleRpc';
-import { minuteToLabel } from '../utils/timeGrid';
+import { minuteToDisplayLabel } from '../utils/timeGrid';
 import { nextDateForDayOfWeek } from '../utils/nextDateForDayOfWeek';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -72,7 +72,7 @@ export function ChangeSimulatorDialog({ lesson, proposedTeacherId, proposedStart
               <p>{t('scheduling.changeTeacher')}: <strong>{proposedTeacher?.fullName ?? '—'}</strong></p>
             )}
             {timeChanged && (
-              <p>{t('scheduling.changeTime')}: <strong>{minuteToLabel(proposedStartMinute)}</strong></p>
+              <p>{t('scheduling.changeTime')}: <strong>{minuteToDisplayLabel(proposedStartMinute)}</strong></p>
             )}
             {movingAwayFromOriginal && (
               <p className="text-amber-700 text-xs">⚠ {t('scheduling.preservationScore')}: this moves away from the original teacher.</p>

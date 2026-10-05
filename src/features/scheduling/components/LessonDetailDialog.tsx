@@ -9,7 +9,7 @@ import { useCurrentPrimaryTeachers } from '../hooks/usePrimaryTeacherAssignments
 import { AttendanceSection } from '@/features/operations/components/AttendanceSection';
 import { TeacherPreservationScoreBadge } from './TeacherPreservationScoreBadge';
 import { DAYS_OF_WEEK } from '../constants/schedulingConstants';
-import { labelToMinute, minuteToLabel } from '../utils/timeGrid';
+import { labelToMinute, minuteToLabel, minuteToDisplayLabel } from '../utils/timeGrid';
 import { nextDateForDayOfWeek } from '../utils/nextDateForDayOfWeek';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -276,7 +276,7 @@ export function LessonDetailDialog(props: LessonDetailDialogProps) {
           ) : (
             <p className="text-sm text-muted-foreground">
               {teacher?.fullName} · {t(DAYS_OF_WEEK.find((d) => d.value === dayOfWeek)!.labelKey)}
-              {` · ${minuteToLabel(props.lesson.startMinute)}–${minuteToLabel(props.lesson.endMinute)}`}
+              {` · ${minuteToDisplayLabel(props.lesson.startMinute)}–${minuteToDisplayLabel(props.lesson.endMinute)}`}
             </p>
           )}
 
