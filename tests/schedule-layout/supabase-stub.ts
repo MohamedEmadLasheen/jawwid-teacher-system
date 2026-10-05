@@ -25,6 +25,16 @@ interface SupabaseStubControl {
   tableOps: StubTableOp[];
   conflict: boolean;
   conflictMessage: string;
+  /**
+   * Seeded table contents, in DB row shape (snake_case), keyed by table name.
+   *
+   * Without this a harness could only pre-fill React Query's cache, which
+   * survives exactly until the first mutation: useApplyScheduleChange
+   * invalidates the scheduling keys on success, the queries refetch, and the
+   * stub hands back [] — so a second action in the same session sees an empty
+   * schedule. Serving the rows here keeps a multi-step test honest.
+   */
+  tables: Record<string, unknown[]>;
   reset: () => void;
 }
 
@@ -33,6 +43,7 @@ const control: SupabaseStubControl = {
   tableOps: [],
   conflict: false,
   conflictMessage: 'Teacher is already booked at this time.',
+  tables: {},
   reset() {
     control.rpcCalls.length = 0;
     control.tableOps.length = 0;
@@ -46,11 +57,16 @@ if (typeof window !== 'undefined') {
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 function chain(table: string): any {
-  const settled = Promise.resolve({ data: [], error: null });
-  const proxy: any = new Proxy(settled, {
-    get(target, prop) {
+  const rows = () => control.tables[table] ?? [];
+  const settled = () => Promise.resolve({ data: rows(), error: null });
+  const proxy: any = new Proxy({} as any, {
+    get(_target, prop) {
+      // The table this builder is for, so the fetchAllRows stub below can
+      // resolve the right rows without parsing a query.
+      if (prop === '__table') return table;
       if (prop === 'then' || prop === 'catch' || prop === 'finally') {
-        return (target as any)[prop].bind(target);
+        const p = settled();
+        return (p as any)[prop].bind(p);
       }
       return (..._args: unknown[]) => {
         control.tableOps.push({ table, op: String(prop) });
@@ -96,4 +112,15 @@ export const supabase: any = {
   auth: {},
 };
 export const supabaseAdmin: any = supabase;
-export async function fetchAllRows<T>(): Promise<T[]> { return []; }
+/**
+ * Mirrors the real paginating helper closely enough for the services under
+ * test: it calls the builder exactly as they do, then serves the seeded rows
+ * for whichever table the builder was for. One page — fixtures are small.
+ */
+export async function fetchAllRows<T>(
+  buildQuery: (from: number, to: number) => unknown
+): Promise<T[]> {
+  const builder = buildQuery(0, 999) as { __table?: string } | undefined;
+  const table = builder?.__table;
+  return ((table ? control.tables[table] : []) ?? []) as T[];
+}

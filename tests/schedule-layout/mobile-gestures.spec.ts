@@ -185,8 +185,8 @@ test('every tappable part of a lesson card leads only to Quick Actions', async (
     const hc = await hoverCardState(page);
     expect(hc.total, `tapping the ${target} opened a hover preview`).toBe(0);
     // The full dialog is not what a tap opens either.
-    expect(await page.locator('[role="dialog"] input[type="time"]').count(),
-      `tapping the ${target} opened the full dialog`).toBe(0);
+    expect(await page.locator('[data-testid="lesson-edit"]').count(),
+      `tapping the ${target} opened the Lesson Details card`).toBe(0);
     void card;
   }
 });

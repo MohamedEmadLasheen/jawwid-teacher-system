@@ -5,18 +5,13 @@ import { useStudents } from '../hooks/useStudents';
 import { useCourses } from '../hooks/useCourses';
 import { useParentNameByStudentId } from '../hooks/useParents';
 import { useApplyScheduleChange, useCheckScheduleConflict } from '../hooks/useScheduleRpc';
-import { useCurrentPrimaryTeachers } from '../hooks/usePrimaryTeacherAssignments';
-import { AttendanceSection } from '@/features/operations/components/AttendanceSection';
-import { TeacherPreservationScoreBadge } from './TeacherPreservationScoreBadge';
+import { LessonEditDialog } from './LessonEditDialog';
 import { DAYS_OF_WEEK } from '../constants/schedulingConstants';
-import { labelToMinute, minuteToLabel, minuteToDisplayLabel } from '../utils/timeGrid';
-import { nextDateForDayOfWeek } from '../utils/nextDateForDayOfWeek';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Badge } from '@/components/ui/badge';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -26,7 +21,7 @@ import {
 } from '@/components/ui/command';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { CheckCircle2, AlertTriangle, X, ChevronsUpDown } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, ChevronsUpDown } from 'lucide-react';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
 import type { DayOfWeek, Teacher, Student } from '@/lib/types';
 
@@ -47,7 +42,11 @@ type LessonDetailDialogProps =
       lesson: LessonWithParticipants;
       onClose: () => void;
       onSaved: () => void;
-      onProposeMove: (lesson: LessonWithParticipants, newTeacherId: string, newStartMinute: number) => void;
+      /** Still accepted so existing call sites compile unchanged; the edit
+       *  card now saves through useLessonActions rather than proposing a
+       *  move, so it is no longer read. The grid's drag path still uses its
+       *  own onProposeMove and the ChangeSimulatorDialog. */
+      onProposeMove?: (lesson: LessonWithParticipants, newTeacherId: string, newStartMinute: number) => void;
     };
 
 /** Searchable teacher combobox — search by name or raw ID. Kept as a
@@ -139,7 +138,29 @@ function StudentSearchSelect({ students, parentNameByStudentId, selectedIds, onT
   );
 }
 
+/**
+ * Create a lesson, or edit one.
+ *
+ * Edit is delegated to LessonEditDialog, which is scheduling-only: teacher,
+ * day, time, duration, an explicit scope, and a separated removal section.
+ * The operational features this dialog used to carry in edit mode (session
+ * recording, attendance reasons, make-up, the preservation score, participant
+ * management, End Lesson) are gone from the card by request. None of that
+ * code was deleted — AttendanceSection, MarkAttendanceRow, their hooks and
+ * their service all remain, unmounted, for a future Operations surface.
+ *
+ * Create mode is untouched, and both call sites keep the same props.
+ */
 export function LessonDetailDialog(props: LessonDetailDialogProps) {
+  if (props.mode === 'edit') {
+    return (
+      <LessonEditDialog lesson={props.lesson} onClose={props.onClose} onSaved={props.onSaved} />
+    );
+  }
+  return <CreateLessonDialog {...props} />;
+}
+
+function CreateLessonDialog(props: Extract<LessonDetailDialogProps, { mode: 'create' }>) {
   const { t, i18n } = useTranslation();
   const isAr = i18n.language === 'ar';
   const { teachers } = useTeacherStore();
@@ -149,32 +170,12 @@ export function LessonDetailDialog(props: LessonDetailDialogProps) {
   const applyChange = useApplyScheduleChange();
   const checkConflict = useCheckScheduleConflict();
 
-  const isCreate = props.mode === 'create';
-  const dayOfWeek = isCreate ? props.dayOfWeek : (props.lesson.dayOfWeek as DayOfWeek);
+  const dayOfWeek = props.dayOfWeek;
 
   // Ready for multi-teacher lessons later — array-shaped state, single-select UI/submission for now.
-  const [teacherIds, setTeacherIds] = useState<string[]>([isCreate ? props.teacherId : props.lesson.teacherId]);
+  const [teacherIds, setTeacherIds] = useState<string[]>([props.teacherId]);
   const teacherId = teacherIds[0];
   const teacher = teachers.find((tc) => tc.id === teacherId);
-
-  // Task D — confirmed Primary Teacher is the first scheduling priority: when
-  // changing an existing lesson's teacher, the student's confirmed Primary
-  // Teacher (if any, and if all participants share the same one) is surfaced
-  // and listed first — never auto-applied, purely a prioritized/labeled
-  // option a human still has to pick and preview like any other teacher.
-  const participantStudentIds = !isCreate ? props.lesson.participants.map((p) => p.studentId) : [];
-  const { data: primaryTeacherByStudent } = useCurrentPrimaryTeachers(participantStudentIds);
-  const primaryTeacherIds = new Set(
-    participantStudentIds.map((id) => primaryTeacherByStudent?.get(id)).filter((id): id is string => !!id)
-  );
-  const singlePrimaryTeacherId = primaryTeacherIds.size === 1 ? [...primaryTeacherIds][0] : null;
-  const primaryTeacher = singlePrimaryTeacherId ? teachers.find((tc) => tc.id === singlePrimaryTeacherId) : null;
-  const changeTeacherOptions = singlePrimaryTeacherId
-    ? [
-        ...teachers.filter((tc) => !tc.isDeleted && tc.id === singlePrimaryTeacherId),
-        ...teachers.filter((tc) => !tc.isDeleted && tc.id !== singlePrimaryTeacherId),
-      ]
-    : teachers.filter((tc) => !tc.isDeleted);
 
   const [selectedDays, setSelectedDays] = useState<DayOfWeek[]>([dayOfWeek]);
   const toggleDay = (day: DayOfWeek) => {
@@ -182,12 +183,10 @@ export function LessonDetailDialog(props: LessonDetailDialogProps) {
     setPreview(null);
   };
 
-  const [courseId, setCourseId] = useState(isCreate ? '' : props.lesson.courseId ?? '');
-  const [duration, setDuration] = useState(isCreate ? 30 : props.lesson.durationMinutes);
-  const [studentIds, setStudentIds] = useState<string[]>(isCreate ? [] : props.lesson.participants.map((p) => p.studentId));
+  const [courseId, setCourseId] = useState('');
+  const [duration, setDuration] = useState(30);
+  const [studentIds, setStudentIds] = useState<string[]>([]);
   const [preview, setPreview] = useState<{ hasConflict: boolean; message: string } | null>(null);
-  const [newTeacherId, setNewTeacherId] = useState('');
-  const [newTimeLabel, setNewTimeLabel] = useState(!isCreate ? minuteToLabel(props.lesson.startMinute) : '');
 
   const toggleStudent = (id: string) => {
     setStudentIds((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));
@@ -199,14 +198,13 @@ export function LessonDetailDialog(props: LessonDetailDialogProps) {
       teacherId,
       studentIds,
       dayOfWeek: selectedDays[0] ?? dayOfWeek,
-      startMinute: isCreate ? props.startMinute : props.lesson.startMinute,
+      startMinute: props.startMinute,
       durationMinutes: duration,
     });
     setPreview({ hasConflict: result.hasConflict, message: result.message });
   };
 
   const handleCreate = async () => {
-    if (!isCreate) return;
     // One lesson configuration, applied once per selected day — reuses the
     // exact same create_lesson action per day rather than a new bulk API.
     await Promise.all(selectedDays.map((day) =>
@@ -225,67 +223,25 @@ export function LessonDetailDialog(props: LessonDetailDialogProps) {
     props.onSaved();
   };
 
-  const handleCancelOccurrence = async () => {
-    if (isCreate) return;
-    await applyChange.mutateAsync({
-      action: 'cancel_occurrence',
-      payload: { lesson_id: props.lesson.id, occurrence_date: nextDateForDayOfWeek(dayOfWeek) },
-    });
-    props.onSaved();
-  };
-
-  const handleEndLesson = async () => {
-    if (isCreate) return;
-    await applyChange.mutateAsync({ action: 'end_lesson', payload: { lesson_id: props.lesson.id } });
-    props.onSaved();
-  };
-
-  const handleRemoveParticipant = async (studentId: string) => {
-    if (isCreate) return;
-    await applyChange.mutateAsync({ action: 'remove_participant', payload: { lesson_id: props.lesson.id, student_id: studentId } });
-    props.onSaved();
-  };
-
-  const handleAddParticipant = async (studentId: string) => {
-    if (isCreate) return;
-    await applyChange.mutateAsync({ action: 'add_participant', payload: { lesson_id: props.lesson.id, student_id: studentId } });
-    props.onSaved();
-  };
-
   return (
     <Dialog open onOpenChange={(v) => !v && props.onClose()}>
       <DialogContent className="w-[calc(100vw-16px)] max-w-lg max-h-[92vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            {isCreate ? t('scheduling.createNewLesson') : t('scheduling.editLesson')}
-            {!isCreate && <TeacherPreservationScoreBadge lessonId={props.lesson.id} />}
-          </DialogTitle>
+          <DialogTitle>{t('scheduling.createNewLesson')}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
-          {isCreate ? (
-            <div className="space-y-1">
-              <Label>{t('scheduling.teacher')}</Label>
-              <TeacherSearchSelect
-                teachers={teachers.filter((tc) => !tc.isDeleted)}
-                value={teacherId}
-                onChange={(id) => setTeacherIds([id])}
-                placeholder={t('scheduling.teacher')}
-              />
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              {teacher?.fullName} · {t(DAYS_OF_WEEK.find((d) => d.value === dayOfWeek)!.labelKey)}
-              {` · ${minuteToDisplayLabel(props.lesson.startMinute)}–${minuteToDisplayLabel(props.lesson.endMinute)}`}
-            </p>
-          )}
+          <div className="space-y-1">
+            <Label>{t('scheduling.teacher')}</Label>
+            <TeacherSearchSelect
+              teachers={teachers.filter((tc) => !tc.isDeleted)}
+              value={teacherId}
+              onChange={(id) => setTeacherIds([id])}
+              placeholder={t('scheduling.teacher')}
+            />
+          </div>
 
-          {!isCreate && (
-            <AttendanceSection lesson={props.lesson} students={students} onAllMarked={props.onSaved} />
-          )}
-
-          {isCreate && (
-            <div className="space-y-1">
+          <div className="space-y-1">
               <Label>{t('scheduling.days')}</Label>
               <div className="flex flex-wrap gap-3 border rounded-lg p-3">
                 {DAYS_OF_WEEK.map((d) => (
@@ -296,10 +252,8 @@ export function LessonDetailDialog(props: LessonDetailDialogProps) {
                 ))}
               </div>
             </div>
-          )}
 
-          {isCreate && (
-            <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>{t('students.course')}</Label>
                 <Select value={courseId} onValueChange={setCourseId}>
@@ -322,115 +276,37 @@ export function LessonDetailDialog(props: LessonDetailDialogProps) {
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-          )}
+          </div>
 
           <div className="space-y-1">
             <Label>{t('scheduling.participants')}</Label>
-            {isCreate ? (
-              <StudentSearchSelect
-                students={students.filter((s) => !s.isDeleted)}
-                parentNameByStudentId={parentNameByStudentId}
-                selectedIds={studentIds}
-                onToggle={toggleStudent}
-              />
-            ) : (
-              <div className="space-y-2">
-                <div className="flex flex-wrap gap-1.5">
-                  {props.lesson.participants.map((p) => {
-                    const student = students.find((s) => s.id === p.studentId);
-                    return (
-                      <Badge key={p.id} variant="outline" className="gap-1">
-                        {student?.fullName ?? '—'}
-                        <button type="button" onClick={() => handleRemoveParticipant(p.studentId)}><X className="h-3 w-3" /></button>
-                      </Badge>
-                    );
-                  })}
-                </div>
-                <Select value="" onValueChange={handleAddParticipant}>
-                  <SelectTrigger className="h-9"><SelectValue placeholder={t('scheduling.addParticipant')} /></SelectTrigger>
-                  <SelectContent>
-                    {students.filter((s) => !s.isDeleted && !props.lesson.participants.some((p) => p.studentId === s.id)).map((s) => (
-                      <SelectItem key={s.id} value={s.id}>{s.fullName}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+            <StudentSearchSelect
+              students={students.filter((s) => !s.isDeleted)}
+              parentNameByStudentId={parentNameByStudentId}
+              selectedIds={studentIds}
+              onToggle={toggleStudent}
+            />
           </div>
 
-          {isCreate && preview && (
+          {preview && (
             <div className={`flex items-center gap-2 p-3 rounded-lg text-sm ${preview.hasConflict ? 'bg-red-50 text-red-800 border border-red-200' : 'bg-green-50 text-green-800 border border-green-200'}`}>
               {preview.hasConflict ? <AlertTriangle className="h-4 w-4 shrink-0" /> : <CheckCircle2 className="h-4 w-4 shrink-0" />}
               {preview.message}
             </div>
           )}
 
-          {!isCreate && singlePrimaryTeacherId && (
-            <p className="text-xs text-muted-foreground">
-              {singlePrimaryTeacherId === teacherId
-                ? t('scheduling.withPrimaryTeacher')
-                : t('scheduling.confirmedPrimaryTeacher', { teacher: primaryTeacher?.fullName ?? '—' })}
-            </p>
-          )}
-
-          {!isCreate && (
-            <div className="space-y-3 border-t pt-3">
-              <div className="flex items-end gap-2">
-                <div className="flex-1 space-y-1">
-                  <Label>{t('scheduling.changeTeacher')}</Label>
-                  <Select value={newTeacherId} onValueChange={setNewTeacherId}>
-                    <SelectTrigger><SelectValue placeholder={teacher?.fullName} /></SelectTrigger>
-                    <SelectContent>
-                      {changeTeacherOptions.map((tc) => (
-                        <SelectItem key={tc.id} value={tc.id}>
-                          {tc.fullName}{tc.id === singlePrimaryTeacherId ? ` (${t('scheduling.primaryTeacher')})` : ''}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Button
-                  type="button" variant="outline"
-                  disabled={!newTeacherId || newTeacherId === teacherId}
-                  onClick={() => props.onProposeMove(props.lesson, newTeacherId, props.lesson.startMinute)}
-                >
-                  {t('scheduling.preview')}
-                </Button>
-              </div>
-              <div className="flex items-end gap-2">
-                <div className="flex-1 space-y-1">
-                  <Label>{t('scheduling.changeTime')}</Label>
-                  <Input type="time" value={newTimeLabel} onChange={(e) => setNewTimeLabel(e.target.value)} />
-                </div>
-                <Button
-                  type="button" variant="outline"
-                  disabled={!newTimeLabel || labelToMinute(newTimeLabel) === props.lesson.startMinute}
-                  onClick={() => props.onProposeMove(props.lesson, teacherId, labelToMinute(newTimeLabel))}
-                >
-                  {t('scheduling.preview')}
-                </Button>
-              </div>
-              <div className="flex gap-2 flex-wrap pt-1">
-                <Button type="button" variant="outline" size="sm" onClick={handleCancelOccurrence}>{t('scheduling.cancelOccurrence')}</Button>
-                <Button type="button" variant="outline" size="sm" className="text-red-600" onClick={handleEndLesson}>{t('scheduling.endLesson')}</Button>
-              </div>
-            </div>
-          )}
         </div>
 
-        {isCreate && (
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={handlePreview} disabled={studentIds.length === 0}>{t('scheduling.preview')}</Button>
-            <Button
-              type="button" onClick={handleCreate}
-              disabled={studentIds.length === 0 || selectedDays.length === 0 || (preview !== null && preview.hasConflict)}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground"
-            >
-              {t('scheduling.createNewLesson')}
-            </Button>
-          </DialogFooter>
-        )}
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={handlePreview} disabled={studentIds.length === 0}>{t('scheduling.preview')}</Button>
+          <Button
+            type="button" onClick={handleCreate}
+            disabled={studentIds.length === 0 || selectedDays.length === 0 || (preview !== null && preview.hasConflict)}
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+          >
+            {t('scheduling.createNewLesson')}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
