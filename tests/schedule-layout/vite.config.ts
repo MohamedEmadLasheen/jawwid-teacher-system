@@ -20,7 +20,7 @@ export default defineConfig({
     dedupe: ['react', 'react-dom'],
   },
   optimizeDeps: {
-    entries: ['tests/schedule-layout/index.html'],
+    entries: ['tests/schedule-layout/index.html', 'tests/schedule-layout/quick-actions.html'],
     include: ['react', 'react-dom', 'react-dom/client', '@tanstack/react-query', '@dnd-kit/core'],
   },
   server: { port: 5310, strictPort: true },

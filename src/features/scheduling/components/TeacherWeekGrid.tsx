@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { DndContext, type DragEndEvent } from '@dnd-kit/core';
 import { useScheduleGrid } from '../hooks/useScheduleGrid';
 import { useScheduleMetrics } from '../hooks/useScheduleMetrics';
+import { useScheduleDragSensors } from '../hooks/useScheduleDragSensors';
 import { ScheduleGridRow } from './ScheduleGridRow';
 import { ScheduleTimeHeader } from './ScheduleTimeHeader';
 import { timelineWidth } from '../utils/timelineGeometry';
@@ -35,6 +36,10 @@ interface TeacherWeekGridProps {
  * scroller to keep in sync, so header drift is structurally impossible.
  */
 export function TeacherWeekGrid({ teacherId, onEmptyClick, onLessonClick, onProposeMove }: TeacherWeekGridProps) {
+  // Same activation constraints as the master grid: without them a tap on a
+  // lesson is claimed by the drag sensor on touch, and a swipe that starts on
+  // a card drags the lesson instead of scrolling the page.
+  const sensors = useScheduleDragSensors();
   const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
   const { columnWidth, teacherColumnWidth, rowHeight, isCompact } = useScheduleMetrics(scrollRef, GRID_COLUMNS.length);
@@ -92,7 +97,7 @@ export function TeacherWeekGrid({ teacherId, onEmptyClick, onLessonClick, onProp
               };
 
               return (
-                <DndContext key={dayOfWeek} onDragEnd={handleDragEnd}>
+                <DndContext key={dayOfWeek} sensors={sensors} onDragEnd={handleDragEnd}>
                   <div style={{ height: rowHeight }}>
                     <ScheduleGridRow
                       row={row}

@@ -13,6 +13,8 @@ import { PrimeTimeIndicator } from './components/PrimeTimeIndicator';
 import { MasterScheduleGrid } from './components/MasterScheduleGrid';
 import { LessonDetailDialog } from './components/LessonDetailDialog';
 import { ChangeSimulatorDialog } from './components/ChangeSimulatorDialog';
+import { LessonQuickActionsSheet } from './components/LessonQuickActionsSheet';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { DAYS_OF_WEEK } from './constants/schedulingConstants';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { DayOfWeek } from '@/lib/types';
@@ -40,6 +42,15 @@ export function MasterSchedulePage() {
   const [createTarget, setCreateTarget] = useState<{ teacherId: string; startMinute: number } | null>(null);
   const [editingLesson, setEditingLesson] = useState<LessonWithParticipants | null>(null);
   const [proposedMove, setProposedMove] = useState<ProposedMove | null>(null);
+
+  // Below 768px a lesson tap opens Quick Actions instead of the full dialog:
+  // changing a time or taking a lesson off the schedule are two taps there,
+  // versus a time input -> preview -> simulator -> scope -> confirm. The full
+  // dialog is unchanged and still reachable from the sheet's "View details",
+  // and at >=768px the tap still opens it directly as before. useIsMobile is
+  // the app's existing 768px hook, shared with the sidebar.
+  const isMobile = useIsMobile();
+  const [quickActionsLesson, setQuickActionsLesson] = useState<LessonWithParticipants | null>(null);
 
   return (
     <div className="space-y-4">
@@ -86,9 +97,21 @@ export function MasterSchedulePage() {
 
       <MasterScheduleGrid
         onEmptyClick={(teacherId, startMinute) => setCreateTarget({ teacherId, startMinute })}
-        onLessonClick={(lesson) => setEditingLesson(lesson)}
+        onLessonClick={(lesson) => (isMobile ? setQuickActionsLesson(lesson) : setEditingLesson(lesson))}
         onProposeMove={(lesson, newTeacherId, newStartMinute) => setProposedMove({ lesson, newTeacherId, newStartMinute })}
       />
+
+      {quickActionsLesson && (
+        <LessonQuickActionsSheet
+          lesson={quickActionsLesson}
+          onClose={() => setQuickActionsLesson(null)}
+          onViewDetails={() => {
+            // Hand the same lesson to the existing dialog, unchanged.
+            setEditingLesson(quickActionsLesson);
+            setQuickActionsLesson(null);
+          }}
+        />
+      )}
 
       {createTarget && (
         <LessonDetailDialog
