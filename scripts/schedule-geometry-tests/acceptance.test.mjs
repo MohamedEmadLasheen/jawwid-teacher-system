@@ -13,9 +13,9 @@ import {
 } from './timelineGeometry.mjs';
 import { computeRowLayout } from './computeRowLayout.mjs';
 
-const GRID_START = 7 * 60;
+const GRID_START = 8 * 60;   // viewport start (schedulingConstants)
 const SLOT = 30;
-const COLS = (24 * 60 - GRID_START) / SLOT;
+const COLS = (20 * 60 - GRID_START) / SLOT; // 24 columns (08:00-20:00)
 
 let pass = 0, fail = 0;
 const results = [];
@@ -148,7 +148,7 @@ console.log('='.repeat(78));
 
 {
   const before = lesson(12 * 60, 30);          // 12:00, before a 14:00 shift
-  const after = lesson(20 * 60, 30);           // 20:00, after a 19:00 shift
+  const after = lesson(19 * 60, 30);           // 19:00, after the 19:00 shift end but inside the viewport
   const straddling = lesson(13 * 60 + 30, 60); // 13:30-14:30, crosses the shift start
 
   const layout = computeRowLayout([before, after, straddling], FULL);
@@ -163,7 +163,12 @@ console.log('='.repeat(78));
   // out-of-window lesson still has a real on-grid position and width.
   check('12:00 lesson still has a valid on-grid position', minuteToX(12 * 60, 96) > 0, true);
   check('12:00 lesson still has its full 30-min width', minuteSpanToWidth(12 * 60, 12 * 60 + 30, 96), 96);
-  check('20:00 lesson still has its full 30-min width', minuteSpanToWidth(20 * 60, 20 * 60 + 30, 96), 96);
+  check('19:00 lesson (past the shift end) still has its full 30-min width',
+    minuteSpanToWidth(19 * 60, 19 * 60 + 30, 96), 96);
+  // A lesson at the viewport's closing edge has nowhere to draw — that is the
+  // viewport clamping, not the shift logic.
+  check('20:00 lesson sits on the viewport edge and has zero width',
+    minuteSpanToWidth(20 * 60, 20 * 60 + 30, 96), 0);
 
   // Part-time teacher: an 18:00-19:00 lesson is outside the window entirely.
   check('part-time: 18:30 lesson removes no capacity',

@@ -9,16 +9,26 @@ cd "$(dirname "$0")/../.."
 OUT="$(mktemp -d)"
 trap 'rm -rf "$OUT"' EXIT
 
+# Two invocations on purpose: esbuild derives its output base from the common
+# parent of the entry points, so mixing utils/ and constants/ in one call would
+# nest the results into subdirectories and break the flat imports below.
 node_modules/esbuild/bin/esbuild \
   src/features/scheduling/utils/timelineGeometry.ts \
   src/features/scheduling/utils/computeRowLayout.ts \
   src/features/scheduling/utils/buildScheduleRoster.ts \
+  src/features/scheduling/utils/timeGrid.ts \
+  --bundle --format=esm --platform=node \
+  --outdir="$OUT" --out-extension:.js=.mjs >/dev/null
+
+node_modules/esbuild/bin/esbuild \
+  src/features/scheduling/constants/schedulingConstants.ts \
   --bundle --format=esm --platform=node \
   --outdir="$OUT" --out-extension:.js=.mjs >/dev/null
 
 cp scripts/schedule-geometry-tests/timeline.test.mjs "$OUT/"
 cp scripts/schedule-geometry-tests/acceptance.test.mjs "$OUT/"
 cp scripts/schedule-geometry-tests/roster.test.mjs "$OUT/"
+cp scripts/schedule-geometry-tests/viewport.test.mjs "$OUT/"
 
 status=0
 node "$OUT/timeline.test.mjs"   || status=1
@@ -26,4 +36,6 @@ echo
 node "$OUT/acceptance.test.mjs" || status=1
 echo
 node "$OUT/roster.test.mjs"     || status=1
+echo
+node "$OUT/viewport.test.mjs"   || status=1
 exit $status

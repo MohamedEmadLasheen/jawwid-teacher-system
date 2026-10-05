@@ -721,7 +721,7 @@
     "filterSelectedCount": "{{count}} محدد",
     "dayColumn": "اليوم",
     "teacherColumn": "المعلم",
-    "freeCapacity": "متاح (داخل الشيفت)",
+    "freeCapacity": "وقت متاح بدون طالب",
     "outsideShift": "خارج الشيفت"
   },
   "operations": {

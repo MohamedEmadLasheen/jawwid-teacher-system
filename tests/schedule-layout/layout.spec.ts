@@ -43,7 +43,7 @@ async function inlineStartOffsets(page: Page) {
     const headerEnds: Record<string, number> = {};
     for (const d of Array.from(scroller.querySelectorAll('div'))) {
       const t = d.textContent?.trim() ?? '';
-      if (d.children.length === 0 && /^\d\d:\d\d$/.test(t)) {
+      if (d.children.length === 0 && /^\d{1,2}:\d{2} (AM|PM)$/.test(t)) {
         headerCells[t] = inlineStart(d)!;
         headerEnds[t] = inlineEnd(d)!;
       }
@@ -84,6 +84,19 @@ async function inlineStartOffsets(page: Page) {
   });
 }
 
+
+/** The header renders 12-hour labels; assertions below stay in 24h for
+ *  readability and are translated to the rendered key here. */
+function hdr(m: { headerCells: Record<string, number> }, hhmm: string): number {
+  const [h, min] = hhmm.split(':').map(Number);
+  const period = h < 12 ? 'AM' : 'PM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  const key = `${h12}:${String(min).padStart(2, '0')} ${period}`;
+  const v = m.headerCells[key];
+  if (v === undefined) throw new Error(`header cell "${key}" (${hhmm}) not found`);
+  return v;
+}
+
 async function openHarness(page: Page, dir: string, cw: number) {
   await page.goto(`/tests/schedule-layout/index.html?dir=${dir}&cw=${cw}`);
   // `state: 'attached'` — the marker is a zero-size div, which Playwright's
@@ -112,11 +125,11 @@ for (const dir of DIRECTIONS) {
 
         // Window start is now 12:00 (full-time). This also proves the new
         // boundary flows through the same geometry as every other time.
-        expect(lStart.start).toBeCloseTo(m.headerCells['12:00'], 1);
-        expect(lStart.end).toBeCloseTo(m.headerCells['12:30'], 1);
+        expect(lStart.start).toBeCloseTo(hdr(m, '12:00'), 1);
+        expect(lStart.end).toBeCloseTo(hdr(m, '12:30'), 1);
 
-        expect(lMid.start).toBeCloseTo(m.headerCells['15:30'], 1);
-        expect(lMid.end).toBeCloseTo(m.headerCells['16:00'], 1);
+        expect(lMid.start).toBeCloseTo(hdr(m, '15:30'), 1);
+        expect(lMid.end).toBeCloseTo(hdr(m, '16:00'), 1);
 
         // --- F. Duration handling -------------------------------------
         // 30-minute lessons occupy exactly one column.
@@ -126,29 +139,29 @@ for (const dir of DIRECTIONS) {
         // 40-minute lesson: proportional (40/30 of a column), never rounded
         // up to two columns, and ending exactly under 16:40 — which is two
         // thirds of the way through the 16:30 column.
-        expect(l40.start).toBeCloseTo(m.headerCells['16:00'], 1);
+        expect(l40.start).toBeCloseTo(hdr(m, '16:00'), 1);
         expect(l40.width).toBeCloseTo((40 * cw) / 30, 1);
         expect(l40.width).not.toBeCloseTo(2 * cw, 1);
-        const x1640 = m.headerCells['16:30'] + cw / 3;
+        const x1640 = hdr(m, '16:30') + cw / 3;
         expect(l40.end).toBeCloseTo(x1640, 1);
 
         // End boundary: a lesson finishing at 19:00 ends on the 19:00 tick.
-        expect(lEnd.start).toBeCloseTo(m.headerCells['18:30'], 1);
-        expect(lEnd.end).toBeCloseTo(m.headerCells['19:00'], 1);
+        expect(lEnd.start).toBeCloseTo(hdr(m, '18:30'), 1);
+        expect(lEnd.end).toBeCloseTo(hdr(m, '19:00'), 1);
 
         // --- Availability bands ---------------------------------------
         // Free capacity = the 12:00-19:00 window minus the four lessons.
         // First band starts at 12:30 (after the 12:00 lesson); last band ends
         // at 18:30 (where the closing lesson begins).
         expect(m.bands.length).toBeGreaterThan(0);
-        expect(m.bands[0].start).toBeCloseTo(m.headerCells['12:30'], 1);
-        expect(m.bands[m.bands.length - 1].end).toBeCloseTo(m.headerCells['18:30'], 1);
+        expect(m.bands[0].start).toBeCloseTo(hdr(m, '12:30'), 1);
+        expect(m.bands[m.bands.length - 1].end).toBeCloseTo(hdr(m, '18:30'), 1);
 
         // No band may start before the window or end after it. 12:00 and
         // 19:00 are the configured full-time boundaries.
         for (const b of m.bands) {
-          expect(b.start).toBeGreaterThanOrEqual(m.headerCells['12:00'] - 0.5);
-          expect(b.end).toBeLessThanOrEqual(m.headerCells['19:00'] + 0.5);
+          expect(b.start).toBeGreaterThanOrEqual(hdr(m, '12:00') - 0.5);
+          expect(b.end).toBeLessThanOrEqual(hdr(m, '19:00') + 0.5);
         }
 
         // The four boundaries named in the roster spec must sit exactly the
@@ -157,7 +170,7 @@ for (const dir of DIRECTIONS) {
         // the scroll position, and valid in both directions.
         for (const [label, minute] of [['14:00', 840], ['18:00', 1080], ['19:00', 1140]] as const) {
           const columnsFromNoon = (minute - 720) / 30;
-          expect(m.headerCells[label] - m.headerCells['12:00']).toBeCloseTo(columnsFromNoon * cw, 1);
+          expect(hdr(m, label) - hdr(m, '12:00')).toBeCloseTo(columnsFromNoon * cw, 1);
         }
       });
     }
@@ -176,10 +189,10 @@ for (const dir of DIRECTIONS) {
         const cells: Record<string, number> = {};
         for (const d of Array.from(scroller.querySelectorAll('div'))) {
           const t = d.textContent?.trim() ?? '';
-          if (d.children.length === 0 && /^\d\d:\d\d$/.test(t)) cells[t] = inlineStart(d);
+          if (d.children.length === 0 && /^\d{1,2}:\d{2} (AM|PM)$/.test(t)) cells[t] = inlineStart(d);
         }
         if (!now) return { present: false as const };
-        const LABEL = 176, CW = 96, GRID_START = 7 * 60;
+        const LABEL = 176, CW = 96, GRID_START = 8 * 60;
         const d = new Date();
         const mins = d.getHours() * 60 + d.getMinutes();
         return {
@@ -221,9 +234,9 @@ for (const dir of DIRECTIONS) {
         const m = await inlineStartOffsets(page);
 
         // E. Alignment must survive every scroll position, both directions.
-        expect(m.lessons[1].start).toBeCloseTo(m.headerCells['15:30'], 1);
-        expect(m.lessons[2].start).toBeCloseTo(m.headerCells['16:00'], 1);
-        expect(m.bands[0].start).toBeCloseTo(m.headerCells['12:30'], 1);
+        expect(m.lessons[1].start).toBeCloseTo(hdr(m, '15:30'), 1);
+        expect(m.lessons[2].start).toBeCloseTo(hdr(m, '16:00'), 1);
+        expect(m.bands[0].start).toBeCloseTo(hdr(m, '12:30'), 1);
 
         // The frozen day column must not move with the timeline.
         expect(m.labelViewportLeft).toBeCloseTo(frozenAt!, 1);
@@ -250,7 +263,7 @@ test('RTL and LTR produce identical inline-axis coordinates', async ({ page }) =
     expect(rtl.bands[i].start).toBeCloseTo(ltr.bands[i].start, 1);
     expect(rtl.bands[i].width).toBeCloseTo(ltr.bands[i].width, 1);
   }
-  for (const key of ['14:00', '15:30', '16:00', '18:30', '19:00']) {
-    expect(rtl.headerCells[key]).toBeCloseTo(ltr.headerCells[key], 1);
+  for (const key of ['12:00', '14:00', '15:30', '16:00', '18:30', '19:00']) {
+    expect(hdr(rtl, key)).toBeCloseTo(hdr(ltr, key), 1);
   }
 });

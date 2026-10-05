@@ -114,15 +114,15 @@ const slot = (g) => [{ teacherId: 'T', dayOfWeek: 0, startMinute: g.startMinute,
   check('L  full-time in-window columns = 14 (7h / 30min)', full.columnInWindow.filter(Boolean).length, 14);
   check('M  nothing free before 12:00', full.freeIntervals.some((i) => i.startMinute < 720), false);
   check('M  nothing free after 19:00', full.freeIntervals.some((i) => i.endMinute > 1140), false);
-  check('M  11:30 column is outside the full-time window', full.columnInWindow[(11 * 60 + 30 - 420) / 30], false);
-  check('M  12:00 column is inside the full-time window', full.columnInWindow[(720 - 420) / 30], true);
+  check('M  11:30 column is outside the full-time window', full.columnInWindow[(11 * 60 + 30 - 480) / 30], false);
+  check('M  12:00 column is inside the full-time window', full.columnInWindow[(720 - 480) / 30], true);
 
   const part = computeRowLayout([], slot(roster[1]));
   check('L  empty part-time day = one contiguous 14:00-18:00 free band', fmt(part.freeIntervals), ['14:00-18:00']);
   check('L  part-time free minutes = 4h', part.freeIntervals.reduce((n, i) => n + (i.endMinute - i.startMinute), 0), 240);
   check('M  part-time: nothing free after 18:00', part.freeIntervals.some((i) => i.endMinute > 1080), false);
-  check('M  part-time: 18:00 column outside the window', part.columnInWindow[(1080 - 420) / 30], false);
-  check('M  part-time: 12:00 column outside the window (full-time hours only)', part.columnInWindow[(720 - 420) / 30], false);
+  check('M  part-time: 18:00 column outside the window', part.columnInWindow[(1080 - 480) / 30], false);
+  check('M  part-time: 12:00 column outside the window (full-time hours only)', part.columnInWindow[(720 - 480) / 30], false);
 }
 
 // A lesson still subtracts exactly its own interval from the wider window.
@@ -139,11 +139,11 @@ console.log('N · NEW BOUNDARIES FLOW THROUGH THE CANONICAL GEOMETRY');
 console.log('='.repeat(78));
 
 for (const columnWidth of [40, 61, 96]) {
-  const x = (m) => ((m - 420) * columnWidth) / 30;
+  const x = (m) => ((m - 480) * columnWidth) / 30;  // 480 = 08:00 viewport start
   for (const [label, minute] of [['12:00', 720], ['14:00', 840], ['18:00', 1080], ['19:00', 1140]]) {
     check(`N  cw=${columnWidth}: ${label} resolves to its exact column boundary`, minuteToX(minute, columnWidth), x(minute));
   }
-  check(`N  cw=${columnWidth}: timelineWidth unchanged by the new windows`, timelineWidth(columnWidth), 34 * columnWidth);
+  check(`N  cw=${columnWidth}: timelineWidth spans the 24-column viewport`, timelineWidth(columnWidth), 24 * columnWidth);
 }
 
 // Future re-configuration: an arbitrary new window must need no code change.
