@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { useAcademyHealth } from './hooks/useAcademyHealth';
 import { useScheduleRoster } from './hooks/useScheduleRoster';
-import { minuteToLabel } from './utils/timeGrid';
+import { minuteToDisplayLabel } from './utils/timeGrid';
 import { TeacherWeekGrid } from './components/TeacherWeekGrid';
 import { ColorLegend } from './components/ColorLegend';
 import { ScheduleRosterLegend } from './components/ScheduleRosterLegend';
@@ -72,7 +72,7 @@ export function TeacherWeeklySchedulePage() {
             {groups.map((group) => (
               <SelectGroup key={group.templateId}>
                 <SelectLabel className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                  {group.name} — {minuteToLabel(group.startMinute)}–{minuteToLabel(group.endMinute)}
+                  {group.name} — {minuteToDisplayLabel(group.startMinute)}–{minuteToDisplayLabel(group.endMinute)}
                 </SelectLabel>
                 {group.teachers.map((tc) => (
                   <SelectItem key={tc.id} value={tc.id}>{tc.fullName}</SelectItem>

@@ -61,12 +61,16 @@ export function ScheduleGridRow({ row, columnWidth, onEmptyClick, onLessonClick,
           ))}
         </div>
 
-        {/* Layer 1 — free capacity inside the working window */}
+        {/* Layer 1 — UNUSED capacity inside the working window. Red is an
+            admin utilisation alert: the teacher is on shift but has no
+            student. It is drawn under the lesson layer and is
+            pointer-events-none, so a lesson card always wins visually and
+            the slot underneath stays clickable. */}
         {layout.freeIntervals.map((interval) => (
           <div
             key={`free-${interval.startMinute}`}
             aria-hidden
-            className="absolute top-0 h-full z-10 pointer-events-none bg-emerald-100/70 border-y-2 border-emerald-300/80"
+            className="absolute top-0 h-full z-10 pointer-events-none bg-red-100/80 border-y-2 border-red-300"
             style={{
               // Logical inset, not `left` — see LessonCell: the axis reverses
               // under dir="rtl", so a physical offset would mirror away from

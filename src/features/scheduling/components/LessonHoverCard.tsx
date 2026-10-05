@@ -4,7 +4,7 @@ import { useCourses } from '../hooks/useCourses';
 import { useParentNameByStudentId } from '../hooks/useParents';
 import { useTeacherStore } from '@/store/teacherStore';
 import { useSupervisorStore } from '@/store/supervisorStore';
-import { minuteToLabel } from '../utils/timeGrid';
+import { minuteToDisplayLabel } from '../utils/timeGrid';
 import {
   HoverCard, HoverCardContent, HoverCardTrigger,
 } from '@/components/ui/hover-card';
@@ -55,7 +55,7 @@ export function LessonHoverCard({ lesson, children }: LessonHoverCardProps) {
         <Row label={t('scheduling.hover.teacher')} value={teacher?.fullName ?? '—'} />
         <Row label={t('scheduling.hover.supervisor')} value={supervisorNames.join(', ') || '—'} />
         <Row label={t('scheduling.hover.parents')} value={parentNames.join(', ') || '—'} />
-        <Row label={t('scheduling.hover.duration')} value={`${minuteToLabel(lesson.startMinute)}–${minuteToLabel(lesson.endMinute)} (${lesson.durationMinutes}m)`} />
+        <Row label={t('scheduling.hover.duration')} value={`${minuteToDisplayLabel(lesson.startMinute)}–${minuteToDisplayLabel(lesson.endMinute)} (${lesson.durationMinutes}m)`} />
         <Row label={t('scheduling.hover.lessonType')} value={lessonStudents.length > 1 ? t('scheduling.groupLesson') : t('scheduling.hover.oneToOne')} />
         <Row label={t('scheduling.hover.attendance')} value={t('dashboard.coach.comingSoon')} />
         <Row label={t('scheduling.hover.paymentStatus')} value={t('dashboard.coach.comingSoon')} />

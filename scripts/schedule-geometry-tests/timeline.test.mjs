@@ -4,9 +4,9 @@ import {
 } from './timelineGeometry.mjs';
 import { computeRowLayout } from './computeRowLayout.mjs';
 
-const GRID_START = 7 * 60;   // 07:00
+const GRID_START = 8 * 60;   // 08:00 — viewport start (schedulingConstants)
 const SLOT = 30;
-const COLS = (24 * 60 - GRID_START) / SLOT; // 34
+const COLS = (20 * 60 - GRID_START) / SLOT; // 24 columns (08:00-20:00)
 
 let pass = 0, fail = 0;
 const results = [];
@@ -40,8 +40,8 @@ for (const columnWidth of [40, 48, 61, 96, 120]) {
     const geometryX = minuteToX(boundaryMinute, columnWidth);
     maxDrift = Math.max(maxDrift, Math.abs(headerEdge - geometryX));
   }
-  check(`R3 header/geometry drift across all 34 boundaries @ columnWidth=${columnWidth}px`, maxDrift, 0);
-  check(`R3 timelineWidth == 34 * columnWidth @ ${columnWidth}px`, timelineWidth(columnWidth), COLS * columnWidth);
+  check(`R3 header/geometry drift across all ${COLS} boundaries @ columnWidth=${columnWidth}px`, maxDrift, 0);
+  check(`R3 timelineWidth == ${COLS} * columnWidth @ ${columnWidth}px`, timelineWidth(columnWidth), COLS * columnWidth);
 }
 
 // TEST 7 — 30-min lesson at 15:30 aligns exactly with the 15:30 header slot.
@@ -124,8 +124,10 @@ check('merge: overlapping intervals union', fmt(mergeIntervals([iv(840, 960), iv
 check('merge: zero-length dropped', mergeIntervals([iv(900, 900)]), []);
 check('subtract: cut fully covering base', subtractIntervals([iv(840, 900)], [iv(800, 1000)]), []);
 check('subtract: disjoint cut leaves base', fmt(subtractIntervals([iv(840, 900)], [iv(1000, 1020)])), ['14:00-15:00']);
-check('clip: availability outside the 07:00-24:00 window is clipped',
-  fmt(computeWorkingWindow([iv(0, 600)])), ['07:00-10:00']);
+check('clip: availability outside the 08:00-20:00 viewport is clipped',
+  fmt(computeWorkingWindow([iv(0, 600)])), ['08:00-10:00']);
+check('clip: availability past the viewport end is clipped',
+  fmt(computeWorkingWindow([iv(1140, 1380)])), ['19:00-20:00']);
 
 // Two availability slots on one day (hourly teacher with a split shift)
 check('split availability: both windows kept, lesson subtracted from the right one',

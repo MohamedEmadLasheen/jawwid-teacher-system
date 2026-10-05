@@ -5,7 +5,7 @@ import { useStudents } from '../hooks/useStudents';
 import { useCourses } from '../hooks/useCourses';
 import { useSupervisorStore } from '@/store/supervisorStore';
 import { getLessonSupervisorColor, getLessonBorderStyle } from '../utils/lessonColor';
-import { minuteToLabel } from '../utils/timeGrid';
+import { minuteToDisplayLabel } from '../utils/timeGrid';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
 
 interface DraggableLessonCardProps {
@@ -49,7 +49,7 @@ export function DraggableLessonCard({ lesson, onClick }: DraggableLessonCardProp
         {isGroup ? `${firstStudentName} +${lesson.participants.length - 1}` : firstStudentName}
       </p>
       <p className="text-[10px] text-muted-foreground truncate leading-tight">
-        {minuteToLabel(lesson.startMinute)}–{minuteToLabel(lesson.endMinute)}
+        {minuteToDisplayLabel(lesson.startMinute)}–{minuteToDisplayLabel(lesson.endMinute)}
       </p>
       {course && <p className="text-[9px] text-muted-foreground truncate leading-tight">{isAr ? course.nameAr : course.nameEn}</p>}
       {isGroup && (

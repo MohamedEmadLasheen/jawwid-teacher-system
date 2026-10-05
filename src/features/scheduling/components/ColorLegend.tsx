@@ -22,7 +22,7 @@ export function ColorLegend() {
       ))}
       <span className="w-px h-4 bg-border" />
       <span className="inline-flex items-center gap-1.5">
-        <span className="inline-block w-3 h-3 rounded-sm bg-emerald-100 border-2 border-emerald-300" />
+        <span className="inline-block w-3 h-3 rounded-sm bg-red-100 border-2 border-red-300" />
         {t('scheduling.freeCapacity')}
       </span>
       <span className="inline-flex items-center gap-1.5">

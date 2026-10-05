@@ -1,9 +1,9 @@
 import { useScheduleRoster } from '../hooks/useScheduleRoster';
-import { minuteToLabel } from '../utils/timeGrid';
+import { minuteToDisplayLabel } from '../utils/timeGrid';
 
 /**
  * Shows each Schedule group with its current working window and headcount,
- * e.g. "Full-time · 12:00–19:00 · 8".
+ * e.g. "Full-time · 12:00 PM–7:00 PM · 8".
  *
  * Every value is read from the availability configuration — the group label
  * is the shift template's name and the window is its start/end minute — so
@@ -23,7 +23,7 @@ export function ScheduleRosterLegend() {
         >
           <span className="font-medium">{group.name}</span>
           <span className="text-muted-foreground">
-            {minuteToLabel(group.startMinute)}–{minuteToLabel(group.endMinute)}
+            {minuteToDisplayLabel(group.startMinute)}–{minuteToDisplayLabel(group.endMinute)}
           </span>
           <span className="inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-primary/10 text-primary font-semibold">
             {group.teachers.length}

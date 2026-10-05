@@ -1,4 +1,4 @@
-import { minuteToLabel } from '../utils/timeGrid';
+import { minuteToDisplayLabel } from '../utils/timeGrid';
 import { isColumnInPrimeTime } from '../utils/primeTime';
 import { timelineWidth } from '../utils/timelineGeometry';
 import { GRID_COLUMNS, GRID_TEACHER_COLUMN_WIDTH } from '../constants/schedulingConstants';
@@ -37,11 +37,11 @@ export function ScheduleTimeHeader({ columnWidth, cornerLabel }: ScheduleTimeHea
           <div
             key={minute}
             style={{ width: columnWidth }}
-            className={`shrink-0 text-[10px] text-center py-2 border-e border-gray-100 truncate ${
+            className={`shrink-0 text-[9px] leading-tight text-center py-2 border-e border-gray-100 truncate ${
               isColumnInPrimeTime(minute) ? 'bg-amber-50 font-medium text-amber-700' : 'text-muted-foreground'
             }`}
           >
-            {minuteToLabel(minute)}
+            {minuteToDisplayLabel(minute)}
           </div>
         ))}
       </div>
