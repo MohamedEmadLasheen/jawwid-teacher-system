@@ -12,6 +12,8 @@ import {
   useStudents, useCreateStudent, useUpdateStudent, useSoftDeleteStudent, useRestoreStudent,
 } from './hooks/useStudents';
 import { StudentForm } from './components/StudentForm';
+import { buildSupervisorOptions } from './utils/supervisorOptions';
+import { SupervisorColorDot } from '@/components/ui/SupervisorColorDot';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -35,6 +37,9 @@ import { EmptyState } from '@/components/ui/EmptyState';
 import { Plus, Search, Eye, Trash2, RotateCcw, GraduationCap } from 'lucide-react';
 import type { Student } from '@/lib/types';
 
+/** Filter sentinel for legacy students with no responsible Admin yet. */
+const UNASSIGNED_SUPERVISOR = 'unassigned';
+
 const statusColors: Record<string, string> = {
   active: 'bg-green-100 text-green-800',
   paused: 'bg-yellow-100 text-yellow-800',
@@ -56,25 +61,20 @@ export function StudentsPage() {
   const supervisorById = new Map(supervisors.map((s) => [s.id, s]));
 
   /**
-   * "All" stays the first entry and keeps its 'all' sentinel, so the filter
-   * predicate below is untouched. Supervisors keep their colour swatch via
-   * `node`; `label` is what the query matches.
+   * "All" stays the first entry and keeps its 'all' sentinel; the Admin rows
+   * come from the one shared builder, so this filter shows exactly the Admins
+   * the form offers and the legend draws.
+   *
+   * UNASSIGNED is the legacy worklist. `students.supervisor_id` is still
+   * nullable for rows that predate the ownership rule (migration 023), and the
+   * only safe way to clear that backlog is to make it findable — assigning
+   * those students by script is explicitly not an option.
    */
   const supervisorFilterOptions = useMemo<SearchableSelectOption[]>(
     () => [
       { value: 'all', label: t('common.all') },
-      ...supervisors.map((s) => ({
-        value: s.id,
-        label: s.name,
-        node: (
-          <span className="inline-flex items-center gap-2">
-            {s.colorHex && (
-              <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.colorHex }} />
-            )}
-            {s.name}
-          </span>
-        ),
-      })),
+      ...buildSupervisorOptions(supervisors),
+      { value: UNASSIGNED_SUPERVISOR, label: t('students.unassignedSupervisor') },
     ],
     [supervisors, t]
   );
@@ -112,7 +112,11 @@ export function StudentsPage() {
     if (s.isDeleted !== showDeleted) return false;
     if (search && !s.fullName.toLowerCase().includes(search.toLowerCase())) return false;
     if (filterStatus !== 'all' && s.status !== filterStatus) return false;
-    if (filterSupervisor !== 'all' && s.supervisorId !== filterSupervisor) return false;
+    if (filterSupervisor === UNASSIGNED_SUPERVISOR) {
+      if (s.supervisorId) return false;
+    } else if (filterSupervisor !== 'all' && s.supervisorId !== filterSupervisor) {
+      return false;
+    }
     if (issueFilter === 'unassigned-teacher' && (s.status !== 'active' || scheduleByStudent.has(s.id))) return false;
     return true;
   });
@@ -233,8 +237,13 @@ export function StudentsPage() {
                           <span className="text-[9px] text-muted-foreground shrink-0">({t('students.isReturning')})</span>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {supervisor?.name ? `${t('students.supervisor')}: ${supervisor.name}` : student.country || '—'}
+                      {/* Ownership, always stated. The dot is the Admin's own
+                          colour — the same colour this student carries on the
+                          schedule — and an unowned student says so rather than
+                          falling back to an unrelated field. */}
+                      <p className="text-xs text-muted-foreground truncate flex items-center gap-1.5" data-testid={`student-owner-${student.id}`}>
+                        <SupervisorColorDot colorHex={supervisor?.colorHex} />
+                        {supervisor?.name ?? t('students.unassignedSupervisor')}
                       </p>
                     </div>
                   </div>

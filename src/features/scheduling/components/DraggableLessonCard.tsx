@@ -6,6 +6,7 @@ import { useCourses } from '../hooks/useCourses';
 import { useSupervisorStore } from '@/store/supervisorStore';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { getLessonSupervisorColor, getLessonBorderStyle } from '../utils/lessonColor';
+import { indexById } from '../utils/entityIndex';
 import { minuteToDisplayLabel } from '../utils/timeGrid';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
 
@@ -34,7 +35,9 @@ export function DraggableLessonCard({ lesson, onClick, isCompact = false }: Drag
   const supervisorColor = getLessonSupervisorColor(lesson.participants, students, supervisors);
   const borderStyle = getLessonBorderStyle(lesson.lifecycleStatus);
   const course = courses.find((c) => c.id === lesson.courseId);
-  const firstStudentName = students.find((s) => s.id === lesson.participants[0]?.studentId)?.fullName ?? '—';
+  // Indexed, not scanned: this runs once per card and the grid draws many.
+  const firstStudentId = lesson.participants[0]?.studentId;
+  const firstStudentName = (firstStudentId ? indexById(students).get(firstStudentId)?.fullName : undefined) ?? '—';
   const isGroup = lesson.participants.length > 1;
 
   return (
@@ -42,6 +45,11 @@ export function DraggableLessonCard({ lesson, onClick, isCompact = false }: Drag
       ref={setNodeRef}
       type="button"
       onClick={onClick}
+      data-testid={`lesson-card-${lesson.id}`}
+      /* The DERIVED Admin colour, exposed so it can be asserted directly
+         rather than inferred from a computed border — it is the one thing on
+         this card that is not stored anywhere. */
+      data-supervisor-color={supervisorColor ?? ''}
       {...listeners}
       {...attributes}
       style={{

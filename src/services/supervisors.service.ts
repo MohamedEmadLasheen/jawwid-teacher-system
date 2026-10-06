@@ -42,6 +42,12 @@ export async function createSupervisor(
       status: s.status,
       permissions: s.permissions as string[],
       user_id: s.userId ?? null,
+      // The Admin's canonical colour. It is the SOURCE OF TRUTH for every
+      // student this supervisor owns (students resolve supervisorId ->
+      // colorHex and store no colour of their own), so the picker's value has
+      // to reach the database — without this the schedule legend could never
+      // show a newly created Admin.
+      color_hex: s.colorHex ?? null,
     })
     .select()
     .single();
@@ -60,6 +66,9 @@ export async function updateSupervisor(
   if (updates.department !== undefined) patch.department = updates.department;
   if (updates.status !== undefined) patch.status = updates.status;
   if (updates.permissions !== undefined) patch.permissions = updates.permissions;
+  // Same reason as createSupervisor: recolouring an Admin must recolour their
+  // students, which only works if the colour is actually persisted here.
+  if (updates.colorHex !== undefined) patch.color_hex = updates.colorHex ?? null;
 
   const { data, error } = await supabase
     .from('supervisors')

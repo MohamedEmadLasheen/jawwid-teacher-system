@@ -38,11 +38,15 @@ DAY_SHEET_TO_INDEX = {
 
 # Confirmed supervisor colors + the light/dark shade variants of the same
 # family observed in the real sheet (see conversation history / migration 006).
+# The names must match `supervisors.name` in the database, because that is how
+# this script resolves a cell colour to a responsible Admin. The green family
+# was seeded as 'Basant' by migration 006 and renamed to 'Asmaa' by migration
+# 023 (the same row, same id, same colour) — so the key follows the rename.
 SUPERVISOR_COLOR_FAMILIES = {
     'Dina': ['E06666', 'F4CCCC'],
     'Zainab': ['F9CB9C'],
     'Rehab': ['C9DAF8', 'CFE2F3', '9FC5E8'],
-    'Basant': ['93C47D', '6AA84F', '38761D'],
+    'Asmaa': ['93C47D', '6AA84F', '38761D'],
 }
 
 # Best-effort Arabic -> Latin transliteration, biased toward the Egyptian

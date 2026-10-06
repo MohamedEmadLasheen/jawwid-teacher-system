@@ -51,3 +51,24 @@ export const PERF_CHART_COLORS: Record<string, string> = {
   needs_improvement: '#f59e0b',
   at_risk: '#ef4444',
 };
+
+/**
+ * THE palette an Operations Supervisor's colour is chosen from.
+ *
+ * `supervisors.color_hex` is the single source of truth for an Admin's
+ * colour, and a student is coloured by resolving `supervisorId → colorHex` —
+ * never by a colour stored on the student. This array is only the set of
+ * values the Supervisors page offers when picking one, kept here so the
+ * schedule legend, the student form and that picker cannot drift apart.
+ *
+ * The first four are the canonical colours of the four real Operations
+ * Supervisors as the live schedule already uses them (Dina red, Zainab
+ * orange, Rehab light blue, Asmaa green — seeded by migrations 006/023 and
+ * matching scripts/import-schedule/import_schedule.py). They must stay in the
+ * list: a palette that cannot reproduce an existing Admin's colour makes that
+ * Admin uneditable without silently recolouring their students.
+ */
+export const SUPERVISOR_COLOR_PALETTE = [
+  '#E06666', '#F9CB9C', '#C9DAF8', '#93C47D',
+  '#6FA8DC', '#8E7CC3', '#76A5AF', '#E69138', '#C27BA0', '#45818E', '#A64D79',
+];

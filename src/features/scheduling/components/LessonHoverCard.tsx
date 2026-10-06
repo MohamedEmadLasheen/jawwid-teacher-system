@@ -5,6 +5,7 @@ import { useParentNameByStudentId } from '../hooks/useParents';
 import { useTeacherStore } from '@/store/teacherStore';
 import { useSupervisorStore } from '@/store/supervisorStore';
 import { minuteToDisplayLabel } from '../utils/timeGrid';
+import { indexById } from '../utils/entityIndex';
 import {
   HoverCard, HoverCardContent, HoverCardTrigger,
 } from '@/components/ui/hover-card';
@@ -45,7 +46,8 @@ export function LessonHoverCard({ lesson, children }: LessonHoverCardProps) {
 
   const teacher = teachers.find((tc) => tc.id === lesson.teacherId);
   const course = courses.find((c) => c.id === lesson.courseId);
-  const lessonStudents = lesson.participants.map((p) => students.find((s) => s.id === p.studentId)).filter(Boolean);
+  const studentById = indexById(students);
+  const lessonStudents = lesson.participants.map((p) => studentById.get(p.studentId)).filter(Boolean);
   const supervisorIds = new Set(lessonStudents.map((s) => s?.supervisorId).filter(Boolean));
   const supervisorNames = supervisors.filter((sup) => supervisorIds.has(sup.id)).map((sup) => sup.name);
   const parentNames = lessonStudents
