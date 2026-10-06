@@ -13,16 +13,31 @@
  * Everything is exposed on window.__supabaseStub:
  *   rpcCalls   [{ fn, args }]            every .rpc(...) call, in order
  *   tableOps   [{ table, op }]           every .from(table).<op>() call
+ *   tableWrites[{ table, op, payload, filters }]  every update/insert, with
+ *                                       its payload — how a test proves WHAT
+ *                                       was written, not merely that
+ *                                       something was. Updates are also
+ *                                       APPLIED to `tables`, so a refetch
+ *                                       after a mutation returns the changed
+ *                                       row and a round trip is a real one.
  *   conflict   boolean                   drives check_schedule_conflict
  *   conflictMessage string
  *   reset()                              clears both logs
  */
 export interface StubRpcCall { fn: string; args: unknown }
 export interface StubTableOp { table: string; op: string }
+/** A write, with the payload and the filters it was narrowed by. */
+export interface StubTableWrite {
+  table: string;
+  op: 'update' | 'insert';
+  payload: Record<string, unknown>;
+  filters: Array<[string, unknown]>;
+}
 
 interface SupabaseStubControl {
   rpcCalls: StubRpcCall[];
   tableOps: StubTableOp[];
+  tableWrites: StubTableWrite[];
   conflict: boolean;
   conflictMessage: string;
   /**
@@ -62,6 +77,7 @@ interface SupabaseStubControl {
 const control: SupabaseStubControl = {
   rpcCalls: [],
   tableOps: [],
+  tableWrites: [],
   conflict: false,
   conflictMessage: 'Teacher is already booked at this time.',
   conflictLessonIds: [],
@@ -71,6 +87,7 @@ const control: SupabaseStubControl = {
   reset() {
     control.rpcCalls.length = 0;
     control.tableOps.length = 0;
+    control.tableWrites.length = 0;
     control.conflictLessonIds.length = 0;
     control.failWriteForLessonIds.length = 0;
     control.conflict = false;
@@ -94,7 +111,44 @@ function chain(table: string): any {
       ? all
       : all.filter((row) => filters.every(([col, val]) => row[col] === val));
   };
-  const settled = () => Promise.resolve({ data: rows(), error: null });
+
+  /**
+   * A pending update/insert, held until the builder settles.
+   *
+   * It cannot be applied when `.update(payload)` is called: PostgREST chains
+   * put the filters AFTER the verb — `.update(patch).eq('id', id)` — so
+   * applying it immediately would rewrite every row in the table.
+   */
+  let pendingWrite: { op: 'update' | 'insert'; payload: Record<string, unknown> } | null = null;
+  let wantsSingle = false;
+
+  /**
+   * Apply the write to the seeded rows, so a refetch after a mutation sees
+   * what was written. Without this a test could only prove a call happened,
+   * never that the value landed — and the round trip under test here is
+   * exactly "assign an Admin, refetch, see the new owner".
+   */
+  const flushWrite = () => {
+    if (!pendingWrite) return;
+    const { op, payload } = pendingWrite;
+    pendingWrite = null;
+    control.tableWrites.push({ table, op, payload, filters: [...filters] });
+    if (op !== 'update') return;
+    const all = (control.tables[table] ?? []) as Record<string, unknown>[];
+    for (const row of all) {
+      if (filters.every(([col, val]) => row[col] === val)) Object.assign(row, payload);
+    }
+  };
+
+  const settled = () => {
+    flushWrite();
+    const data = rows();
+    // `.single()` resolves to ONE row in PostgREST, not an array. Mirroring
+    // that matters for any service that maps the result straight into a
+    // domain object.
+    return Promise.resolve({ data: wantsSingle ? (data[0] ?? null) : data, error: null });
+  };
+
   const proxy: any = new Proxy({} as any, {
     get(_target, prop) {
       // The table this builder is for, so the fetchAllRows stub below can
@@ -107,6 +161,10 @@ function chain(table: string): any {
       return (...args: unknown[]) => {
         control.tableOps.push({ table, op: String(prop) });
         if (prop === 'eq' && args.length >= 2) filters.push([String(args[0]), args[1]]);
+        if (prop === 'single' || prop === 'maybeSingle') wantsSingle = true;
+        if ((prop === 'update' || prop === 'insert') && args.length >= 1) {
+          pendingWrite = { op: prop as 'update' | 'insert', payload: args[0] as Record<string, unknown> };
+        }
         return proxy;
       };
     },

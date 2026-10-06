@@ -16,12 +16,14 @@ import {
 } from '@/components/ui/select';
 import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 import { useTeacherStore } from '@/store/teacherStore';
-import { useStudents } from '../hooks/useStudents';
+import { useStudents, useUpdateStudent } from '../hooks/useStudents';
 import { useCheckScheduleConflict } from '../hooks/useScheduleRpc';
 import { useLessonActions } from '../hooks/useLessonActions';
 import { useSameTimeSlotLessons } from '../hooks/useSameTimeSlotLessons';
 import { useStudentWeeklySchedule } from '../hooks/useStudentWeeklySchedule';
 import { StudentWeeklyScheduleList, type NewLessonDraft } from './StudentWeeklyScheduleList';
+import { StudentAdminAssignmentList } from './StudentAdminAssignmentList';
+import { resolveStudentAdminRows } from '../utils/studentAdminAssignment';
 import { useDayOptions } from '../hooks/useDayOptions';
 import { findBatchCollisions } from '../utils/bulkEditPreflight';
 import { DAYS_OF_WEEK, GRID_COLUMNS } from '../constants/schedulingConstants';
@@ -64,6 +66,7 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
   const checkConflict = useCheckScheduleConflict();
   const dayOptions = useDayOptions();
   const actions = useLessonActions();
+  const updateStudent = useUpdateStudent();
 
   const anchorParticipantIds = lesson.participants.map((p) => p.studentId);
   /**
@@ -120,6 +123,33 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
     .map((p) => students.find((s) => s.id === p.studentId)?.fullName)
     .filter((n): n is string => !!n);
   const currentTeacher = teachers.find((tc) => tc.id === lesson.teacherId);
+
+  /**
+   * Responsible Admin for this lesson's students.
+   *
+   * No draft state and no pending edit: this is a property of the STUDENT,
+   * not of the lesson, so it cannot honestly ride along with the Save button
+   * below — that button carries a scope ("this lesson only" / "all lessons in
+   * this slot") and ownership has no such scope. It always applies to every
+   * lesson the student attends.
+   *
+   * So the choice is written immediately to `students.supervisor_id`, and the
+   * rows re-derive from the refetched student records rather than from local
+   * state. Every other lesson for that student repaints on the same
+   * invalidation, because the colour was never stored on a lesson.
+   */
+  const [adminOutcome, setAdminOutcome] = useState<'saved' | 'failed' | null>(null);
+  const adminRows = resolveStudentAdminRows(anchorParticipantIds, students);
+
+  const assignAdmin = async (studentId: string, supervisorId: string) => {
+    setAdminOutcome(null);
+    try {
+      await updateStudent.mutateAsync({ id: studentId, updates: { supervisorId } });
+      setAdminOutcome('saved');
+    } catch {
+      setAdminOutcome('failed');
+    }
+  };
 
   /**
    * The same teachers the Select listed — every non-deleted teacher, in the
@@ -496,6 +526,25 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
               onAddLesson={addLesson}
               addDisabled={busy}
             />
+          )}
+
+          {/* ---------- Student -> Responsible Admin --------------------- */}
+          <StudentAdminAssignmentList
+            idPrefix="edit"
+            rows={adminRows}
+            onChange={assignAdmin}
+            disabled={busy || updateStudent.isPending}
+          />
+          {adminOutcome && (
+            <p
+              data-testid="edit-admin-outcome"
+              role="status"
+              className={`text-xs ${adminOutcome === 'saved' ? 'text-green-700' : 'text-destructive'}`}
+            >
+              {adminOutcome === 'saved'
+                ? t('scheduling.responsibleAdmin.saved')
+                : t('scheduling.responsibleAdmin.saveFailed')}
+            </p>
           )}
 
           {/* ---------- SECTION 1 — edit ---------------------------------- */}

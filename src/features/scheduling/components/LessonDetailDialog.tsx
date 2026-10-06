@@ -1,11 +1,18 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTeacherStore } from '@/store/teacherStore';
-import { useStudents } from '../hooks/useStudents';
+import { useStudents, useUpdateStudent } from '../hooks/useStudents';
 import { useCourses } from '../hooks/useCourses';
 import { useParentNameByStudentId } from '../hooks/useParents';
 import { useApplyScheduleChange, useCheckScheduleConflict } from '../hooks/useScheduleRpc';
 import { LessonEditDialog } from './LessonEditDialog';
+import { StudentAdminAssignmentList } from './StudentAdminAssignmentList';
+import { SupervisorColorDot } from '@/components/ui/SupervisorColorDot';
+import { useSupervisorStore } from '@/store/supervisorStore';
+import { supervisorColorByStudentId, selectableAdmins } from '../utils/responsibleAdmins';
+import {
+  resolveStudentAdminRows, blockingAdminStudentIds, pendingAdminWrites,
+} from '../utils/studentAdminAssignment';
 import { DAYS_OF_WEEK } from '../constants/schedulingConstants';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -75,8 +82,10 @@ function CreateLessonDialog(props: Extract<LessonDetailDialogProps, { mode: 'cre
   const { data: students = [] } = useStudents();
   const { data: courses = [] } = useCourses();
   const parentNameByStudentId = useParentNameByStudentId();
+  const { supervisors } = useSupervisorStore();
   const applyChange = useApplyScheduleChange();
   const checkConflict = useCheckScheduleConflict();
+  const updateStudent = useUpdateStudent();
 
   const dayOfWeek = props.dayOfWeek;
 
@@ -95,6 +104,29 @@ function CreateLessonDialog(props: Extract<LessonDetailDialogProps, { mode: 'cre
   const [duration, setDuration] = useState(30);
   const [studentIds, setStudentIds] = useState<string[]>([]);
   const [preview, setPreview] = useState<{ hasConflict: boolean; message: string } | null>(null);
+
+  /**
+   * Responsible-Admin choices made in THIS dialog, keyed by student id.
+   *
+   * Unsaved input layered over `students.supervisor_id` — never a second
+   * source of truth. It is written back to the student rows on create, and
+   * only for the students it actually changed.
+   */
+  const [adminDrafts, setAdminDrafts] = useState<Record<string, string>>({});
+  const [showAdminErrors, setShowAdminErrors] = useState(false);
+
+  const adminRows = useMemo(
+    () => resolveStudentAdminRows(studentIds, students, adminDrafts),
+    [studentIds, students, adminDrafts]
+  );
+  // Blocking requires something to choose — see blockingAdminStudentIds.
+  const assignableAdmins = useMemo(() => selectableAdmins(supervisors), [supervisors]);
+  const missingAdmins = blockingAdminStudentIds(adminRows, assignableAdmins.length);
+
+  const chooseAdmin = (studentId: string, supervisorId: string) => {
+    setAdminDrafts((prev) => ({ ...prev, [studentId]: supervisorId }));
+    setShowAdminErrors(false);
+  };
 
   /**
    * The participant set changed, so any previous verdict describes a
@@ -127,8 +159,19 @@ function CreateLessonDialog(props: Extract<LessonDetailDialogProps, { mode: 'cre
     [courses, isAr]
   );
 
-  /** A student is findable by their own name, their parent's, or their id —
-   *  the same three haystacks the local implementation searched. */
+  /**
+   * A student is findable by their own name, their parent's, or their id —
+   * the same three haystacks the local implementation searched.
+   *
+   * Each row carries its Responsible Admin's colour so ownership is visible
+   * while choosing, not only afterwards. The dot is `node`, never `label`, so
+   * it stays decoration and out of the search haystack.
+   */
+  const adminColorByStudentId = useMemo(
+    () => supervisorColorByStudentId(students, supervisors),
+    [students, supervisors]
+  );
+
   const studentOptions = useMemo(
     () => students
       .filter((st) => !st.isDeleted)
@@ -136,8 +179,14 @@ function CreateLessonDialog(props: Extract<LessonDetailDialogProps, { mode: 'cre
         id: st.id,
         label: st.fullName,
         searchText: `${parentNameByStudentId.get(st.id) ?? ''} ${st.id}`,
+        node: (
+          <span className="inline-flex items-center gap-2 min-w-0">
+            <SupervisorColorDot colorHex={adminColorByStudentId.get(st.id)} />
+            <span className="truncate">{st.fullName}</span>
+          </span>
+        ),
       })),
-    [students, parentNameByStudentId]
+    [students, parentNameByStudentId, adminColorByStudentId]
   );
 
   const handlePreview = async () => {
@@ -152,6 +201,25 @@ function CreateLessonDialog(props: Extract<LessonDetailDialogProps, { mode: 'cre
   };
 
   const handleCreate = async () => {
+    // Ownership first. Every selected student must have a Responsible Admin
+    // before a lesson exists for them, and the assignment is written to the
+    // STUDENT row — there is no lesson-level admin to write.
+    if (missingAdmins.length > 0) {
+      setShowAdminErrors(true);
+      return;
+    }
+
+    // Only the students whose admin actually changed; an existing assignment
+    // is preserved untouched, so creating a lesson for already-owned students
+    // issues no student write at all.
+    const writes = pendingAdminWrites(adminRows);
+    for (const write of writes) {
+      await updateStudent.mutateAsync({
+        id: write.studentId,
+        updates: { supervisorId: write.supervisorId },
+      });
+    }
+
     // One lesson configuration, applied once per selected day — reuses the
     // exact same create_lesson action per day rather than a new bulk API.
     await Promise.all(selectedDays.map((day) =>
@@ -250,6 +318,29 @@ function CreateLessonDialog(props: Extract<LessonDetailDialogProps, { mode: 'cre
               summaryMode="labels"
             />
           </div>
+
+          {/* Student -> Responsible Admin, one row per selected student.
+              Rendered from the same student records the picker above lists,
+              so no extra query and no assumption that a group shares an
+              Admin. */}
+          <StudentAdminAssignmentList
+            idPrefix="create"
+            rows={adminRows}
+            onChange={chooseAdmin}
+            showErrors={showAdminErrors}
+            disabled={applyChange.isPending || updateStudent.isPending}
+          />
+
+          {showAdminErrors && missingAdmins.length > 0 && (
+            <div
+              data-testid="create-admin-missing"
+              role="alert"
+              className="flex items-center gap-2 p-3 rounded-lg text-sm bg-red-50 text-red-800 border border-red-200"
+            >
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              {t('scheduling.responsibleAdmin.missing')}
+            </div>
+          )}
 
           {preview && (
             <div className={`flex items-center gap-2 p-3 rounded-lg text-sm ${preview.hasConflict ? 'bg-red-50 text-red-800 border border-red-200' : 'bg-green-50 text-green-800 border border-green-200'}`}>

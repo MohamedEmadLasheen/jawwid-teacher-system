@@ -6,6 +6,7 @@ import {
   Command, CommandInput, CommandList, CommandGroup, CommandItem,
 } from '@/components/ui/command';
 import { ChevronsUpDown } from 'lucide-react';
+import * as React from 'react';
 import { useMemo, useState } from 'react';
 import { matchesSearch } from '@/lib/searchText';
 
@@ -14,6 +15,13 @@ export interface MultiSelectOption {
   label: string;
   /** Extra text to match against search (e.g. parent name, raw ID) beyond the label. */
   searchText?: string;
+  /**
+   * Richer row content (a colour swatch, a badge). `label` still drives both
+   * search and the closed trigger's summary, so the extra content is
+   * decoration and never part of the haystack — the same contract
+   * SearchableSelectOption.node has.
+   */
+  node?: React.ReactNode;
 }
 
 interface MultiSelectFilterProps {
@@ -117,7 +125,7 @@ export function MultiSelectFilter({
                 {visible.map((o) => (
                   <CommandItem key={o.id} value={o.id} onSelect={() => toggle(o.id)}>
                     <Checkbox checked={selectedIds.includes(o.id)} className="me-2" />
-                    <span className="truncate">{o.label}</span>
+                    {o.node ?? <span className="truncate">{o.label}</span>}
                   </CommandItem>
                 ))}
               </CommandGroup>

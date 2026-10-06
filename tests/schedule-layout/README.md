@@ -116,3 +116,25 @@ shape — the harness fakes the transport, never the mapping.
 | Mobile (375px, touch) | The dropdown opens fully inside the viewport, all four options are tappable, the trigger is ≥36px tall, and the dialog never scrolls sideways |
 
 Every case runs under both `dir=ltr` and `dir=rtl`.
+
+## Schedule responsible-Admin suite
+
+`schedule-admin.spec.ts` drives the real `LessonDetailDialog` — the same
+component `MasterSchedulePage` opens, in both `create` and `edit` mode. Writes
+go through the real students service; the stub records each one with its
+payload and applies it, so a round trip is a real one.
+
+| What | Asserted |
+|---|---|
+| Already assigned | The row is prefilled from the student record, with that Admin's colour dot, and creating writes **nothing** — the assignment is preserved |
+| Unassigned | Required, blocks creation, `aria-invalid` + a row error + a banner, and nothing is created or written |
+| …then assigned | Exactly one write: `students.update {supervisor_id}` filtered by that one student id |
+| Several students | Each shows their own Admin; choosing for one changes only that one; only the changed student is written |
+| No lesson-level admin | No write payload mentions a lesson or a colour, and the `create_lesson` RPC payload carries no supervisor/admin key |
+| Picker | Each student row in the participant multi-select shows their Admin's colour (hollow when unowned) |
+| Edit | The lesson's students show their Admin, editable in place |
+| Dina → Asmaa | One student write, the edited lesson **and the student's other lesson** both repaint red → green, and **zero** `apply_schedule_change` calls — ownership is not a scheduling change |
+| Wording | The panel states the Admin is set on the student and applies to every lesson they attend |
+| Mobile (375px, touch) | Rows stack, the dialog never scrolls sideways, the dropdown stays in the viewport and selects on tap |
+
+Every case runs under both `dir=ltr` and `dir=rtl`.
