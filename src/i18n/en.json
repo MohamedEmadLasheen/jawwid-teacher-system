@@ -655,6 +655,23 @@
     "withPrimaryTeacher": "This lesson is with the student's confirmed Primary Teacher.",
     "confirmedPrimaryTeacher": "Confirmed Primary Teacher: {{teacher}}",
     "changeTime": "Change Time",
+    "weekly": {
+      "title": "Student Weekly Schedule",
+      "students": "Students",
+      "chooseStudent": "This is a group lesson — choose a student to see their weekly schedule.",
+      "loading": "Loading the student's weekly schedule…",
+      "empty": "No live recurring lessons for this student.",
+      "currentLesson": "Current lesson",
+      "cancelledOn": "Cancelled on {{date}}",
+      "rescheduledOn": "Rescheduled on {{date}}",
+      "thatDateOnly": "that date only: {{time}} with {{teacher}}",
+      "editing": "Editing",
+      "addLesson": "Add lesson",
+      "addTitle": "Add one recurring lesson",
+      "addConfirm": "Add lesson",
+      "addConflict": "Blocked — {{message}} Nothing was created.",
+      "addDone": "Lesson added to the student's weekly schedule."
+    },
     "edit": {
       "title": "Lesson Details",
       "sectionEdit": "Edit lesson",

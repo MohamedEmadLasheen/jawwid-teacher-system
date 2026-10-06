@@ -19,6 +19,8 @@ import { useStudents } from '../hooks/useStudents';
 import { useCheckScheduleConflict } from '../hooks/useScheduleRpc';
 import { useLessonActions } from '../hooks/useLessonActions';
 import { useSameTimeSlotLessons } from '../hooks/useSameTimeSlotLessons';
+import { useStudentWeeklySchedule } from '../hooks/useStudentWeeklySchedule';
+import { StudentWeeklyScheduleList, type NewLessonDraft } from './StudentWeeklyScheduleList';
 import { findBatchCollisions } from '../utils/bulkEditPreflight';
 import { DAYS_OF_WEEK, GRID_COLUMNS } from '../constants/schedulingConstants';
 import { minuteToDisplayLabel } from '../utils/timeGrid';
@@ -59,11 +61,47 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
   const { data: students = [] } = useStudents();
   const checkConflict = useCheckScheduleConflict();
   const actions = useLessonActions();
+
+  const anchorParticipantIds = lesson.participants.map((p) => p.studentId);
+  /**
+   * Which student's weekly schedule is on screen.
+   *
+   * No entry point into this card carries a student id — the grid, the
+   * teacher week view and the mobile sheet all pass a lesson. So a lesson
+   * with one participant identifies its student unambiguously and selects it;
+   * a group lesson does not, and an arbitrary pick would silently show one
+   * student's schedule while implying it is another's. Groups therefore start
+   * with no selection and ask.
+   */
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(
+    anchorParticipantIds.length === 1 ? anchorParticipantIds[0] : null
+  );
+  const [selectedLessonId, setSelectedLessonId] = useState<string>(lesson.id);
+
+  const {
+    entries: weeklyEntries,
+    byId: storedById,
+    isLoading: weeklyLoading,
+    exceptionsLoading,
+  } = useStudentWeeklySchedule(selectedStudentId);
+
+  /**
+   * The lesson being edited, as the database STORES it.
+   *
+   * `lesson` comes from the grid, which overlays this occurrence's
+   * exceptions, so a lesson rescheduled for one date arrives carrying the
+   * override. Editing and slot resolution must both work from the recurring
+   * record instead: a temporary deviation must never redefine the schedule,
+   * nor which lessons share its slot. Falls back to the clicked object only
+   * while the stored table is still loading.
+   */
+  const target = storedById.get(selectedLessonId) ?? lesson;
+
   const {
     lessons: slotLessons,
     others: slotOthers,
     isLoading: slotLoading,
-  } = useSameTimeSlotLessons(lesson);
+  } = useSameTimeSlotLessons(target);
 
   const [teacherId, setTeacherId] = useState(lesson.teacherId);
   const [dayOfWeek, setDayOfWeek] = useState<DayOfWeek>(lesson.dayOfWeek as DayOfWeek);
@@ -81,10 +119,10 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
   const currentTeacher = teachers.find((tc) => tc.id === lesson.teacherId);
 
   const dirty =
-    teacherId !== lesson.teacherId ||
-    dayOfWeek !== lesson.dayOfWeek ||
-    startMinute !== lesson.startMinute ||
-    duration !== lesson.durationMinutes;
+    teacherId !== target.teacherId ||
+    dayOfWeek !== target.dayOfWeek ||
+    startMinute !== target.startMinute ||
+    duration !== target.durationMinutes;
 
   /**
    * Why the wider scope is unavailable, if it is.
@@ -105,6 +143,57 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
 
   /** Nothing may be said about the slot — or done to it — until it is known. */
   const slotUnknown = slotLoading;
+
+  /**
+   * Point the editor at another of the student's lessons.
+   *
+   * The fields reset to THAT lesson's stored recurring values, and every
+   * derived judgement is dropped: a verdict, an outcome and a chosen scope
+   * were all about the previous lesson. The slot re-resolves on its own,
+   * because useSameTimeSlotLessons is asked about `target`.
+   */
+  const selectLesson = (lessonId: string) => {
+    const next = storedById.get(lessonId);
+    if (!next) return;
+    setSelectedLessonId(lessonId);
+    setTeacherId(next.teacherId);
+    setDayOfWeek(next.dayOfWeek as DayOfWeek);
+    setStartMinute(next.startMinute);
+    setDuration(next.durationMinutes);
+    setScope(null);
+    setVerdict(null);
+    setOutcome(null);
+  };
+
+  /** Switching student re-aims the weekly list; the edit target follows. */
+  const selectStudent = (studentId: string) => {
+    setSelectedStudentId(studentId);
+  };
+
+  /** One explicit new recurring lesson for the selected student. */
+  const addLesson = async (draft: NewLessonDraft) => {
+    if (!selectedStudentId) return;
+    setOutcome(null);
+    const check = await checkConflict.mutateAsync({
+      teacherId: draft.teacherId,
+      studentIds: [selectedStudentId],
+      dayOfWeek: draft.dayOfWeek,
+      startMinute: draft.startMinute,
+      durationMinutes: draft.durationMinutes,
+    });
+    if (check.hasConflict) {
+      setVerdict({ ok: false, message: t('scheduling.weekly.addConflict', { message: check.message }) });
+      return;
+    }
+    await actions.createLesson({
+      teacherId: draft.teacherId,
+      dayOfWeek: draft.dayOfWeek,
+      startMinute: draft.startMinute,
+      durationMinutes: draft.durationMinutes,
+      studentIds: [selectedStudentId],
+    });
+    setVerdict({ ok: true, message: t('scheduling.weekly.addDone') });
+  };
 
   /** Reset the verdict whenever the proposal changes — it no longer applies. */
   const change = <T,>(set: (v: T) => void) => (v: T) => {
@@ -127,10 +216,10 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
    * these two must not disagree.
    */
   const proposed = {
-    teacherId: teacherId !== lesson.teacherId ? teacherId : undefined,
-    dayOfWeek: dayOfWeek !== lesson.dayOfWeek ? dayOfWeek : undefined,
-    startMinute: startMinute !== lesson.startMinute ? startMinute : undefined,
-    durationMinutes: duration !== lesson.durationMinutes ? duration : undefined,
+    teacherId: teacherId !== target.teacherId ? teacherId : undefined,
+    dayOfWeek: dayOfWeek !== target.dayOfWeek ? dayOfWeek : undefined,
+    startMinute: startMinute !== target.startMinute ? startMinute : undefined,
+    durationMinutes: duration !== target.durationMinutes ? duration : undefined,
   };
 
   /** What `target` would look like after the change — unchanged fields kept. */
@@ -142,8 +231,8 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
   });
 
   const targets = useMemo(
-    () => (effectiveScope === 'whole_slot' ? slotLessons : [lesson]),
-    [effectiveScope, slotLessons, lesson]
+    () => (effectiveScope === 'whole_slot' ? slotLessons : [target]),
+    [effectiveScope, slotLessons, target]
   );
 
   /**
@@ -280,7 +369,7 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
     setConfirmDelete(null);
     if (!which) return;
 
-    const toEnd = which === 'this_lesson' ? [lesson] : slotLessons;
+    const toEnd = which === 'this_lesson' ? [target] : slotLessons;
     const { succeeded, failed } = await actions.applyToEach(toEnd, (target) =>
       actions.endLesson({ lesson: target })
     );
@@ -315,13 +404,13 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
   const scopeSummary = (which: SlotScope) =>
     which === 'this_lesson'
       ? t('scheduling.edit.scopeThisSummary', {
-          day: t(DAYS_OF_WEEK[lesson.dayOfWeek].labelKey),
-          time: minuteToDisplayLabel(lesson.startMinute),
+          day: t(DAYS_OF_WEEK[target.dayOfWeek].labelKey),
+          time: minuteToDisplayLabel(target.startMinute),
         })
       : t('scheduling.edit.scopeSlotSummary', {
           n: slotLessons.length,
-          day: t(DAYS_OF_WEEK[lesson.dayOfWeek].labelKey),
-          time: minuteToDisplayLabel(lesson.startMinute),
+          day: t(DAYS_OF_WEEK[target.dayOfWeek].labelKey),
+          time: minuteToDisplayLabel(target.startMinute),
           teachers: slotTeacherNames,
         });
 
@@ -350,9 +439,42 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
             </DialogDescription>
           </DialogHeader>
 
+          {/* ---------- the student's weekly schedule --------------------- */}
+          {anchorParticipantIds.length > 0 && (
+            <StudentWeeklyScheduleList
+              participants={anchorParticipantIds
+                .map((id) => students.find((st) => st.id === id))
+                .filter((st): st is NonNullable<typeof st> => !!st)}
+              selectedStudentId={selectedStudentId}
+              onSelectStudent={selectStudent}
+              entries={weeklyEntries}
+              isLoading={weeklyLoading}
+              exceptionsLoading={exceptionsLoading}
+              selectedLessonId={selectedLessonId}
+              anchorLessonId={lesson.id}
+              onSelectLesson={selectLesson}
+              teachers={teachers}
+              onAddLesson={addLesson}
+              addDisabled={busy}
+            />
+          )}
+
           {/* ---------- SECTION 1 — edit ---------------------------------- */}
           <section className="space-y-3" data-testid="edit-section">
             <h3 className="text-sm font-semibold">{t('scheduling.edit.sectionEdit')}</h3>
+
+            {/* Which lesson these controls act on — never left implicit once
+                the weekly list can move the target. */}
+            <p data-testid="editing-target" className="text-sm text-muted-foreground">
+              {t('scheduling.weekly.editing')}:{' '}
+              <strong className="text-foreground">
+                {t(DAYS_OF_WEEK[target.dayOfWeek].labelKey)}
+                {' · '}
+                {minuteToDisplayLabel(target.startMinute)}
+                {' · '}
+                {teachers.find((tc) => tc.id === target.teacherId)?.fullName ?? '—'}
+              </strong>
+            </p>
 
             <div className="space-y-1">
               <Label htmlFor="edit-teacher">{t('scheduling.teacher')}</Label>
@@ -549,14 +671,14 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
               {confirmDelete === 'whole_slot'
                 ? t('scheduling.edit.confirmSlotBody', {
                     n: slotLessons.length,
-                    day: t(DAYS_OF_WEEK[lesson.dayOfWeek].labelKey),
-                    time: minuteToDisplayLabel(lesson.startMinute),
+                    day: t(DAYS_OF_WEEK[target.dayOfWeek].labelKey),
+                    time: minuteToDisplayLabel(target.startMinute),
                     teachers: slotTeacherNames,
                   })
                 : t('scheduling.edit.confirmThisBody', {
-                    day: t(DAYS_OF_WEEK[lesson.dayOfWeek].labelKey),
-                    time: minuteToDisplayLabel(lesson.startMinute),
-                    teacher: currentTeacher?.fullName ?? '—',
+                    day: t(DAYS_OF_WEEK[target.dayOfWeek].labelKey),
+                    time: minuteToDisplayLabel(target.startMinute),
+                    teacher: teachers.find((tc) => tc.id === target.teacherId)?.fullName ?? '—',
                   })}
             </AlertDialogDescription>
           </AlertDialogHeader>

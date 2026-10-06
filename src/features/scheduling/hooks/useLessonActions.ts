@@ -89,6 +89,34 @@ export function useLessonActions() {
     });
   };
 
+  /**
+   * Creates ONE recurring lesson.
+   *
+   * Exactly one day, exactly the students given — no multi-day expansion and
+   * no replication across an existing schedule. Uses the create_lesson action
+   * the schedule already has; apply_schedule_change conflict-checks it
+   * server-side before inserting, as it does for every other write here.
+   */
+  const createLesson = (args: {
+    teacherId: string;
+    dayOfWeek: DayOfWeek;
+    startMinute: number;
+    durationMinutes: number;
+    studentIds: string[];
+    courseId?: string | null;
+  }) =>
+    applyChange.mutateAsync({
+      action: 'create_lesson',
+      payload: {
+        teacher_id: args.teacherId,
+        course_id: args.courseId ?? null,
+        day_of_week: args.dayOfWeek,
+        start_minute: args.startMinute,
+        duration_minutes: args.durationMinutes,
+        student_ids: args.studentIds,
+      },
+    });
+
   /** Removes ONE dated occurrence. The recurring lesson itself survives. */
   const cancelOccurrence = (args: { lesson: LessonWithParticipants }) =>
     applyChange.mutateAsync({
@@ -140,6 +168,7 @@ export function useLessonActions() {
 
   return {
     moveLesson,
+    createLesson,
     cancelOccurrence,
     endLesson,
     applyToEach,

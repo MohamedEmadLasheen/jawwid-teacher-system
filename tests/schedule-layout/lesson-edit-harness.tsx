@@ -8,6 +8,7 @@ import { LessonDetailDialog } from '@/features/scheduling/components/LessonDetai
 import { schedulingKeys } from '@/features/scheduling/api/queryKeys';
 import { useTeacherStore } from '@/store/teacherStore';
 import { useSupervisorStore } from '@/store/supervisorStore';
+import { nextDateForDayOfWeek } from '@/features/scheduling/utils/nextDateForDayOfWeek';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
 
 /**
@@ -39,6 +40,8 @@ const MODE = params.get('mode') === 'create' ? 'create' : 'edit';
  * on their own query keys and are very likely cold when the dialog opens.
  */
 const SLOW_SLOT = params.get('slot') === 'slow';
+/** ?anchor=group opens a lesson with two participants (student switcher). */
+const ANCHOR = params.get('anchor') ?? 'single';
 i18n.changeLanguage(DIR === 'rtl' ? 'ar' : 'en');
 document.documentElement.dir = DIR;
 document.documentElement.lang = DIR === 'rtl' ? 'ar' : 'en';
@@ -114,7 +117,32 @@ const decoys = [
   // Same slot but already ended — history, never touched.
   makeLesson('SUN-ENDED', 0, SLOT_START, 'SF', { teacherId: 'TF', lifecycleStatus: 'ended' }),
 ];
-const allLessons = [subject, ...slotSiblings, ...decoys];
+
+/**
+ * Student A's weekly schedule, for the student-centric view.
+ *   SUN-A       Sunday 10:00  (also the anchor, and in the Sunday-10:00 slot)
+ *   TUE-1000-A  Tuesday 10:00
+ *   SUN-1400-A  Sunday 14:00  — cancelled on its next occurrence
+ *   WED-A       Wednesday 11:00 — rescheduled on its next occurrence
+ * Plus WEEK-ENDED-A, which is ended and must never appear.
+ */
+const wedA = makeLesson('WED-A', 3, 11 * 60, 'SA', { teacherId: 'TB' });
+const endedForA = makeLesson('WEEK-ENDED-A', 4, 11 * 60, 'SA', { lifecycleStatus: 'ended' });
+/** A group lesson, for the student switcher. */
+const groupLesson = {
+  ...makeLesson('GROUP-AB', 5, 12 * 60, 'SA', { teacherId: 'TC' }),
+  participants: [
+    { id: 'GROUP-AB-p0', lessonId: 'GROUP-AB', studentId: 'SA', createdAt: '2026-01-01T00:00:00Z' },
+    { id: 'GROUP-AB-p1', lessonId: 'GROUP-AB', studentId: 'SB', createdAt: '2026-01-01T00:00:00Z' },
+  ],
+} as unknown as LessonWithParticipants;
+
+const weeklyExtras = [wedA, endedForA, groupLesson];
+
+const allLessons = [subject, ...slotSiblings, ...decoys, ...weeklyExtras];
+
+/** The lesson the dialog opens on. */
+const anchorLesson = ANCHOR === 'group' ? groupLesson : subject;
 
 function Harness() {
   const [open, setOpen] = useState(true);
@@ -125,7 +153,7 @@ function Harness() {
       {open && MODE === 'edit' && (
         <LessonDetailDialog
           mode="edit"
-          lesson={subject}
+          lesson={anchorLesson}
           onClose={() => setOpen(false)}
           onSaved={() => { setSaved((n) => n + 1); setOpen(false); }}
         />
@@ -145,7 +173,7 @@ function Harness() {
         data-testid="fixtures"
         data-open={String(open)}
         data-saved={saved}
-        data-subject={subject.id}
+        data-subject={anchorLesson.id}
         data-slot-ids={[subject, ...slotSiblings].map((l) => l.id).join(',')}
         data-slot-start={SLOT_START}
         data-mode={MODE}
@@ -180,6 +208,23 @@ const stub = (window as unknown as {
 if (stub) {
   if (SLOW_SLOT) stub.tableDelayMs = 1500;
   stub.tables.lessons = allLessons.map(toRow);
+  /**
+   * Occurrence-level exceptions, dated to the next occurrence of each
+   * lesson's weekday — the same dates useStudentWeeklySchedule asks for.
+   * Neither may alter how the recurring row renders.
+   */
+  stub.tables.lesson_exceptions = [
+    {
+      lesson_id: 'SUN-1400-A', occurrence_date: nextDateForDayOfWeek(0),
+      status: 'cancelled', override_teacher_id: null,
+      override_start_minute: null, override_duration_minutes: null,
+    },
+    {
+      lesson_id: 'WED-A', occurrence_date: nextDateForDayOfWeek(3),
+      status: 'rescheduled', override_teacher_id: null,
+      override_start_minute: 13 * 60, override_duration_minutes: null,
+    },
+  ];
   stub.tables.lesson_participants = allLessons.flatMap((l) =>
     l.participants.map((p) => ({
       id: p.id, lesson_id: l.id, student_id: p.studentId,

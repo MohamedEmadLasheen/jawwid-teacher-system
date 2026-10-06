@@ -655,6 +655,23 @@
     "withPrimaryTeacher": "هذه الحصة مع المعلم الأساسي المؤكَّد للطالب.",
     "confirmedPrimaryTeacher": "المعلم الأساسي المؤكَّد: {{teacher}}",
     "changeTime": "تغيير الوقت",
+    "weekly": {
+      "title": "الجدول الأسبوعي للطالب",
+      "students": "الطلاب",
+      "chooseStudent": "هذه حصة جماعية — اختر طالبًا لعرض جدوله الأسبوعي.",
+      "loading": "جارٍ تحميل الجدول الأسبوعي للطالب…",
+      "empty": "لا توجد حصص متكررة فعّالة لهذا الطالب.",
+      "currentLesson": "الحصة الحالية",
+      "cancelledOn": "ملغاة في {{date}}",
+      "rescheduledOn": "أُعيد جدولتها في {{date}}",
+      "thatDateOnly": "لهذا التاريخ فقط: {{time}} مع {{teacher}}",
+      "editing": "يتم تعديل",
+      "addLesson": "إضافة حصة",
+      "addTitle": "إضافة حصة متكررة واحدة",
+      "addConfirm": "إضافة الحصة",
+      "addConflict": "تم الإيقاف — {{message}} لم يتم إنشاء أي شيء.",
+      "addDone": "تمت إضافة الحصة إلى الجدول الأسبوعي للطالب."
+    },
     "edit": {
       "title": "تفاصيل الحصة",
       "sectionEdit": "تعديل الحصة",
