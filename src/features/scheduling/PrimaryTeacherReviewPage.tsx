@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { matchesSearch } from '@/lib/searchMatch';
 import { useAuthStore } from '@/store/authStore';
 import { useLogStore } from '@/store/logStore';
 import { useTeacherStore } from '@/store/teacherStore';
@@ -11,7 +12,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Search } from 'lucide-react';
 import type { PrimaryTeacherInferenceRow } from '@/lib/types';
@@ -92,14 +93,14 @@ export function PrimaryTeacherReviewPage() {
   }), [rows]);
 
   const visibleRows = useMemo(() => {
-    const q = search.trim().toLowerCase();
     return rows
       .filter((r) => !skippedIds.has(r.studentId))
       .filter((r) => matchesFilter(r, filter))
       .filter((r) => evidenceFilter === 'all' || computeEvidenceStrength(r) === evidenceFilter)
-      .filter((r) => !q || r.studentName.toLowerCase().includes(q)
-        || (r.candidateTeacherName ?? '').toLowerCase().includes(q)
-        || (r.confirmedTeacherName ?? '').toLowerCase().includes(q))
+      .filter((r) => matchesSearch(
+        `${r.studentName} ${r.candidateTeacherName ?? ''} ${r.confirmedTeacherName ?? ''}`,
+        search
+      ))
       .sort(compareQueue);
   }, [rows, filter, evidenceFilter, search, skippedIds]);
 
@@ -166,29 +167,42 @@ export function PrimaryTeacherReviewPage() {
           <Search className="absolute start-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input className="ps-8" placeholder={t('teacherReview.search.placeholder')} value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-        <Select value={filter} onValueChange={(v) => setFilter(v as FilterKey)}>
-          <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all_pending">{t('teacherReview.filters.allPending')}</SelectItem>
-            <SelectItem value="high">{t('teacherReview.filters.high')}</SelectItem>
-            <SelectItem value="medium">{t('teacherReview.filters.medium')}</SelectItem>
-            <SelectItem value="needs_review">{t('teacherReview.filters.needsReview')}</SelectItem>
-            <SelectItem value="insufficient">{t('teacherReview.filters.insufficient')}</SelectItem>
-            <SelectItem value="no_candidate">{t('teacherReview.filters.noCandidate')}</SelectItem>
-            <SelectItem value="confirmed">{t('teacherReview.filters.confirmed')}</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={evidenceFilter} onValueChange={(v) => setEvidenceFilter(v as EvidenceStrength | 'all')}>
-          <SelectTrigger className="w-[170px]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">{t('teacherReview.filters.allEvidence')}</SelectItem>
-            <SelectItem value="strong">{t('teacherReview.evidence.strong')}</SelectItem>
-            <SelectItem value="moderate">{t('teacherReview.evidence.moderate')}</SelectItem>
-            <SelectItem value="limited">{t('teacherReview.evidence.limited')}</SelectItem>
-            <SelectItem value="ambiguous">{t('teacherReview.evidence.ambiguous')}</SelectItem>
-            <SelectItem value="none">{t('teacherReview.evidence.none')}</SelectItem>
-          </SelectContent>
-        </Select>
+        {/* Seven and six fixed options — both over the threshold, so both are
+            searchable. The option lists are data now rather than markup, which
+            is also what lets the rule be checked mechanically. */}
+        <SearchableSelect
+          testId="review-status-filter"
+          ariaLabel={t('teacherReview.filters.allPending')}
+          className="w-[180px]"
+          value={filter}
+          onValueChange={(v) => setFilter(v as FilterKey)}
+          searchPlaceholder={t('common.search')}
+          options={([
+            ['all_pending', 'teacherReview.filters.allPending'],
+            ['high', 'teacherReview.filters.high'],
+            ['medium', 'teacherReview.filters.medium'],
+            ['needs_review', 'teacherReview.filters.needsReview'],
+            ['insufficient', 'teacherReview.filters.insufficient'],
+            ['no_candidate', 'teacherReview.filters.noCandidate'],
+            ['confirmed', 'teacherReview.filters.confirmed'],
+          ] as const).map(([value, key]) => ({ value, label: t(key) }))}
+        />
+        <SearchableSelect
+          testId="review-evidence-filter"
+          ariaLabel={t('teacherReview.filters.allEvidence')}
+          className="w-[170px]"
+          value={evidenceFilter}
+          onValueChange={(v) => setEvidenceFilter(v as EvidenceStrength | 'all')}
+          searchPlaceholder={t('common.search')}
+          options={([
+            ['all', 'teacherReview.filters.allEvidence'],
+            ['strong', 'teacherReview.evidence.strong'],
+            ['moderate', 'teacherReview.evidence.moderate'],
+            ['limited', 'teacherReview.evidence.limited'],
+            ['ambiguous', 'teacherReview.evidence.ambiguous'],
+            ['none', 'teacherReview.evidence.none'],
+          ] as const).map(([value, key]) => ({ value, label: t(key) }))}
+        />
       </div>
 
       {visibleRows.length === 0 ? (

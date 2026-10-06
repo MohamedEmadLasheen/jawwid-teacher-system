@@ -639,6 +639,7 @@
       }
     },
     "searchPlaceholder": "البحث عن معلم أو طالب...",
+    "searchStudentParentId": "ابحث باسم الطالب أو ولي الأمر أو المعرف…",
     "allTeachers": "كل المعلمين",
     "allCourses": "كل المواد",
     "coursePending": "بانتظار تحديد المادة",

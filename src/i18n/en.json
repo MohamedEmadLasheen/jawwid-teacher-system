@@ -639,6 +639,7 @@
       }
     },
     "searchPlaceholder": "Search teacher or student...",
+    "searchStudentParentId": "Search student, parent, or ID…",
     "allTeachers": "All Teachers",
     "allCourses": "All Courses",
     "coursePending": "Course Pending",

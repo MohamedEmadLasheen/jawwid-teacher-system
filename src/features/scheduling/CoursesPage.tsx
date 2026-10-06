@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { matchesSearch } from '@/lib/searchMatch';
 import { useAuthStore } from '@/store/authStore';
 import { useLogStore } from '@/store/logStore';
 import {
@@ -41,11 +42,9 @@ export function CoursesPage() {
   const [editCourse, setEditCourse] = useState<Course | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  const filtered = courses.filter((c) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return c.nameEn.toLowerCase().includes(q) || c.nameAr.toLowerCase().includes(q);
-  });
+  // Same matcher as every picker, so an Arabic course name is found by the
+  // same spellings here as in the lesson dialogs.
+  const filtered = courses.filter((c) => matchesSearch(`${c.nameEn} ${c.nameAr}`, search));
 
   const handleAdd = (data: Omit<Course, 'id' | 'createdAt' | 'updatedAt'>) => {
     createCourse.mutate(data);

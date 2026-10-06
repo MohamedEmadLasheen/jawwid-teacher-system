@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 interface StudentFormProps {
   student?: Student;
@@ -129,39 +130,43 @@ export function StudentForm({ student, onSubmit, onCancel }: StudentFormProps) {
 
         <div className="space-y-1">
           <Label>{t('students.supervisor')}</Label>
-          <Select
+          {/* Supervisors are a database collection — searchable structurally,
+              not because of how many rows exist today. */}
+          <SearchableSelect
+            testId="student-supervisor"
+            ariaLabel={t('students.supervisor')}
             value={form.supervisorId ?? ''}
             onValueChange={(v) => setForm({ ...form, supervisorId: v })}
-          >
-            <SelectTrigger><SelectValue placeholder={t('students.selectSupervisor')} /></SelectTrigger>
-            <SelectContent>
-              {supervisors.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  <span className="inline-flex items-center gap-2">
-                    {s.colorHex && (
-                      <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.colorHex }} />
-                    )}
-                    {s.name}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder={t('students.selectSupervisor')}
+            searchPlaceholder={t('students.supervisor')}
+            options={supervisors.map((s) => ({
+              value: s.id,
+              label: s.name,
+              render: (
+                <span className="inline-flex items-center gap-2">
+                  {s.colorHex && (
+                    <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.colorHex }} />
+                  )}
+                  {s.name}
+                </span>
+              ),
+            }))}
+          />
         </div>
 
         <div className="space-y-1">
           <Label>{t('students.course')}</Label>
-          <Select
+          <SearchableSelect
+            testId="student-course"
+            ariaLabel={t('students.course')}
             value={form.courseId ?? ''}
             onValueChange={(v) => setForm({ ...form, courseId: v })}
-          >
-            <SelectTrigger><SelectValue placeholder={t('students.coursePending')} /></SelectTrigger>
-            <SelectContent>
-              {courses.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{isAr ? c.nameAr : c.nameEn}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            placeholder={t('students.coursePending')}
+            searchPlaceholder={t('students.course')}
+            options={courses.map((c) => ({
+              value: c.id, label: isAr ? c.nameAr : c.nameEn, searchText: `${c.nameAr} ${c.nameEn}`,
+            }))}
+          />
         </div>
       </div>
 

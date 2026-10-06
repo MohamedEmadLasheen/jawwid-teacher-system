@@ -10,9 +10,7 @@ import { ScheduleRosterLegend } from './components/ScheduleRosterLegend';
 import { LessonDetailDialog } from './components/LessonDetailDialog';
 import { ChangeSimulatorDialog } from './components/ChangeSimulatorDialog';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import type { DayOfWeek } from '@/lib/types';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
 
@@ -66,21 +64,29 @@ export function TeacherWeeklySchedulePage() {
       <h1 className="text-xl sm:text-2xl font-bold text-primary">{t('scheduling.teacherWeeklySchedule')}</h1>
 
       <div className="space-y-3">
-        <Select value={teacherId} onValueChange={setTeacherId}>
-          <SelectTrigger className="h-9 text-sm w-64"><SelectValue placeholder={t('scheduling.selectTeacher')} /></SelectTrigger>
-          <SelectContent>
-            {groups.map((group) => (
-              <SelectGroup key={group.templateId}>
-                <SelectLabel className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                  {group.name} — {minuteToDisplayLabel(group.startMinute)}–{minuteToDisplayLabel(group.endMinute)}
-                </SelectLabel>
-                {group.teachers.map((tc) => (
-                  <SelectItem key={tc.id} value={tc.id}>{tc.fullName}</SelectItem>
-                ))}
-              </SelectGroup>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* Grouped by shift window, exactly as before — the headings are the
+            roster's own template name and hours. Search narrows the teachers
+            inside each group and drops a group that ends up empty, so the
+            structure survives filtering instead of collapsing to a flat list. */}
+        <SearchableSelect
+          testId="weekly-teacher"
+          className="h-9 text-sm w-64"
+          value={teacherId}
+          onValueChange={setTeacherId}
+          placeholder={t('scheduling.selectTeacher')}
+          searchPlaceholder={t('scheduling.selectTeacher')}
+          ariaLabel={t('scheduling.selectTeacher')}
+          groups={groups.map((group) => ({
+            label: `${group.name} — ${minuteToDisplayLabel(group.startMinute)}–${minuteToDisplayLabel(group.endMinute)}`,
+            options: group.teachers.map((tc) => ({
+              value: tc.id,
+              label: tc.fullName,
+              // Staff paste ids out of other screens; the old control could
+              // not find a teacher that way.
+              searchText: tc.id,
+            })),
+          }))}
+        />
         <ScheduleRosterLegend />
         <ColorLegend />
       </div>

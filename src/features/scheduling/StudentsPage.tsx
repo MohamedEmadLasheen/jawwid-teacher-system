@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { matchesSearch } from '@/lib/searchMatch';
 import { useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useLogStore } from '@/store/logStore';
@@ -22,6 +23,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -85,7 +87,7 @@ export function StudentsPage() {
 
   const filtered = students.filter((s) => {
     if (s.isDeleted !== showDeleted) return false;
-    if (search && !s.fullName.toLowerCase().includes(search.toLowerCase())) return false;
+    if (search && !matchesSearch(s.fullName, search)) return false;
     if (filterStatus !== 'all' && s.status !== filterStatus) return false;
     if (filterSupervisor !== 'all' && s.supervisorId !== filterSupervisor) return false;
     if (issueFilter === 'unassigned-teacher' && (s.status !== 'active' || scheduleByStudent.has(s.id))) return false;
@@ -163,22 +165,30 @@ export function StudentsPage() {
                 <SelectItem value="withdrawn">{t('students.withdrawn')}</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={filterSupervisor} onValueChange={setFilterSupervisor}>
-              <SelectTrigger className="h-9 text-sm w-48 shrink-0"><SelectValue placeholder={t('students.supervisor')} /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('common.all')}</SelectItem>
-                {supervisors.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
+            <SearchableSelect
+              testId="students-supervisor-filter"
+              ariaLabel={t('students.supervisor')}
+              className="h-9 text-sm w-48 shrink-0"
+              value={filterSupervisor}
+              onValueChange={setFilterSupervisor}
+              placeholder={t('students.supervisor')}
+              searchPlaceholder={t('students.supervisor')}
+              options={[
+                { value: 'all', label: t('common.all') },
+                ...supervisors.map((s) => ({
+                  value: s.id,
+                  label: s.name,
+                  render: (
                     <span className="inline-flex items-center gap-2">
                       {s.colorHex && (
-                        <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.colorHex }} />
+                        <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.colorHex }} />
                       )}
                       {s.name}
                     </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  ),
+                })),
+              ]}
+            />
           </div>
         </CardContent>
       </Card>
