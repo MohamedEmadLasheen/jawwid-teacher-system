@@ -6,8 +6,7 @@ import {
   Command, CommandInput, CommandList, CommandGroup, CommandItem,
 } from '@/components/ui/command';
 import { ChevronsUpDown } from 'lucide-react';
-import * as React from 'react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { matchesSearch } from '@/lib/searchText';
 
 export interface MultiSelectOption {
@@ -21,7 +20,7 @@ export interface MultiSelectOption {
    * decoration and never part of the haystack — the same contract
    * SearchableSelectOption.node has.
    */
-  node?: React.ReactNode;
+  node?: ReactNode;
 }
 
 interface MultiSelectFilterProps {
@@ -59,6 +58,15 @@ export function MultiSelectFilter({
 }: MultiSelectFilterProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  /**
+   * Same rule, same reason as SearchableSelect: inside a modal dialog the
+   * dialog's react-remove-scroll cancels wheel events on this portalled
+   * popover, so the option list paints a scrollbar it will not honour.
+   * Owning the innermost lock hands scrolling back to the list. Not modal
+   * outside a dialog, where a lock would needlessly freeze the page.
+   */
+  const [inDialog, setInDialog] = useState(false);
   const [query, setQuery] = useState('');
 
   /** Same rule as the single-select, so the two controls behave alike: an
@@ -80,6 +88,7 @@ export function MultiSelectFilter({
 
   /** A stale query must not be what the next opening starts from. */
   const handleOpenChange = (next: boolean) => {
+    if (next) setInDialog(!!triggerRef.current?.closest('[role="dialog"]'));
     setOpen(next);
     if (!next) setQuery('');
   };
@@ -87,9 +96,10 @@ export function MultiSelectFilter({
   const selectedLabels = options.filter((o) => selectedIds.includes(o.id)).map((o) => o.label);
 
   return (
-    <Popover open={open} onOpenChange={handleOpenChange}>
+    <Popover open={open} onOpenChange={handleOpenChange} modal={inDialog}>
       <PopoverTrigger asChild>
         <Button
+          ref={triggerRef}
           type="button"
           variant="outline"
           role="combobox"
