@@ -44,6 +44,8 @@ export function ScheduleFilterBar() {
 
       <MultiSelectFilter
         placeholder={t('scheduling.allTeachers')}
+        /* Dynamic collection: searchable by architecture, not by today's count. */
+        searchable
         selectedIds={filters.teacherIds}
         onChange={(ids) => setFilter('teacherIds', ids)}
         options={rosterTeachers.map((tc) => ({ id: tc.id, label: tc.fullName, searchText: tc.id }))}
@@ -51,6 +53,8 @@ export function ScheduleFilterBar() {
 
       <MultiSelectFilter
         placeholder={t('scheduling.allStudents')}
+        /* Dynamic collection: searchable by architecture, not by today's count. */
+        searchable
         selectedIds={filters.studentIds}
         onChange={(ids) => setFilter('studentIds', ids)}
         options={students.filter((s) => !s.isDeleted).map((s) => ({
@@ -62,6 +66,8 @@ export function ScheduleFilterBar() {
         <MultiSelectFilter
           className="w-36"
           placeholder={t('scheduling.allCourses')}
+          /* Dynamic collection: searchable by architecture, not by today's count. */
+          searchable
           selectedIds={filters.coursePendingOnly ? [] : filters.courseIds}
           onChange={(ids) => { setFilter('coursePendingOnly', false); setFilter('courseIds', ids); }}
           options={courses.map((c) => ({ id: c.id, label: isAr ? c.nameAr : c.nameEn }))}
@@ -87,6 +93,8 @@ export function ScheduleFilterBar() {
 
       <MultiSelectFilter
         placeholder={t('scheduling.allSupervisors')}
+        /* Dynamic collection: searchable by architecture, not by today's count. */
+        searchable
         selectedIds={filters.supervisorIds}
         onChange={(ids) => setFilter('supervisorIds', ids)}
         options={supervisors.filter((s) => s.status === 'active').map((s) => ({ id: s.id, label: s.name }))}

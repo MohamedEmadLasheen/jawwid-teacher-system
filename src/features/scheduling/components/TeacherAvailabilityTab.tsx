@@ -13,9 +13,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import { useDayOptions } from '../hooks/useDayOptions';
 import { Plus, X } from 'lucide-react';
 
 interface TeacherAvailabilityTabProps {
@@ -30,6 +29,7 @@ export function TeacherAvailabilityTab({ teacherId, teacherType }: TeacherAvaila
 }
 
 function HourlyAvailabilityEditor({ teacherId }: { teacherId: string }) {
+  const dayOptions = useDayOptions();
   const { t } = useTranslation();
   const { data: blocks = [] } = useTeacherAvailability(teacherId);
   const createBlock = useCreateTeacherAvailability();
@@ -49,6 +49,7 @@ function HourlyAvailabilityEditor({ teacherId }: { teacherId: string }) {
     });
   };
 
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-1.5">
@@ -64,14 +65,15 @@ function HourlyAvailabilityEditor({ teacherId }: { teacherId: string }) {
       </div>
 
       <div className="flex flex-wrap gap-2 items-center">
-        <Select value={String(dayOfWeek)} onValueChange={(v) => setDayOfWeek(Number(v) as DayOfWeek)}>
-          <SelectTrigger className="h-9 text-sm w-36"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {DAYS_OF_WEEK.map((d) => (
-              <SelectItem key={d.value} value={String(d.value)}>{t(d.labelKey)}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <SearchableSelect
+          className="h-9 text-sm w-36"
+          value={String(dayOfWeek)}
+          onChange={(v) => setDayOfWeek(Number(v) as DayOfWeek)}
+          options={dayOptions}
+          searchPlaceholder={t('scheduling.dayColumn')}
+          emptyText={t('common.noResults')}
+          aria-label={t('scheduling.dayColumn')}
+        />
         <Input type="time" value={startLabel} onChange={(e) => setStartLabel(e.target.value)} className="h-9 w-28" />
         <span className="text-xs text-muted-foreground">{t('scheduling.to')}</span>
         <Input type="time" value={endLabel} onChange={(e) => setEndLabel(e.target.value)} className="h-9 w-28" />
@@ -85,6 +87,7 @@ function HourlyAvailabilityEditor({ teacherId }: { teacherId: string }) {
 }
 
 function ShiftAssignmentEditor({ teacherId }: { teacherId: string }) {
+  const dayOptions = useDayOptions();
   const { t } = useTranslation();
   const { data: templates = [] } = useShiftTemplates();
   const { data: assignments = [] } = useTeacherShiftAssignments(teacherId);
@@ -118,22 +121,30 @@ function ShiftAssignmentEditor({ teacherId }: { teacherId: string }) {
       </div>
 
       <div className="flex flex-wrap gap-2 items-center">
-        <Select value={String(dayOfWeek)} onValueChange={(v) => setDayOfWeek(Number(v) as DayOfWeek)}>
-          <SelectTrigger className="h-9 text-sm w-36"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {DAYS_OF_WEEK.map((d) => (
-              <SelectItem key={d.value} value={String(d.value)}>{t(d.labelKey)}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={shiftTemplateId} onValueChange={setShiftTemplateId}>
-          <SelectTrigger className="h-9 text-sm w-48"><SelectValue placeholder={t('scheduling.selectShift')} /></SelectTrigger>
-          <SelectContent>
-            {templates.map((s) => (
-              <SelectItem key={s.id} value={s.id}>{s.name} ({minuteToDisplayLabel(s.startMinute)}–{minuteToDisplayLabel(s.endMinute)})</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <SearchableSelect
+          className="h-9 text-sm w-36"
+          value={String(dayOfWeek)}
+          onChange={(v) => setDayOfWeek(Number(v) as DayOfWeek)}
+          options={dayOptions}
+          searchPlaceholder={t('scheduling.dayColumn')}
+          emptyText={t('common.noResults')}
+          aria-label={t('scheduling.dayColumn')}
+        />
+        <SearchableSelect
+          className="h-9 text-sm w-48"
+          value={shiftTemplateId}
+          onChange={setShiftTemplateId}
+          /* Dynamic collection: searchable by architecture, not by today's count. */
+          searchable
+          options={templates.map((s) => ({
+            value: s.id,
+            label: `${s.name} (${minuteToDisplayLabel(s.startMinute)}–${minuteToDisplayLabel(s.endMinute)})`,
+          }))}
+          placeholder={t('scheduling.selectShift')}
+          searchPlaceholder={t('scheduling.selectShift')}
+          emptyText={t('common.noResults')}
+          aria-label={t('scheduling.selectShift')}
+        />
         <Button type="button" size="sm" onClick={handleAssign} disabled={!shiftTemplateId}>
           <Plus className="h-4 w-4 me-1" />
           {t('scheduling.assign')}

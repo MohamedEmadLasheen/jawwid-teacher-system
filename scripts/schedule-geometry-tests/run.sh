@@ -9,9 +9,10 @@ cd "$(dirname "$0")/../.."
 OUT="$(mktemp -d)"
 trap 'rm -rf "$OUT"' EXIT
 
-# Two invocations on purpose: esbuild derives its output base from the common
-# parent of the entry points, so mixing utils/ and constants/ in one call would
-# nest the results into subdirectories and break the flat imports below.
+# Separate invocations on purpose: esbuild derives its output base from the
+# common parent of the entry points, so mixing utils/, constants/ and lib/ in
+# one call would nest the results into subdirectories and break the flat
+# imports below.
 node_modules/esbuild/bin/esbuild \
   src/features/scheduling/utils/timelineGeometry.ts \
   src/features/scheduling/utils/computeRowLayout.ts \
@@ -29,6 +30,14 @@ node_modules/esbuild/bin/esbuild \
   --bundle --format=esm --platform=node \
   --outdir="$OUT" --out-extension:.js=.mjs >/dev/null
 
+# Third invocation for the same reason: searchText lives under src/lib, so
+# bundling it with the scheduling entries would raise the common output base
+# to src/ and nest every result one directory deeper.
+node_modules/esbuild/bin/esbuild \
+  src/lib/searchText.ts \
+  --bundle --format=esm --platform=node \
+  --outdir="$OUT" --out-extension:.js=.mjs >/dev/null
+
 cp scripts/schedule-geometry-tests/timeline.test.mjs "$OUT/"
 cp scripts/schedule-geometry-tests/acceptance.test.mjs "$OUT/"
 cp scripts/schedule-geometry-tests/roster.test.mjs "$OUT/"
@@ -36,6 +45,7 @@ cp scripts/schedule-geometry-tests/viewport.test.mjs "$OUT/"
 cp scripts/schedule-geometry-tests/quickactions.test.mjs "$OUT/"
 cp scripts/schedule-geometry-tests/sametimeslot.test.mjs "$OUT/"
 cp scripts/schedule-geometry-tests/studentweekly.test.mjs "$OUT/"
+cp scripts/schedule-geometry-tests/searchtext.test.mjs "$OUT/"
 
 status=0
 node "$OUT/timeline.test.mjs"   || status=1
@@ -51,4 +61,6 @@ echo
 node "$OUT/sametimeslot.test.mjs" || status=1
 echo
 node "$OUT/studentweekly.test.mjs" || status=1
+echo
+node "$OUT/searchtext.test.mjs" || status=1
 exit $status

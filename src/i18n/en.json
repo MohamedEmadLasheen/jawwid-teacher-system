@@ -1143,6 +1143,7 @@
     "exportPDF": "Export PDF",
     "loading": "Loading...",
     "noData": "No data found",
+    "noResults": "No results found",
     "confirm": "Confirm",
     "close": "Close",
     "actions": "Actions",

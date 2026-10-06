@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { X } from 'lucide-react';
 
 interface ManageStudentLinksDialogProps {
@@ -60,14 +61,18 @@ export function ManageStudentLinksDialog({ parent }: ManageStudentLinksDialogPro
       </div>
 
       <div className="flex gap-2">
-        <Select value={selectedStudentId} onValueChange={setSelectedStudentId}>
-          <SelectTrigger className="h-9 text-sm flex-1"><SelectValue placeholder={t('parents.selectStudent')} /></SelectTrigger>
-          <SelectContent>
-            {availableStudents.map((s) => (
-              <SelectItem key={s.id} value={s.id}>{s.fullName}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <SearchableSelect
+          className="h-9 text-sm flex-1"
+          value={selectedStudentId}
+          onChange={setSelectedStudentId}
+          /* Dynamic collection: searchable by architecture, not by today's count. */
+          searchable
+          options={availableStudents.map((s) => ({ value: s.id, label: s.fullName }))}
+          placeholder={t('parents.selectStudent')}
+          searchPlaceholder={t('students.search')}
+          emptyText={t('common.noResults')}
+          aria-label={t('parents.selectStudent')}
+        />
         <Select value={relationship} onValueChange={(v) => setRelationship(v as StudentParent['relationship'])}>
           <SelectTrigger className="h-9 text-sm w-32 shrink-0"><SelectValue /></SelectTrigger>
           <SelectContent>

@@ -1024,3 +1024,102 @@ test('dir=rtl: the card renders right-to-left with Arabic labels', async ({ page
   const clientW = await page.evaluate(() => document.documentElement.clientWidth);
   expect(docScrollW).toBeLessThanOrEqual(clientW + 1);
 });
+
+/* ============================================================================
+ * Searchable selectors, through the REAL card
+ * ==========================================================================*/
+
+/** The search field inside whichever selector is currently open. */
+const editSearch = (page: Page) => page.locator('[cmdk-input]');
+
+test('the teacher selector searches by partial name and still applies the pick', async ({ page }) => {
+  await open(page);
+  await page.locator('[data-testid="edit-teacher"]').click();
+  await editSearch(page).fill('Z');
+  await expect(page.getByRole('option')).toHaveCount(1);
+  await page.getByRole('option', { name: 'Teacher Z' }).click();
+  await expect(page.locator('[data-testid="edit-teacher"]')).toContainText('Teacher Z');
+});
+
+test('the teacher search is case-insensitive and trims the query', async ({ page }) => {
+  await open(page);
+  await page.locator('[data-testid="edit-teacher"]').click();
+  await editSearch(page).fill('  teacher z  ');
+  await expect(page.getByRole('option')).toHaveCount(1);
+  await expect(page.getByRole('option').first()).toContainText('Teacher Z');
+});
+
+test('a teacher search with no match shows the empty state', async ({ page }) => {
+  await open(page);
+  await page.locator('[data-testid="edit-teacher"]').click();
+  await editSearch(page).fill('Nobody');
+  await expect(page.getByRole('option')).toHaveCount(0);
+  await expect(page.locator('[data-testid="searchable-select-empty"]')).toBeVisible();
+});
+
+/**
+ * Start Time is formatted for reading ("1:00 PM") but people type times in
+ * several ways. Each of these must reach the right column.
+ */
+const TIME_QUERIES: Array<{ query: string; expect: string }> = [
+  { query: '08', expect: '8:00 AM' },     // leading zero — absent from the label
+  { query: '08:00', expect: '8:00 AM' },  // 24-hour, zero-padded
+  { query: '8:00 AM', expect: '8:00 AM' },// exactly as displayed
+  { query: '13:00', expect: '1:00 PM' },  // 24-hour afternoon
+  { query: '11:30', expect: '11:30 AM' },
+];
+
+for (const q of TIME_QUERIES) {
+  test(`start time is findable by typing "${q.query}"`, async ({ page }) => {
+    await open(page);
+    await page.locator('[data-testid="edit-time"]').click();
+    await editSearch(page).fill(q.query);
+    await expect(page.getByRole('option', { name: q.expect, exact: true })).toHaveCount(1);
+  });
+}
+
+test('typing PM narrows the start times to the afternoon only', async ({ page }) => {
+  await open(page);
+  await page.locator('[data-testid="edit-time"]').click();
+  await editSearch(page).fill('PM');
+  const labels = await page.getByRole('option').allInnerTexts();
+  expect(labels.length).toBeGreaterThan(0);
+  expect(labels.every((l) => l.includes('PM'))).toBe(true);
+});
+
+test('searching a start time and picking it sends that start minute', async ({ page }) => {
+  await open(page);
+  await setConflict(page, false);
+  await page.locator('[data-testid="edit-time"]').click();
+  await editSearch(page).fill('11:00');
+  await page.getByRole('option', { name: '11:00 AM', exact: true }).click();
+  await chooseScope(page, 'this');
+  await page.locator('[data-testid="save-changes"]').click();
+
+  await expect(page.locator('[data-testid="fixtures"]')).toHaveAttribute('data-saved', '1');
+  const writes = await applied(page);
+  expect(writes.map((w) => w.lessonId)).toEqual(['SUN-A']);
+  expect(writes[0].payload.new_start_minute).toBe(11 * 60);
+});
+
+test('the day selector is searchable and still sends the chosen day', async ({ page }) => {
+  await open(page);
+  await setConflict(page, false);
+  await page.locator('[data-testid="edit-day"]').click();
+  await editSearch(page).fill('Wed');
+  await expect(page.getByRole('option')).toHaveCount(1);
+  await page.getByRole('option', { name: 'Wednesday' }).click();
+  await chooseScope(page, 'this');
+  await page.locator('[data-testid="save-changes"]').click();
+
+  await expect(page.locator('[data-testid="fixtures"]')).toHaveAttribute('data-saved', '1');
+  const writes = await applied(page);
+  expect(writes[0].payload.new_day_of_week).toBe(3);
+});
+
+test('duration stays a plain select — four options, no search field', async ({ page }) => {
+  await open(page);
+  await page.locator('[data-testid="edit-duration"]').click();
+  await expect(page.getByRole('option')).toHaveCount(4);
+  await expect(editSearch(page)).toHaveCount(0);
+});

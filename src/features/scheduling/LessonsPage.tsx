@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTeacherStore } from '@/store/teacherStore';
 import { useStudents } from './hooks/useStudents';
@@ -6,6 +6,7 @@ import { useCourses } from './hooks/useCourses';
 import { useLessons, useLessonParticipants } from './hooks/useLessons';
 import { useCheckScheduleConflict, useApplyScheduleChange } from './hooks/useScheduleRpc';
 import { DAYS_OF_WEEK } from './constants/schedulingConstants';
+import { useDayOptions } from './hooks/useDayOptions';
 import { labelToMinute, minuteToDisplayLabel } from './utils/timeGrid';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CheckCircle2, AlertTriangle } from 'lucide-react';
 import type { DayOfWeek } from '@/lib/types';
@@ -31,6 +33,7 @@ export function LessonsPage() {
   const { data: participants = [] } = useLessonParticipants();
   const checkConflict = useCheckScheduleConflict();
   const applyChange = useApplyScheduleChange();
+  const dayOptions = useDayOptions();
 
   const [teacherId, setTeacherId] = useState('');
   const [courseId, setCourseId] = useState('');
@@ -40,6 +43,26 @@ export function LessonsPage() {
   const [studentIds, setStudentIds] = useState<string[]>([]);
   const [preview, setPreview] = useState<{ hasConflict: boolean; message: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  /** Same teachers and courses the Selects listed; memoised so a keystroke
+   *  in the search field filters a stable array rather than a fresh one. */
+  const teacherOptions = useMemo<SearchableSelectOption[]>(
+    () => teachers
+      .filter((tc) => !tc.isDeleted)
+      .map((tc) => ({ value: tc.id, label: tc.fullName })),
+    [teachers]
+  );
+
+  const courseOptions = useMemo<SearchableSelectOption[]>(
+    () => courses.map((c) => ({
+      value: c.id,
+      label: isAr ? c.nameAr : c.nameEn,
+      // Either spelling finds the course, whichever language is displayed.
+      searchText: isAr ? c.nameEn : c.nameAr,
+    })),
+    [courses, isAr]
+  );
+
 
   const toggleStudent = (id: string) => {
     setStudentIds((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));
@@ -92,36 +115,42 @@ export function LessonsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>{t('nav.teachers')}</Label>
-              <Select value={teacherId} onValueChange={(v) => { setTeacherId(v); setPreview(null); }}>
-                <SelectTrigger><SelectValue placeholder={t('nav.teachers')} /></SelectTrigger>
-                <SelectContent>
-                  {teachers.filter((tc) => !tc.isDeleted).map((tc) => (
-                    <SelectItem key={tc.id} value={tc.id}>{tc.fullName}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={teacherId}
+                onChange={(v) => { setTeacherId(v); setPreview(null); }}
+                /* Dynamic collection: searchable by architecture, not by today's count. */
+                searchable
+                options={teacherOptions}
+                placeholder={t('nav.teachers')}
+                searchPlaceholder={t('teachers.search')}
+                emptyText={t('common.noResults')}
+                aria-label={t('nav.teachers')}
+              />
             </div>
             <div className="space-y-1">
               <Label>{t('students.course')}</Label>
-              <Select value={courseId} onValueChange={setCourseId}>
-                <SelectTrigger><SelectValue placeholder={t('students.coursePending')} /></SelectTrigger>
-                <SelectContent>
-                  {courses.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{isAr ? c.nameAr : c.nameEn}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={courseId}
+                onChange={setCourseId}
+                /* Dynamic collection: searchable by architecture, not by today's count. */
+                searchable
+                options={courseOptions}
+                placeholder={t('students.coursePending')}
+                searchPlaceholder={t('courses.search')}
+                emptyText={t('common.noResults')}
+                aria-label={t('students.course')}
+              />
             </div>
             <div className="space-y-1">
               <Label>{t('scheduling.day.sunday')}</Label>
-              <Select value={String(dayOfWeek)} onValueChange={(v) => { setDayOfWeek(Number(v) as DayOfWeek); setPreview(null); }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {DAYS_OF_WEEK.map((d) => (
-                    <SelectItem key={d.value} value={String(d.value)}>{t(d.labelKey)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={String(dayOfWeek)}
+                onChange={(v) => { setDayOfWeek(Number(v) as DayOfWeek); setPreview(null); }}
+                options={dayOptions}
+                searchPlaceholder={t('scheduling.day.sunday')}
+                emptyText={t('common.noResults')}
+                aria-label={t('scheduling.day.sunday')}
+              />
             </div>
             <div className="space-y-1">
               <Label>{t('scheduling.startTime')}</Label>

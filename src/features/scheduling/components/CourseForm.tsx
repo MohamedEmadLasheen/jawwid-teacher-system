@@ -1,13 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Course, CourseCategory } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 
 interface CourseFormProps {
   course?: Course;
@@ -36,6 +34,23 @@ export function CourseForm({ course, onSubmit, onCancel }: CourseFormProps) {
     onSubmit(form);
   };
 
+  /**
+
+   * The eight course categories — a fixed list, over the threshold at eight,
+
+   * so the search field appears.
+
+   */
+
+  const categoryOptions = useMemo<SearchableSelectOption[]>(
+
+    () => ALL_CATEGORIES.map((cat) => ({ value: cat, label: t(`specialization.${cat}`) })),
+
+    [t]
+
+  );
+
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -49,14 +64,14 @@ export function CourseForm({ course, onSubmit, onCancel }: CourseFormProps) {
         </div>
         <div className="space-y-1">
           <Label>{t('courses.category')}</Label>
-          <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v as CourseCategory })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {ALL_CATEGORIES.map((cat) => (
-                <SelectItem key={cat} value={cat}>{t(`specialization.${cat}`)}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+              value={form.category}
+              onChange={(v) => setForm({ ...form, category: v as CourseCategory })}
+              options={categoryOptions}
+              searchPlaceholder={t('courses.search')}
+              emptyText={t('common.noResults')}
+              aria-label={t('courses.category')}
+            />
         </div>
         <div className="space-y-1">
           <Label>{t('courses.defaultDuration')}</Label>
