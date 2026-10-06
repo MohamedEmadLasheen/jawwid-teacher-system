@@ -36,13 +36,17 @@ const OUTSIDE = [
 
 async function open(
   page: Page,
-  opts: { dir?: 'ltr' | 'rtl'; single?: boolean; mode?: 'create'; slowSlot?: boolean } = {}
+  opts: {
+    dir?: 'ltr' | 'rtl'; single?: boolean; mode?: 'create';
+    slowSlot?: boolean; anchor?: 'group';
+  } = {}
 ) {
   const q = new URLSearchParams();
   q.set('dir', opts.dir ?? 'ltr');
   if (opts.single) q.set('slot', 'single');
   if (opts.slowSlot) q.set('slot', 'slow');
   if (opts.mode) q.set('mode', opts.mode);
+  if (opts.anchor) q.set('anchor', opts.anchor);
   await page.goto(`/tests/schedule-layout/lesson-edit.html?${q}`);
   await page.waitForSelector('[data-testid="ready"]', { state: 'attached' });
   if (!opts.mode) await expect(page.locator('[data-testid="lesson-edit"]')).toBeVisible();
@@ -343,6 +347,210 @@ test('the slot is resolved from the ORIGINAL day and time, not the destination',
   expect(writes.map((w) => w.lessonId).sort()).toEqual([...SLOT].sort());
   expect(writes.map((w) => w.lessonId)).not.toContain('SUN-1030-D');
   for (const w of writes) expect(w.payload.new_start_minute).toBe(10 * 60 + 30);
+});
+
+// ---------------------------------------------------------------------------
+// STUDENT WEEKLY SCHEDULE — A through L
+// ---------------------------------------------------------------------------
+
+/** The weekly rows as rendered, in order. */
+const weeklyRows = (page: Page) =>
+  page.evaluate(() =>
+    Array.from(document.querySelectorAll('[data-testid="weekly-row"]')).map((el) => {
+      const e = el as HTMLElement;
+      return {
+        id: e.dataset.lessonId,
+        selected: e.dataset.selected === 'true',
+        current: e.dataset.current === 'true',
+        cancelled: e.dataset.cancelled === 'true',
+        rescheduled: e.dataset.rescheduled === 'true',
+        text: (e.innerText ?? '').replace(/\s+/g, ' ').trim(),
+      };
+    })
+  );
+
+test('A: opening a lesson shows the student\'s complete live weekly schedule', async ({ page }) => {
+  await open(page);
+  await expect(page.locator('[data-testid="student-weekly"]')).toBeVisible();
+  await expect.poll(async () => (await weeklyRows(page)).length).toBeGreaterThan(0);
+
+  const rows = await weeklyRows(page);
+  // Student A's live lessons, sorted by weekday then start minute.
+  expect(rows.map((r) => r.id)).toEqual(['SUN-A', 'SUN-1400-A', 'TUE-1000-A', 'WED-A', 'GROUP-AB']);
+  // Stored recurring values are what each row shows.
+  expect(rows[0].text).toContain('10:00 AM');
+  expect(rows[3].text).toContain('11:00 AM');
+});
+
+test('B: lessons belonging to other students never appear', async ({ page }) => {
+  await open(page);
+  await expect.poll(async () => (await weeklyRows(page)).length).toBeGreaterThan(0);
+  const ids = (await weeklyRows(page)).map((r) => r.id);
+  // SUN-B / SUN-C share the slot but belong to other students.
+  for (const foreign of ['SUN-B', 'SUN-C', 'SUN-1030-D', 'MON-1000-E']) {
+    expect(ids, `${foreign} is not Student A's`).not.toContain(foreign);
+  }
+});
+
+test('C: ended lessons never appear', async ({ page }) => {
+  await open(page);
+  await expect.poll(async () => (await weeklyRows(page)).length).toBeGreaterThan(0);
+  const ids = (await weeklyRows(page)).map((r) => r.id);
+  expect(ids).not.toContain('WEEK-ENDED-A');
+  expect(ids).not.toContain('SUN-ENDED');
+});
+
+test('D: the originally clicked lesson is marked CURRENT LESSON, by id', async ({ page }) => {
+  await open(page);
+  await expect.poll(async () => (await weeklyRows(page)).length).toBeGreaterThan(0);
+  const rows = await weeklyRows(page);
+  const current = rows.filter((r) => r.current);
+  expect(current.map((r) => r.id)).toEqual(['SUN-A']);
+  await expect(page.locator('[data-testid="weekly-current-badge"]')).toHaveCount(1);
+  // It is also the default edit target.
+  expect(rows.find((r) => r.selected)?.id).toBe('SUN-A');
+});
+
+test('exception markers are dated and never alter the recurring row', async ({ page }) => {
+  await open(page);
+  await expect.poll(async () => (await weeklyRows(page)).length).toBeGreaterThan(0);
+  await expect(page.locator('[data-testid="weekly-cancelled"]')).toBeVisible();
+
+  const rows = await weeklyRows(page);
+  const cancelled = rows.find((r) => r.id === 'SUN-1400-A')!;
+  const rescheduled = rows.find((r) => r.id === 'WED-A')!;
+
+  expect(cancelled.cancelled).toBe(true);
+  expect(cancelled.text).toMatch(/Cancelled on \w/);
+  // The recurring time is unchanged by the cancellation.
+  expect(cancelled.text).toContain('2:00 PM');
+
+  expect(rescheduled.rescheduled).toBe(true);
+  expect(rescheduled.text).toMatch(/Rescheduled on \w/);
+  // Stored 11:00 still shown as the schedule; the override named separately.
+  expect(rescheduled.text).toContain('11:00 AM');
+  expect(rescheduled.text).toContain('that date only: 1:00 PM');
+});
+
+test('E: selecting another weekly lesson moves the edit target', async ({ page }) => {
+  await open(page);
+  await expect.poll(async () => (await weeklyRows(page)).length).toBeGreaterThan(0);
+
+  await expect(page.locator('[data-testid="editing-target"]')).toContainText('Sunday');
+  await page.locator('[data-testid="weekly-row"][data-lesson-id="TUE-1000-A"]').click();
+
+  const editing = page.locator('[data-testid="editing-target"]');
+  await expect(editing).toContainText('Tuesday');
+  await expect(editing).toContainText('10:00 AM');
+  // Fields reset to that lesson's stored values; nothing is dirty yet.
+  await expect(page.locator('[data-testid="edit-day"]')).toContainText('Tuesday');
+  await expect(page.locator('[data-testid="save-changes"]')).toBeDisabled();
+  // CURRENT LESSON still marks the originally clicked one.
+  const rows = await weeklyRows(page);
+  expect(rows.find((r) => r.current)?.id).toBe('SUN-A');
+  expect(rows.find((r) => r.selected)?.id).toBe('TUE-1000-A');
+});
+
+test('F+G: editing the selected lesson changes ONLY that lesson', async ({ page }) => {
+  await open(page);
+  await setConflict(page, false);
+  await expect.poll(async () => (await weeklyRows(page)).length).toBeGreaterThan(0);
+
+  await page.locator('[data-testid="weekly-row"][data-lesson-id="TUE-1000-A"]').click();
+  await selectOption(page, 'edit-time', '11:00 AM');
+  await chooseScope(page, 'this');
+  await page.locator('[data-testid="save-changes"]').click();
+
+  const writes = await applied(page);
+  expect(writes.map((w) => w.lessonId)).toEqual(['TUE-1000-A']);
+  expect(writes[0].payload.new_start_minute).toBe(11 * 60);
+  // Sunday and Wednesday are untouched.
+  for (const sibling of ['SUN-A', 'SUN-1400-A', 'WED-A', 'GROUP-AB']) {
+    expect(writes.map((w) => w.lessonId)).not.toContain(sibling);
+  }
+});
+
+test('H: teacher, day, time and duration each edit the selected lesson', async ({ page }) => {
+  const cases = [
+    { id: 'edit-teacher', label: 'Teacher Z', key: 'new_teacher_id', value: 'TZ' },
+    { id: 'edit-day', label: 'Friday', key: 'new_day_of_week', value: 5 },
+    { id: 'edit-time', label: '11:30 AM', key: 'new_start_minute', value: 11 * 60 + 30 },
+    { id: 'edit-duration', label: '90 minutes', key: 'new_duration_minutes', value: 90 },
+  ] as const;
+
+  for (const c of cases) {
+    await open(page);
+    await setConflict(page, false);
+    await expect.poll(async () => (await weeklyRows(page)).length).toBeGreaterThan(0);
+    await page.locator('[data-testid="weekly-row"][data-lesson-id="WED-A"]').click();
+    await selectOption(page, c.id, c.label);
+    await chooseScope(page, 'this');
+    await page.locator('[data-testid="save-changes"]').click();
+
+    const writes = await applied(page);
+    expect(writes.map((w) => w.lessonId), `${c.id} target`).toEqual(['WED-A']);
+    expect(writes[0].payload[c.key], `${c.id} payload`).toBe(c.value);
+  }
+});
+
+test('the slot scope re-resolves from the newly selected lesson', async ({ page }) => {
+  await open(page);
+  await setConflict(page, false);
+  await expect.poll(async () => (await weeklyRows(page)).length).toBeGreaterThan(0);
+
+  // SUN-A sits in the Sunday-10:00 slot with SUN-B and SUN-C.
+  await selectOption(page, 'edit-duration', '60 minutes');
+  await expect(page.locator('[data-testid="scope-slot-note"]')).toContainText('3 lessons');
+
+  // TUE-1000-A is alone in the Tuesday-10:00 slot.
+  await page.locator('[data-testid="weekly-row"][data-lesson-id="TUE-1000-A"]').click();
+  await selectOption(page, 'edit-duration', '60 minutes');
+  await expect(page.locator('[data-testid="scope-slot-note"]'))
+    .toHaveAttribute('data-blocked', 'only_one');
+});
+
+test('group lesson: no student is chosen for you', async ({ page }) => {
+  await open(page, { anchor: 'group' });
+  await expect(page.locator('[data-testid="student-switcher"]')).toBeVisible();
+  // Two chips, neither selected, and no schedule claimed yet.
+  await expect(page.locator('[data-testid="student-chip"]')).toHaveCount(2);
+  expect(await page.locator('[data-testid="student-chip"][data-selected="true"]').count()).toBe(0);
+  await expect(page.locator('[data-testid="weekly-choose-student"]')).toBeVisible();
+  expect(await page.locator('[data-testid="weekly-row"]').count()).toBe(0);
+
+  // Choosing a student shows that student's schedule only.
+  await page.locator('[data-testid="student-chip"][data-student-id="SA"]').click();
+  await expect.poll(async () => (await weeklyRows(page)).length).toBeGreaterThan(0);
+  expect((await weeklyRows(page)).map((r) => r.id)).toContain('TUE-1000-A');
+
+  // Switching to the other student swaps the schedule entirely.
+  await page.locator('[data-testid="student-chip"][data-student-id="SB"]').click();
+  await expect.poll(async () => (await weeklyRows(page)).map((r) => r.id))
+    .not.toContain('TUE-1000-A');
+});
+
+test('Add Lesson creates exactly one recurring lesson for the selected student', async ({ page }) => {
+  await open(page);
+  await setConflict(page, false);
+  await expect.poll(async () => (await weeklyRows(page)).length).toBeGreaterThan(0);
+
+  await page.locator('[data-testid="weekly-add-open"]').click();
+  await selectOption(page, 'add-teacher', 'Teacher B');
+  await selectOption(page, 'add-day', 'Saturday');
+  await selectOption(page, 'add-time', '9:00 AM');
+  await selectOption(page, 'add-duration', '60 minutes');
+  await page.locator('[data-testid="weekly-add-confirm"]').click();
+
+  const writes = await applied(page);
+  expect(writes.map((w) => w.action)).toEqual(['create_lesson']);
+  const p = writes[0].payload;
+  expect(p.teacher_id).toBe('TB');
+  expect(p.day_of_week).toBe(6);
+  expect(p.start_minute).toBe(9 * 60);
+  expect(p.duration_minutes).toBe(60);
+  expect(p.student_ids).toEqual(['SA']);
+  // One lesson, one day — no replication across the schedule.
+  expect(writes).toHaveLength(1);
 });
 
 // ---------------------------------------------------------------------------

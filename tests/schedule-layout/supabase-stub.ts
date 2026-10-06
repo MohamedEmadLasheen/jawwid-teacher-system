@@ -84,7 +84,16 @@ if (typeof window !== 'undefined') {
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 function chain(table: string): any {
-  const rows = () => control.tables[table] ?? [];
+  // .eq() filters accumulated on this builder. fetchExceptionsForDate narrows
+  // lesson_exceptions by occurrence_date, so a stub that ignored eq() would
+  // hand every date's exceptions to every day of the week.
+  const filters: Array<[string, unknown]> = [];
+  const rows = () => {
+    const all = (control.tables[table] ?? []) as Record<string, unknown>[];
+    return filters.length === 0
+      ? all
+      : all.filter((row) => filters.every(([col, val]) => row[col] === val));
+  };
   const settled = () => Promise.resolve({ data: rows(), error: null });
   const proxy: any = new Proxy({} as any, {
     get(_target, prop) {
@@ -95,8 +104,9 @@ function chain(table: string): any {
         const p = settled();
         return (p as any)[prop].bind(p);
       }
-      return (..._args: unknown[]) => {
+      return (...args: unknown[]) => {
         control.tableOps.push({ table, op: String(prop) });
+        if (prop === 'eq' && args.length >= 2) filters.push([String(args[0]), args[1]]);
         return proxy;
       };
     },
