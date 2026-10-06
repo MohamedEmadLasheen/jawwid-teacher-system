@@ -790,7 +790,10 @@
     "dayColumn": "Day",
     "teacherColumn": "Teacher",
     "freeCapacity": "Free time (no student)",
-    "outsideShift": "Outside shift"
+    "outsideShift": "Outside shift",
+    "outsideShiftOnly": "Outside shift only",
+    "noFilterMatches": "No teachers match the current filters.",
+    "clearFilters": "Clear filters"
   },
   "operations": {
     "attendance": {

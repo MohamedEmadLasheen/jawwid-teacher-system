@@ -27,13 +27,22 @@ export interface ScheduleRowLayout {
  * being rounded up to two 30-minute columns. What this function produces is
  * only the *background* of the row — the working window, the free gaps inside
  * it, and the per-column shading flags.
+ *
+ * `occupancy` exists because `lessons` is the FILTERED list: with a supervisor
+ * or status filter on, a teacher's other lessons are hidden from the row but
+ * their minutes are still sold. Passing the row's unfiltered occupancy keeps
+ * the red "on shift, no student" band honest — without it, filtering would
+ * repaint booked time as free capacity. Omit it and occupancy falls back to
+ * `lessons`, which is what the per-teacher weekly view and the pure geometry
+ * suites rely on.
  */
 export function computeRowLayout(
   lessons: LessonWithParticipants[],
-  availability: UnifiedAvailabilitySlot[]
+  availability: UnifiedAvailabilitySlot[],
+  occupancy?: MinuteInterval[]
 ): ScheduleRowLayout {
   const workingWindow = computeWorkingWindow(availability);
-  const occupied: MinuteInterval[] = lessons.map((l) => ({
+  const occupied: MinuteInterval[] = occupancy ?? lessons.map((l) => ({
     startMinute: l.startMinute,
     endMinute: l.startMinute + l.durationMinutes,
   }));

@@ -42,10 +42,33 @@ export function useScheduleRoster() {
   /** Fast membership test for filtering grid rows. */
   const rosterTeacherIds = useMemo(() => new Set(rosterTeachers.map((t) => t.id)), [rosterTeachers]);
 
+  /**
+   * teacherId → the shift template ids they hold an active assignment to,
+   * in group order. THE canonical answer to "which roster group is this
+   * teacher in", so the shift-group filter, the grid's group banners and the
+   * legend chips all agree by construction instead of each re-deriving it.
+   *
+   * A list rather than a single id because the schema permits a teacher to
+   * be assigned to more than one template; the filter then matches on any of
+   * them, which is the OR-within-a-category rule.
+   */
+  const templateIdsByTeacherId = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const group of groups) {
+      for (const teacher of group.teachers) {
+        const existing = map.get(teacher.id);
+        if (existing) existing.push(group.templateId);
+        else map.set(teacher.id, [group.templateId]);
+      }
+    }
+    return map;
+  }, [groups]);
+
   return {
     groups,
     rosterTeachers,
     rosterTeacherIds,
+    templateIdsByTeacherId,
     isLoading: templatesQuery.isLoading || assignmentsQuery.isLoading,
     error: templatesQuery.error || assignmentsQuery.error,
   };

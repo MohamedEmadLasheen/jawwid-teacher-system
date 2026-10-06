@@ -20,8 +20,12 @@ export default defineConfig({
     dedupe: ['react', 'react-dom'],
   },
   optimizeDeps: {
-    entries: ['tests/schedule-layout/index.html', 'tests/schedule-layout/quick-actions.html', 'tests/schedule-layout/master-grid.html', 'tests/schedule-layout/lesson-edit.html', 'tests/schedule-layout/searchable-select.html'],
+    entries: ['tests/schedule-layout/index.html', 'tests/schedule-layout/quick-actions.html', 'tests/schedule-layout/master-grid.html', 'tests/schedule-layout/lesson-edit.html', 'tests/schedule-layout/searchable-select.html', 'tests/schedule-layout/legend-filters.html'],
     include: ['react', 'react-dom', 'react-dom/client', '@tanstack/react-query', '@dnd-kit/core'],
   },
-  server: { port: 5310, strictPort: true },
+  // SCHEDULE_TEST_PORT lets a second checkout (a git worktree, CI shard) run
+  // this suite at the same time. Without it both runs bind 5310 and the
+  // second silently reuses the first one's server — which serves the OTHER
+  // checkout's source, so the tests pass or fail against the wrong code.
+  server: { port: Number(process.env.SCHEDULE_TEST_PORT ?? 5310), strictPort: true },
 });

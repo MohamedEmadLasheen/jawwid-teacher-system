@@ -790,7 +790,10 @@
     "dayColumn": "اليوم",
     "teacherColumn": "المعلم",
     "freeCapacity": "وقت متاح بدون طالب",
-    "outsideShift": "خارج الشيفت"
+    "outsideShift": "خارج الشيفت",
+    "outsideShiftOnly": "خارج الشيفت فقط",
+    "noFilterMatches": "لا يوجد معلمون مطابقون للفلاتر الحالية.",
+    "clearFilters": "مسح الفلاتر"
   },
   "operations": {
     "attendance": {

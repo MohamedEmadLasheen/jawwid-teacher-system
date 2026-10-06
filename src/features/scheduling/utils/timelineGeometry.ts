@@ -161,3 +161,23 @@ export function computeFreeIntervals(
 export function isColumnInWorkingWindow(columnStartMinute: number, availability: MinuteInterval[]): boolean {
   return availability.some((a) => a.startMinute <= columnStartMinute && a.endMinute > columnStartMinute);
 }
+
+/**
+ * OUTSIDE SHIFT: the part of `intervals` that is on the visible timeline but
+ * NOT inside the working window — the exact mirror of computeFreeIntervals,
+ * and the canonical answer to "is this booked outside the teacher's shift?".
+ *
+ * An empty working window yields `[]`, deliberately: a teacher with no
+ * availability configured has no shift to be outside of, which is the same
+ * rule that keeps the outside-shift shading inert for those rows (see
+ * ScheduleSlotCell). Callers must not infer "outside shift" from the grid
+ * bounds — only from this window.
+ */
+export function computeOutsideWindowIntervals(
+  availability: MinuteInterval[],
+  intervals: MinuteInterval[]
+): MinuteInterval[] {
+  const window = computeWorkingWindow(availability);
+  if (window.length === 0) return [];
+  return subtractIntervals(clipIntervalsToTimeline(intervals), window);
+}

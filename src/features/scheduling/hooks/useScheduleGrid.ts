@@ -8,31 +8,36 @@ import { useStudents } from './useStudents';
 import { useCourses } from './useCourses';
 import { schedulingKeys } from '../api/queryKeys';
 import { nextDateForDayOfWeek } from '../utils/nextDateForDayOfWeek';
-import { overlapsPrimeTime } from '../utils/primeTime';
+import {
+  applyOccurrenceExceptions, deriveScheduleRows, type ScheduleGridTeacherRow,
+} from '../utils/deriveScheduleRows';
 import type { ScheduleFilters } from '@/store/scheduleUiStore';
-import type { DayOfWeek, Teacher } from '@/lib/types';
-import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
-import type { UnifiedAvailabilitySlot } from '@/services/scheduling/teacherAvailability.service';
+import type { DayOfWeek } from '@/lib/types';
 
-export interface ScheduleGridTeacherRow {
-  teacher: Teacher;
-  availability: UnifiedAvailabilitySlot[];
-  lessons: LessonWithParticipants[];
-}
+export type { ScheduleGridTeacherRow };
 
 /**
  * THE shared hook for a single day's schedule: lessons+participants+
  * availability, joined against teachers/students/courses/supervisors and
  * reduced to one row per visible teacher. Used as-is by the Master Grid
- * today and by the future per-teacher view (parametrized by teacherId
+ * today and by the per-teacher weekly view (parametrized by a teacherId
  * filter) — never duplicated.
  *
  * Rows come from useScheduleRoster, i.e. teachers holding an active shift
  * assignment — not every teacher in the academy. A teacher outside the
  * configured roster never appears in the Schedule.
+ *
+ * The hook's own job is only data plumbing. The pipeline it feeds —
+ *
+ *   raw lessons → occurrence exceptions → teacher/lesson joins
+ *     → filter state → visible rows
+ *
+ * — lives in utils/deriveScheduleRows as pure functions, so the filter
+ * semantics are provable without React and the derived rows stay derived:
+ * they are memoized here and never written back into a store.
  */
 export function useScheduleGrid(dayOfWeek: number, filters: ScheduleFilters, searchQuery: string) {
-  const { rosterTeachers } = useScheduleRoster();
+  const { rosterTeachers, templateIdsByTeacherId } = useScheduleRoster();
   const { supervisors } = useSupervisorStore();
   const { data: students = [] } = useStudents();
   const { data: courses = [] } = useCourses();
@@ -53,97 +58,26 @@ export function useScheduleGrid(dayOfWeek: number, filters: ScheduleFilters, sea
   });
 
   const rows = useMemo<ScheduleGridTeacherRow[]>(() => {
-    const rawLessons = lessonsQuery.data ?? [];
-    const availability = availabilityQuery.data ?? [];
-    const exceptions = exceptionsQuery.data ?? [];
-    const search = searchQuery.trim().toLowerCase();
+    // Apply today's occurrence-scoped deviations (cancel/reschedule) first, so
+    // every filter below — free capacity included — sees the day as it will
+    // actually be taught rather than the recurring shape.
+    const lessons = applyOccurrenceExceptions(lessonsQuery.data ?? [], exceptionsQuery.data ?? []);
 
-    // Apply today's occurrence-scoped deviations (cancel/reschedule) so a
-    // "this occurrence" change — which only ever writes a lesson_exceptions
-    // row, never the recurring lessons row — is actually visible in the grid.
-    const exceptionByLessonId = new Map(exceptions.map((e) => [e.lessonId, e]));
-    const lessons = rawLessons
-      .filter((l) => exceptionByLessonId.get(l.id)?.status !== 'cancelled')
-      .map((l) => {
-        const exc = exceptionByLessonId.get(l.id);
-        if (exc?.status !== 'rescheduled') return l;
-        const startMinute = exc.overrideStartMinute ?? l.startMinute;
-        const durationMinutes = exc.overrideDurationMinutes ?? l.durationMinutes;
-        return {
-          ...l,
-          teacherId: exc.overrideTeacherId ?? l.teacherId,
-          startMinute,
-          durationMinutes,
-          endMinute: startMinute + durationMinutes,
-        };
-      });
-
-    const studentNameById = new Map(students.map((s) => [s.id, s.fullName]));
-
-    // The grid shows the Schedule roster — teachers with an active shift
-    // assignment — in roster order, never every teacher in the academy.
-    // Membership comes from the availability configuration, so nothing here
-    // enumerates who belongs; `rosterTeachers` is already ordered.
-    return rosterTeachers
-      .filter((t) => !t.isDeleted)
-      .filter((t) => filters.teacherIds.length === 0 || filters.teacherIds.includes(t.id))
-      .filter((t) => !filters.teacherType || t.teacherType === filters.teacherType)
-      .map((teacher) => {
-        let teacherLessons = lessons.filter((l) => l.teacherId === teacher.id);
-
-        if (filters.coursePendingOnly) {
-          teacherLessons = teacherLessons.filter((l) => !l.courseId);
-        } else if (filters.courseIds.length > 0) {
-          teacherLessons = teacherLessons.filter((l) => l.courseId && filters.courseIds.includes(l.courseId));
-        }
-        if (filters.lifecycleStatuses.length > 0) {
-          teacherLessons = teacherLessons.filter((l) => filters.lifecycleStatuses.includes(l.lifecycleStatus));
-        }
-        if (filters.supervisorIds.length > 0) {
-          teacherLessons = teacherLessons.filter((l) =>
-            l.participants.some((p) => {
-              const supId = students.find((s) => s.id === p.studentId)?.supervisorId;
-              return supId && filters.supervisorIds.includes(supId);
-            })
-          );
-        }
-        if (filters.studentIds.length > 0) {
-          teacherLessons = teacherLessons.filter((l) =>
-            l.participants.some((p) => filters.studentIds.includes(p.studentId))
-          );
-        }
-        if (filters.availableOnly) {
-          teacherLessons = [];
-        }
-        if (filters.primeTimeOnly) {
-          teacherLessons = teacherLessons.filter((l) => overlapsPrimeTime(l.startMinute, l.durationMinutes));
-        }
-        if (filters.groupFilter === 'group') {
-          teacherLessons = teacherLessons.filter((l) => l.participants.length > 1);
-        } else if (filters.groupFilter === 'one_to_one') {
-          teacherLessons = teacherLessons.filter((l) => l.participants.length <= 1);
-        }
-        if (filters.timeRangeStart !== null) {
-          teacherLessons = teacherLessons.filter((l) => l.startMinute >= filters.timeRangeStart!);
-        }
-        if (filters.timeRangeEnd !== null) {
-          teacherLessons = teacherLessons.filter((l) => l.startMinute + l.durationMinutes <= filters.timeRangeEnd!);
-        }
-
-        return {
-          teacher,
-          availability: availability.filter((a) => a.teacherId === teacher.id),
-          lessons: teacherLessons,
-        };
-      })
-      .filter((row) => {
-        if (!search) return true;
-        if (row.teacher.fullName.toLowerCase().includes(search)) return true;
-        return row.lessons.some((l) =>
-          l.participants.some((p) => (studentNameById.get(p.studentId) ?? '').toLowerCase().includes(search))
-        );
-      });
-  }, [rosterTeachers, students, lessonsQuery.data, availabilityQuery.data, exceptionsQuery.data, filters, searchQuery]);
+    return deriveScheduleRows({
+      rosterTeachers,
+      lessons,
+      availability: availabilityQuery.data ?? [],
+      supervisorIdByStudentId: new Map(students.map((s) => [s.id, s.supervisorId])),
+      studentNameById: new Map(students.map((s) => [s.id, s.fullName])),
+      templateIdsByTeacherId,
+      filters,
+      searchQuery,
+    });
+  }, [
+    rosterTeachers, templateIdsByTeacherId, students,
+    lessonsQuery.data, availabilityQuery.data, exceptionsQuery.data,
+    filters, searchQuery,
+  ]);
 
   return {
     rows,
