@@ -14,6 +14,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 import { useTeacherStore } from '@/store/teacherStore';
 import { useStudents } from '../hooks/useStudents';
 import { useCheckScheduleConflict } from '../hooks/useScheduleRpc';
@@ -21,9 +22,10 @@ import { useLessonActions } from '../hooks/useLessonActions';
 import { useSameTimeSlotLessons } from '../hooks/useSameTimeSlotLessons';
 import { useStudentWeeklySchedule } from '../hooks/useStudentWeeklySchedule';
 import { StudentWeeklyScheduleList, type NewLessonDraft } from './StudentWeeklyScheduleList';
+import { useDayOptions } from '../hooks/useDayOptions';
 import { findBatchCollisions } from '../utils/bulkEditPreflight';
 import { DAYS_OF_WEEK, GRID_COLUMNS } from '../constants/schedulingConstants';
-import { minuteToDisplayLabel } from '../utils/timeGrid';
+import { minuteToDisplayLabel, minuteToLabel } from '../utils/timeGrid';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
 import type { DayOfWeek } from '@/lib/types';
 
@@ -60,6 +62,7 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
   const { teachers } = useTeacherStore();
   const { data: students = [] } = useStudents();
   const checkConflict = useCheckScheduleConflict();
+  const dayOptions = useDayOptions();
   const actions = useLessonActions();
 
   const anchorParticipantIds = lesson.participants.map((p) => p.studentId);
@@ -117,6 +120,42 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
     .map((p) => students.find((s) => s.id === p.studentId)?.fullName)
     .filter((n): n is string => !!n);
   const currentTeacher = teachers.find((tc) => tc.id === lesson.teacherId);
+
+  /**
+   * The same teachers the Select listed — every non-deleted teacher, in the
+   * store's order. Memoised so typing in the search field re-filters a
+   * stable array instead of rebuilding it on each keystroke.
+   */
+  const teacherOptions = useMemo<SearchableSelectOption[]>(
+    () => teachers
+      .filter((tc) => !tc.isDeleted)
+      .map((tc) => ({ value: tc.id, label: tc.fullName })),
+    [teachers]
+  );
+
+  /**
+   * The configured timeline's own columns, unchanged — the search field only
+   * narrows what is drawn, so which start minutes are offered is still
+   * GRID_COLUMNS and nothing else.
+   *
+   * The label is what the admin reads ("1:00 PM"); the 24-hour spelling rides
+   * along as hidden search text so the field answers to how people actually
+   * type a time. Without it "08" and "08:00" matched NOTHING, because the
+   * label carries no leading zero and no 24-hour hour — a search box that
+   * only matches one of two obvious spellings is worse than none.
+   *
+   * Both spellings are live, so "8" also reaches 6:00 PM via "18:00". That is
+   * deliberate and predictable: a query matches a time if it appears in
+   * EITHER rendering of it.
+   */
+  const timeOptions = useMemo<SearchableSelectOption[]>(
+    () => GRID_COLUMNS.map((m) => ({
+      value: String(m),
+      label: minuteToDisplayLabel(m),
+      searchText: minuteToLabel(m),
+    })),
+    []
+  );
 
   const dirty =
     teacherId !== target.teacherId ||
@@ -478,47 +517,50 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
 
             <div className="space-y-1">
               <Label htmlFor="edit-teacher">{t('scheduling.teacher')}</Label>
-              <Select value={teacherId} onValueChange={change(setTeacherId)}>
-                <SelectTrigger id="edit-teacher" data-testid="edit-teacher"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {teachers.filter((tc) => !tc.isDeleted).map((tc) => (
-                    <SelectItem key={tc.id} value={tc.id}>{tc.fullName}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                id="edit-teacher"
+                /* Dynamic collection: searchable by architecture, not by today's count. */
+                searchable
+                data-testid="edit-teacher"
+                value={teacherId}
+                onChange={change(setTeacherId)}
+                options={teacherOptions}
+                placeholder={t('scheduling.selectTeacher')}
+                searchPlaceholder={t('teachers.search')}
+                emptyText={t('common.noResults')}
+                aria-label={t('scheduling.teacher')}
+              />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label htmlFor="edit-day">{t('scheduling.dayColumn')}</Label>
-                <Select
+                <SearchableSelect
+                  id="edit-day"
+                  data-testid="edit-day"
                   value={String(dayOfWeek)}
-                  onValueChange={change((v: string) => setDayOfWeek(Number(v) as DayOfWeek))}
-                >
-                  <SelectTrigger id="edit-day" data-testid="edit-day"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {DAYS_OF_WEEK.map((d) => (
-                      <SelectItem key={d.value} value={String(d.value)}>{t(d.labelKey)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={change((v: string) => setDayOfWeek(Number(v) as DayOfWeek))}
+                  options={dayOptions}
+                  searchPlaceholder={t('scheduling.dayColumn')}
+                  emptyText={t('common.noResults')}
+                  aria-label={t('scheduling.dayColumn')}
+                />
               </div>
 
               <div className="space-y-1">
                 <Label htmlFor="edit-time">{t('scheduling.startTime')}</Label>
                 {/* The configured timeline's own columns — the same source the
                     grid and the mobile picker use, so no hour is hardcoded. */}
-                <Select
+                <SearchableSelect
+                  id="edit-time"
+                  data-testid="edit-time"
                   value={String(startMinute)}
-                  onValueChange={change((v: string) => setStartMinute(Number(v)))}
-                >
-                  <SelectTrigger id="edit-time" data-testid="edit-time"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {GRID_COLUMNS.map((m) => (
-                      <SelectItem key={m} value={String(m)}>{minuteToDisplayLabel(m)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={change((v: string) => setStartMinute(Number(v)))}
+                  options={timeOptions}
+                  searchPlaceholder={t('scheduling.startTime')}
+                  emptyText={t('common.noResults')}
+                  aria-label={t('scheduling.startTime')}
+                />
               </div>
             </div>
 

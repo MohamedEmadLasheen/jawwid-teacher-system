@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -6,8 +6,10 @@ import { Label } from '@/components/ui/label';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
+import { useDayOptions } from '../hooks/useDayOptions';
 import { DAYS_OF_WEEK, GRID_COLUMNS } from '../constants/schedulingConstants';
-import { minuteToDisplayLabel } from '../utils/timeGrid';
+import { minuteToDisplayLabel, minuteToLabel } from '../utils/timeGrid';
 import {
   isOccurrenceCancelled, isOccurrenceRescheduled, occurrenceOverride,
   type StudentWeeklyEntry,
@@ -73,6 +75,35 @@ export function StudentWeeklyScheduleList({
     startMinute: GRID_COLUMNS[0],
     durationMinutes: 30,
   });
+
+  const dayOptions = useDayOptions();
+
+  /**
+   * The same teachers the Select listed — every non-deleted teacher, in the
+   * order the store holds them. A dynamic collection, so the control is
+   * searchable regardless of how many teachers exist today.
+   */
+  const teacherOptions = useMemo<SearchableSelectOption[]>(
+    () => teachers
+      .filter((tc) => !tc.isDeleted)
+      .map((tc) => ({ value: tc.id, label: tc.fullName })),
+    [teachers]
+  );
+
+  /**
+   * The configured timeline's own columns — unchanged; the search field only
+   * narrows what is drawn. The 24-hour spelling rides along as hidden search
+   * text so "08" and "08:00" find 8:00 AM, which the 12-hour label alone
+   * cannot match. Same rule the lesson edit card uses.
+   */
+  const timeOptions = useMemo<SearchableSelectOption[]>(
+    () => GRID_COLUMNS.map((m) => ({
+      value: String(m),
+      label: minuteToDisplayLabel(m),
+      searchText: minuteToLabel(m),
+    })),
+    []
+  );
 
   /** "Tue 13 Oct" in the active language. */
   const formatDate = (iso: string) =>
@@ -226,46 +257,46 @@ export function StudentWeeklyScheduleList({
               <p className="text-sm font-medium">{t('scheduling.weekly.addTitle')}</p>
               <div className="space-y-1">
                 <Label htmlFor="add-teacher">{t('scheduling.teacher')}</Label>
-                <Select
+                <SearchableSelect
+                  id="add-teacher"
+                  /* Dynamic collection: searchable by architecture, not by today's count. */
+                  searchable
+                  data-testid="add-teacher"
                   value={draft.teacherId}
-                  onValueChange={(v) => setDraft((d) => ({ ...d, teacherId: v }))}
-                >
-                  <SelectTrigger id="add-teacher" data-testid="add-teacher"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {teachers.filter((tc) => !tc.isDeleted).map((tc) => (
-                      <SelectItem key={tc.id} value={tc.id}>{tc.fullName}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(v) => setDraft((d) => ({ ...d, teacherId: v }))}
+                  options={teacherOptions}
+                  placeholder={t('scheduling.selectTeacher')}
+                  searchPlaceholder={t('teachers.search')}
+                  emptyText={t('common.noResults')}
+                  aria-label={t('scheduling.teacher')}
+                />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label htmlFor="add-day">{t('scheduling.dayColumn')}</Label>
-                  <Select
+                  <SearchableSelect
+                    id="add-day"
+                    data-testid="add-day"
                     value={String(draft.dayOfWeek)}
-                    onValueChange={(v) => setDraft((d) => ({ ...d, dayOfWeek: Number(v) as DayOfWeek }))}
-                  >
-                    <SelectTrigger id="add-day" data-testid="add-day"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {DAYS_OF_WEEK.map((d) => (
-                        <SelectItem key={d.value} value={String(d.value)}>{t(d.labelKey)}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onChange={(v) => setDraft((d) => ({ ...d, dayOfWeek: Number(v) as DayOfWeek }))}
+                    options={dayOptions}
+                    searchPlaceholder={t('scheduling.dayColumn')}
+                    emptyText={t('common.noResults')}
+                    aria-label={t('scheduling.dayColumn')}
+                  />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="add-time">{t('scheduling.startTime')}</Label>
-                  <Select
+                  <SearchableSelect
+                    id="add-time"
+                    data-testid="add-time"
                     value={String(draft.startMinute)}
-                    onValueChange={(v) => setDraft((d) => ({ ...d, startMinute: Number(v) }))}
-                  >
-                    <SelectTrigger id="add-time" data-testid="add-time"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {GRID_COLUMNS.map((m) => (
-                        <SelectItem key={m} value={String(m)}>{minuteToDisplayLabel(m)}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    onChange={(v) => setDraft((d) => ({ ...d, startMinute: Number(v) }))}
+                    options={timeOptions}
+                    searchPlaceholder={t('scheduling.startTime')}
+                    emptyText={t('common.noResults')}
+                    aria-label={t('scheduling.startTime')}
+                  />
                 </div>
               </div>
               <div className="space-y-1">

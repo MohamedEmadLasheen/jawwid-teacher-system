@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Student, StudentGender, StudentStatus } from '@/lib/types';
 import { useSupervisorStore } from '@/store/supervisorStore';
@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 
 interface StudentFormProps {
   student?: Student;
@@ -23,6 +24,37 @@ export function StudentForm({ student, onSubmit, onCancel }: StudentFormProps) {
   const isAr = i18n.language === 'ar';
   const { supervisors } = useSupervisorStore();
   const { data: courses = [] } = useCourses();
+
+  /**
+   * Supervisors keep the colour swatch the Select showed: `node` is what gets
+   * drawn, `label` is what gets searched and what the closed trigger falls
+   * back to, so the dot is decoration and never part of the haystack.
+   */
+  const supervisorOptions = useMemo<SearchableSelectOption[]>(
+    () => supervisors.map((s) => ({
+      value: s.id,
+      label: s.name,
+      node: (
+        <span className="inline-flex items-center gap-2">
+          {s.colorHex && (
+            <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.colorHex }} />
+          )}
+          {s.name}
+        </span>
+      ),
+    })),
+    [supervisors]
+  );
+
+  const courseOptions = useMemo<SearchableSelectOption[]>(
+    () => courses.map((c) => ({
+      value: c.id,
+      label: isAr ? c.nameAr : c.nameEn,
+      // Either spelling finds the course, whichever language is displayed.
+      searchText: isAr ? c.nameEn : c.nameAr,
+    })),
+    [courses, isAr]
+  );
 
   const [form, setForm] = useState({
     fullName: student?.fullName ?? '',
@@ -129,39 +161,32 @@ export function StudentForm({ student, onSubmit, onCancel }: StudentFormProps) {
 
         <div className="space-y-1">
           <Label>{t('students.supervisor')}</Label>
-          <Select
+          <SearchableSelect
             value={form.supervisorId ?? ''}
-            onValueChange={(v) => setForm({ ...form, supervisorId: v })}
-          >
-            <SelectTrigger><SelectValue placeholder={t('students.selectSupervisor')} /></SelectTrigger>
-            <SelectContent>
-              {supervisors.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  <span className="inline-flex items-center gap-2">
-                    {s.colorHex && (
-                      <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.colorHex }} />
-                    )}
-                    {s.name}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            onChange={(v) => setForm({ ...form, supervisorId: v })}
+            /* Dynamic collection: searchable by architecture, not by today's count. */
+            searchable
+            options={supervisorOptions}
+            placeholder={t('students.selectSupervisor')}
+            searchPlaceholder={t('students.selectSupervisor')}
+            emptyText={t('common.noResults')}
+            aria-label={t('students.supervisor')}
+          />
         </div>
 
         <div className="space-y-1">
           <Label>{t('students.course')}</Label>
-          <Select
+          <SearchableSelect
             value={form.courseId ?? ''}
-            onValueChange={(v) => setForm({ ...form, courseId: v })}
-          >
-            <SelectTrigger><SelectValue placeholder={t('students.coursePending')} /></SelectTrigger>
-            <SelectContent>
-              {courses.map((c) => (
-                <SelectItem key={c.id} value={c.id}>{isAr ? c.nameAr : c.nameEn}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            onChange={(v) => setForm({ ...form, courseId: v })}
+            /* Dynamic collection: searchable by architecture, not by today's count. */
+            searchable
+            options={courseOptions}
+            placeholder={t('students.coursePending')}
+            searchPlaceholder={t('courses.search')}
+            emptyText={t('common.noResults')}
+            aria-label={t('students.course')}
+          />
         </div>
       </div>
 

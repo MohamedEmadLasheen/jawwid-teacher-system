@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { useAcademyHealth } from './hooks/useAcademyHealth';
@@ -10,9 +10,7 @@ import { ScheduleRosterLegend } from './components/ScheduleRosterLegend';
 import { LessonDetailDialog } from './components/LessonDetailDialog';
 import { ChangeSimulatorDialog } from './components/ChangeSimulatorDialog';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect, type SearchableSelectGroup } from '@/components/ui/searchable-select';
 import type { DayOfWeek } from '@/lib/types';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
 
@@ -57,6 +55,25 @@ export function TeacherWeeklySchedulePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTeachers.length, searchParams]);
 
+  /**
+   * The roster, shaped for the selector — same groups, same order, same
+   * members as the grouped Select showed, with each shift window still
+   * labelled by its own working hours. Nothing is filtered out here; the
+   * search field filters a copy at render time and never this list.
+   */
+  const teacherGroups = useMemo<SearchableSelectGroup[]>(
+    () => groups.map((group) => ({
+      key: group.templateId,
+      label: (
+        <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
+          {group.name} — {minuteToDisplayLabel(group.startMinute)}–{minuteToDisplayLabel(group.endMinute)}
+        </span>
+      ),
+      options: group.teachers.map((tc) => ({ value: tc.id, label: tc.fullName })),
+    })),
+    [groups]
+  );
+
   const [createTarget, setCreateTarget] = useState<{ teacherId: string; dayOfWeek: DayOfWeek; startMinute: number } | null>(null);
   const [editingLesson, setEditingLesson] = useState<LessonWithParticipants | null>(null);
   const [proposedMove, setProposedMove] = useState<ProposedMove | null>(null);
@@ -66,21 +83,19 @@ export function TeacherWeeklySchedulePage() {
       <h1 className="text-xl sm:text-2xl font-bold text-primary">{t('scheduling.teacherWeeklySchedule')}</h1>
 
       <div className="space-y-3">
-        <Select value={teacherId} onValueChange={setTeacherId}>
-          <SelectTrigger className="h-9 text-sm w-64"><SelectValue placeholder={t('scheduling.selectTeacher')} /></SelectTrigger>
-          <SelectContent>
-            {groups.map((group) => (
-              <SelectGroup key={group.templateId}>
-                <SelectLabel className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                  {group.name} — {minuteToDisplayLabel(group.startMinute)}–{minuteToDisplayLabel(group.endMinute)}
-                </SelectLabel>
-                {group.teachers.map((tc) => (
-                  <SelectItem key={tc.id} value={tc.id}>{tc.fullName}</SelectItem>
-                ))}
-              </SelectGroup>
-            ))}
-          </SelectContent>
-        </Select>
+        <SearchableSelect
+          /* Dynamic collection: searchable by architecture, not by today's count. */
+          searchable
+          data-testid="weekly-teacher-select"
+          className="h-9 text-sm w-64"
+          value={teacherId}
+          onChange={setTeacherId}
+          groups={teacherGroups}
+          placeholder={t('scheduling.selectTeacher')}
+          searchPlaceholder={t('teachers.search')}
+          emptyText={t('common.noResults')}
+          aria-label={t('scheduling.selectTeacher')}
+        />
         <ScheduleRosterLegend />
         <ColorLegend />
       </div>

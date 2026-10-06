@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
@@ -22,6 +22,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -53,6 +54,30 @@ export function StudentsPage() {
   const restoreStudent = useRestoreStudent();
   const { supervisors } = useSupervisorStore();
   const supervisorById = new Map(supervisors.map((s) => [s.id, s]));
+
+  /**
+   * "All" stays the first entry and keeps its 'all' sentinel, so the filter
+   * predicate below is untouched. Supervisors keep their colour swatch via
+   * `node`; `label` is what the query matches.
+   */
+  const supervisorFilterOptions = useMemo<SearchableSelectOption[]>(
+    () => [
+      { value: 'all', label: t('common.all') },
+      ...supervisors.map((s) => ({
+        value: s.id,
+        label: s.name,
+        node: (
+          <span className="inline-flex items-center gap-2">
+            {s.colorHex && (
+              <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.colorHex }} />
+            )}
+            {s.name}
+          </span>
+        ),
+      })),
+    ],
+    [supervisors, t]
+  );
   const { teachers } = useTeacherStore();
   const teacherById = new Map(teachers.map((tc) => [tc.id, tc]));
   const { data: allLessons = [] } = useLessons();
@@ -163,22 +188,18 @@ export function StudentsPage() {
                 <SelectItem value="withdrawn">{t('students.withdrawn')}</SelectItem>
               </SelectContent>
             </Select>
-            <Select value={filterSupervisor} onValueChange={setFilterSupervisor}>
-              <SelectTrigger className="h-9 text-sm w-48 shrink-0"><SelectValue placeholder={t('students.supervisor')} /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('common.all')}</SelectItem>
-                {supervisors.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    <span className="inline-flex items-center gap-2">
-                      {s.colorHex && (
-                        <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.colorHex }} />
-                      )}
-                      {s.name}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              className="h-9 text-sm w-48 shrink-0"
+              value={filterSupervisor}
+              onChange={setFilterSupervisor}
+              /* Dynamic collection: searchable by architecture, not by today's count. */
+              searchable
+              options={supervisorFilterOptions}
+              placeholder={t('students.supervisor')}
+              searchPlaceholder={t('students.supervisor')}
+              emptyText={t('common.noResults')}
+              aria-label={t('students.supervisor')}
+            />
           </div>
         </CardContent>
       </Card>

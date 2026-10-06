@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTeacherStore } from '@/store/teacherStore';
 import { useStudents } from '../hooks/useStudents';
@@ -15,15 +15,12 @@ import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import {
-  Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem,
-} from '@/components/ui/command';
+import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
+import { MultiSelectFilter } from './MultiSelectFilter';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { CheckCircle2, AlertTriangle, ChevronsUpDown } from 'lucide-react';
+import { CheckCircle2, AlertTriangle } from 'lucide-react';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
-import type { DayOfWeek, Teacher, Student } from '@/lib/types';
+import type { DayOfWeek } from '@/lib/types';
 
 const DURATIONS = [30, 60, 90, 120];
 
@@ -48,95 +45,6 @@ type LessonDetailDialogProps =
        *  own onProposeMove and the ChangeSimulatorDialog. */
       onProposeMove?: (lesson: LessonWithParticipants, newTeacherId: string, newStartMinute: number) => void;
     };
-
-/** Searchable teacher combobox — search by name or raw ID. Kept as a
- * single-select control for now; state shape upstream (teacherIds: string[])
- * is ready for multi-teacher lessons if that's ever supported, without any
- * change needed here beyond widening selection. */
-function TeacherSearchSelect({ teachers, value, onChange, placeholder }: {
-  teachers: Teacher[]; value: string; onChange: (id: string) => void; placeholder: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const selected = teachers.find((t) => t.id === value);
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-          <span className="truncate">{selected?.fullName ?? placeholder}</span>
-          <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-        <Command filter={(value, search) => {
-          const teacher = teachers.find((t) => t.id === value);
-          if (!teacher) return 0;
-          const haystack = `${teacher.fullName} ${teacher.id}`.toLowerCase();
-          return haystack.includes(search.toLowerCase()) ? 1 : 0;
-        }}>
-          <CommandInput placeholder={placeholder} />
-          <CommandList>
-            <CommandEmpty>—</CommandEmpty>
-            <CommandGroup>
-              {teachers.map((t) => (
-                <CommandItem key={t.id} value={t.id} onSelect={() => { onChange(t.id); setOpen(false); }}>
-                  {t.fullName}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-/** Searchable student multi-select — search by student name, parent name, or raw ID. */
-function StudentSearchSelect({ students, parentNameByStudentId, selectedIds, onToggle }: {
-  students: Student[];
-  parentNameByStudentId: Map<string, string>;
-  selectedIds: string[];
-  onToggle: (id: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-          <span className="truncate">
-            {selectedIds.length > 0
-              ? students.filter((s) => selectedIds.includes(s.id)).map((s) => s.fullName).join(', ')
-              : '—'}
-          </span>
-          <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-        <Command filter={(value, search) => {
-          const student = students.find((s) => s.id === value);
-          if (!student) return 0;
-          const parentName = parentNameByStudentId.get(student.id) ?? '';
-          const haystack = `${student.fullName} ${parentName} ${student.id}`.toLowerCase();
-          return haystack.includes(search.toLowerCase()) ? 1 : 0;
-        }}>
-          <CommandInput placeholder="Search student, parent, or ID…" />
-          <CommandList className="max-h-52">
-            <CommandEmpty>—</CommandEmpty>
-            <CommandGroup>
-              {students.map((s) => (
-                <CommandItem key={s.id} value={s.id} onSelect={() => onToggle(s.id)}>
-                  <Checkbox checked={selectedIds.includes(s.id)} className="me-2" />
-                  {s.fullName}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  );
-}
 
 /**
  * Create a lesson, or edit one.
@@ -188,10 +96,49 @@ function CreateLessonDialog(props: Extract<LessonDetailDialogProps, { mode: 'cre
   const [studentIds, setStudentIds] = useState<string[]>([]);
   const [preview, setPreview] = useState<{ hasConflict: boolean; message: string } | null>(null);
 
-  const toggleStudent = (id: string) => {
-    setStudentIds((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));
+  /**
+   * The participant set changed, so any previous verdict describes a
+   * configuration that is no longer on screen. Same invalidation the
+   * per-student toggle did; only the shape of the incoming value differs.
+   */
+  const setStudentIdsChecked = (ids: string[]) => {
+    setStudentIds(ids);
     setPreview(null);
   };
+
+  /**
+   * Option lists for the three searchable fields. Each is built from data the
+   * dialog has already loaded — no query is issued while searching.
+   */
+  const teacherOptions = useMemo<SearchableSelectOption[]>(
+    () => teachers
+      .filter((tc) => !tc.isDeleted)
+      .map((tc) => ({ value: tc.id, label: tc.fullName })),
+    [teachers]
+  );
+
+  const courseOptions = useMemo<SearchableSelectOption[]>(
+    () => courses.map((c) => ({
+      value: c.id,
+      label: isAr ? c.nameAr : c.nameEn,
+      // Either spelling finds the course, whichever language is displayed.
+      searchText: isAr ? c.nameEn : c.nameAr,
+    })),
+    [courses, isAr]
+  );
+
+  /** A student is findable by their own name, their parent's, or their id —
+   *  the same three haystacks the local implementation searched. */
+  const studentOptions = useMemo(
+    () => students
+      .filter((st) => !st.isDeleted)
+      .map((st) => ({
+        id: st.id,
+        label: st.fullName,
+        searchText: `${parentNameByStudentId.get(st.id) ?? ''} ${st.id}`,
+      })),
+    [students, parentNameByStudentId]
+  );
 
   const handlePreview = async () => {
     const result = await checkConflict.mutateAsync({
@@ -233,11 +180,17 @@ function CreateLessonDialog(props: Extract<LessonDetailDialogProps, { mode: 'cre
         <div className="space-y-4">
           <div className="space-y-1">
             <Label>{t('scheduling.teacher')}</Label>
-            <TeacherSearchSelect
-              teachers={teachers.filter((tc) => !tc.isDeleted)}
+            <SearchableSelect
+              /* Dynamic collection: searchable by architecture, not by today's count. */
+              searchable
+              data-testid="create-teacher"
               value={teacherId}
               onChange={(id) => setTeacherIds([id])}
-              placeholder={t('scheduling.teacher')}
+              options={teacherOptions}
+              placeholder={t('scheduling.selectTeacher')}
+              searchPlaceholder={t('teachers.search')}
+              emptyText={t('common.noResults')}
+              aria-label={t('scheduling.teacher')}
             />
           </div>
 
@@ -256,14 +209,18 @@ function CreateLessonDialog(props: Extract<LessonDetailDialogProps, { mode: 'cre
           <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>{t('students.course')}</Label>
-                <Select value={courseId} onValueChange={setCourseId}>
-                  <SelectTrigger><SelectValue placeholder={t('students.coursePending')} /></SelectTrigger>
-                  <SelectContent>
-                    {courses.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{isAr ? c.nameAr : c.nameEn}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect
+                  /* Dynamic collection: searchable by architecture, not by today's count. */
+                  searchable
+                  data-testid="create-course"
+                  value={courseId}
+                  onChange={setCourseId}
+                  options={courseOptions}
+                  placeholder={t('students.coursePending')}
+                  searchPlaceholder={t('courses.search')}
+                  emptyText={t('common.noResults')}
+                  aria-label={t('students.course')}
+                />
               </div>
               <div className="space-y-1">
                 <Label>{t('scheduling.duration')}</Label>
@@ -280,11 +237,17 @@ function CreateLessonDialog(props: Extract<LessonDetailDialogProps, { mode: 'cre
 
           <div className="space-y-1">
             <Label>{t('scheduling.participants')}</Label>
-            <StudentSearchSelect
-              students={students.filter((s) => !s.isDeleted)}
-              parentNameByStudentId={parentNameByStudentId}
+            <MultiSelectFilter
+              data-testid="create-participants"
+              className="w-full"
+              /* Dynamic collection: searchable by architecture, not by today's count. */
+              searchable
+              options={studentOptions}
               selectedIds={studentIds}
-              onToggle={toggleStudent}
+              onChange={setStudentIdsChecked}
+              placeholder={t('scheduling.participants')}
+              searchPlaceholder={t('students.search')}
+              summaryMode="labels"
             />
           </div>
 
