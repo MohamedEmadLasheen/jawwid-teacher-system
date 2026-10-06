@@ -740,6 +740,13 @@
     "breakdownTime": "Time stability",
     "dropToMove": "Drop to preview the move",
     "createNewLesson": "Create Lesson",
+    "responsibleAdmin": {
+      "sectionTitle": "Responsible Admin",
+      "hint": "Set on the student, so it applies to every lesson they attend — not just this one.",
+      "missing": "Select a Responsible Admin for every student before creating the lesson.",
+      "saved": "Saved",
+      "saveFailed": "Could not save the Responsible Admin."
+    },
     "editLesson": "Lesson Details",
     "participants": "Students",
     "day": {

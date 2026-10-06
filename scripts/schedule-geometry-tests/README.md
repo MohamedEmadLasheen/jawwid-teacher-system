@@ -154,3 +154,30 @@ derived from it, against `responsibleAdmins.ts`, `studentValidation.ts`,
 Rendered behaviour — that the selector is a real combobox with the four
 colour dots, that it blocks submit, and that the grid repaints — is verified
 in `tests/schedule-layout/student-admin.spec.ts`.
+
+## Schedule responsible-Admin suite
+
+`scheduleadmin.test.mjs` covers `studentAdminAssignment.ts` — the rules the
+Schedule's create and edit dialogs apply when assigning a student's
+Responsible Admin.
+
+**What it pins down**
+
+- **Ownership stays on the student.** Every write these functions produce
+  carries exactly `{studentId, supervisorId}`; the suite asserts structurally
+  that no key mentions a lesson, a colour, or any other ownership field.
+- **An existing assignment is preserved.** Creating a lesson for students who
+  already have an Admin produces zero writes, and re-picking the current Admin
+  is not a change.
+- **Students are independent.** Choosing for one student in a group changes
+  only that student — the regression a single lesson-wide control would cause.
+- **An unassigned student blocks creation** until a human chooses.
+- **A requirement you cannot satisfy is a deadlock.** With no Admin configured
+  at all, nothing blocks: an empty supervisors table must not make scheduling
+  impossible. The underlying fact is unchanged — only the enforcement.
+- **The panel can assign and reassign, never un-assign:** an empty or
+  whitespace draft means "not chosen yet", not "clear it".
+
+Rendered behaviour — prefilling, the colour dots, the blocked create, and the
+repaint of every other lesson — is verified in
+`tests/schedule-layout/schedule-admin.spec.ts`.
