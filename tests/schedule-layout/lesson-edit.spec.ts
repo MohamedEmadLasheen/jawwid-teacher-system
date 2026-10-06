@@ -1215,3 +1215,113 @@ test('weekly add: searching for each field still creates exactly the chosen less
   expect(payload.student_ids).toEqual(['SA']);
   expect(writes).toHaveLength(1);
 });
+
+/* ============================================================================
+ * Scrolling the option lists inside this dialog
+ *
+ * The card is a modal dialog, which is exactly the condition that used to
+ * cancel wheel events on the portalled popovers. Behavioural assertions only:
+ * a visible scrollbar and an overflowing list were both true while the bug
+ * was live.
+ * ==========================================================================*/
+
+const listBox = (page: Page) => page.locator('[cmdk-list]');
+
+const listScroll = (page: Page) =>
+  page.evaluate(() => {
+    const l = document.querySelector('[cmdk-list]')!;
+    return { scrollTop: Math.round(l.scrollTop), maxScroll: l.scrollHeight - l.clientHeight };
+  });
+
+async function wheelList(page: Page, deltaY: number) {
+  const b = (await listBox(page).boundingBox())!;
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+  await page.mouse.wheel(0, deltaY);
+  await page.waitForTimeout(300);
+}
+
+const reachable = (page: Page, name: string) =>
+  page.evaluate((n) => {
+    const lr = document.querySelector('[cmdk-list]')!.getBoundingClientRect();
+    const el = [...document.querySelectorAll('[cmdk-item]')]
+      .find((i) => (i as HTMLElement).innerText.trim() === n);
+    if (!el) return { rendered: false, visible: false, hitTests: false };
+    const b = el.getBoundingClientRect();
+    const hit = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2);
+    return {
+      rendered: true,
+      visible: b.top >= lr.top - 1 && b.bottom <= lr.bottom + 1,
+      hitTests: (hit?.closest('[cmdk-item]') as HTMLElement | null)?.innerText.trim() === n,
+    };
+  }, name);
+
+test('Start Time: a real wheel reaches the evening times, and one can be picked', async ({ page }) => {
+  await open(page);
+  await setConflict(page, false);
+  await page.locator('[data-testid="edit-time"]').click();
+  await expect(listBox(page)).toBeVisible();
+
+  const before = await listScroll(page);
+  expect(before.maxScroll).toBeGreaterThan(0); // precondition, not the assertion
+  expect(before.scrollTop).toBe(0);
+
+  await wheelList(page, 300);
+  expect((await listScroll(page)).scrollTop).toBeGreaterThan(0);
+
+  await wheelList(page, 3000);
+  const end = await listScroll(page);
+  expect(end.scrollTop).toBe(end.maxScroll);
+
+  for (const t of ['6:00 PM', '6:30 PM', '7:00 PM', '7:30 PM']) {
+    expect(await reachable(page, t), t).toMatchObject({ visible: true, hitTests: true });
+  }
+
+  await page.getByRole('option', { name: '7:30 PM', exact: true }).click();
+  await expect(page.locator('[data-testid="edit-time"]')).toContainText('7:30 PM');
+  await expect(page.locator('[data-testid="lesson-edit"]')).toBeVisible();
+});
+
+test('Teacher: a real wheel reaches the bottom of the roster, and one can be picked', async ({ page }) => {
+  await open(page);
+  await setConflict(page, false);
+  await page.locator('[data-testid="edit-teacher"]').click();
+  await expect(listBox(page)).toBeVisible();
+
+  const metrics = await listScroll(page);
+  if (metrics.maxScroll === 0) {
+    // The fixture roster fits; scrolling cannot be exercised here. Narrow the
+    // list's box so the SAME list overflows, rather than skipping the case.
+    await page.evaluate(() => {
+      (document.querySelector('[cmdk-list]') as HTMLElement).style.maxHeight = '120px';
+    });
+    await page.waitForTimeout(100);
+  }
+  const before = await listScroll(page);
+  expect(before.maxScroll).toBeGreaterThan(0);
+
+  await wheelList(page, 400);
+  expect((await listScroll(page)).scrollTop).toBeGreaterThan(before.scrollTop);
+
+  await wheelList(page, 2000);
+  expect(await reachable(page, 'Teacher Z')).toMatchObject({ visible: true, hitTests: true });
+
+  await page.getByRole('option', { name: 'Teacher Z', exact: true }).click();
+  await expect(page.locator('[data-testid="edit-teacher"]')).toContainText('Teacher Z');
+  await expect(page.locator('[data-testid="lesson-edit"]')).toBeVisible();
+});
+
+test('the dialog itself stays locked and usable after a popover closes', async ({ page }) => {
+  await open(page);
+  await page.locator('[data-testid="edit-time"]').click();
+  await expect(listBox(page)).toBeVisible();
+  await page.keyboard.press('Escape');
+
+  await expect(listBox(page)).toHaveCount(0);
+  await expect(page.locator('[data-testid="lesson-edit"]')).toBeVisible();
+  await expect(page.locator('[data-testid="edit-time"]')).toBeFocused();
+  expect(await page.evaluate(() => document.body.getAttribute('data-scroll-locked'))).toBe('1');
+
+  // Still fully operable afterwards.
+  await page.locator('[data-testid="edit-day"]').click();
+  await expect(listBox(page)).toBeVisible();
+});
