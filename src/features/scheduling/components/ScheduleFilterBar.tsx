@@ -104,6 +104,10 @@ export function ScheduleFilterBar() {
         placeholder={t('scheduling.allStatuses')}
         selectedIds={filters.lifecycleStatuses}
         onChange={(ids) => setFilter('lifecycleStatuses', ids as typeof filters.lifecycleStatuses)}
+        /* Four options, fixed in the code — the one list short enough to opt
+           out of search. Stated explicitly now that nothing infers it from a
+           count at runtime. */
+        searchable={false}
         options={(['trial', 'active', 'paused', 'ended'] as const).map((s) => ({ id: s, label: t(`scheduling.lifecycle.${s}`) }))}
       />
 

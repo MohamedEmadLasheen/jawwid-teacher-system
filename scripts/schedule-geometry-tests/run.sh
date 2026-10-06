@@ -67,4 +67,9 @@ echo
 node "$OUT/searchtext.test.mjs" || status=1
 echo
 node "$OUT/filters.test.mjs" || status=1
+
+# Static policy check — reads the real .tsx sources, so it runs against the
+# repository rather than the bundled output directory.
+echo
+REPO_ROOT="$PWD" node scripts/schedule-geometry-tests/selectors.test.mjs || status=1
 exit $status
