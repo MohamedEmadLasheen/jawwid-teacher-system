@@ -43,19 +43,6 @@ export interface SearchableSelectGroup {
   options: SearchableSelectOption[];
 }
 
-/**
- * Above this many options a search field appears. At or below it a FIXED list
- * is short enough to read at a glance.
- *
- * This threshold decides the BOUNDED case only. A collection that grows with
- * the data — teachers, students, courses, supervisors, shift templates,
- * participants — must pass `searchable` explicitly and never rely on this
- * count, because today's record count is not a property of the control. An
- * academy with four teachers would otherwise render a different control than
- * the same screen with six, and the search affordance would appear and
- * disappear as rows are added.
- */
-export const SEARCH_THRESHOLD = 5;
 
 interface SearchableSelectProps {
   value?: string;
@@ -70,12 +57,18 @@ interface SearchableSelectProps {
   emptyText?: string;
   disabled?: boolean;
   /**
-   * Force the search field on or off.
+   * Opt OUT of the search field. Defaults to searchable.
    *
-   * Pass `searchable` for every DYNAMIC collection — anything whose length is
-   * a function of how much data the academy has. Leave it undefined only for
-   * a FIXED list (a weekday, a duration, an enum), where the option count is
-   * a property of the code and the SEARCH_THRESHOLD rule can decide.
+   * Searchability is a property of the code, never of today's record count.
+   * There is deliberately no `options.length > N` rule here: a dynamic
+   * collection would then render one control at four records and a different
+   * one at six, and the search affordance would appear and disappear as rows
+   * are added — exactly what the policy forbids.
+   *
+   * Pass `searchable={false}` ONLY for a list that is fixed in the code and
+   * five options or fewer. Everything else — any enum longer than five, and
+   * every database-backed collection — stays searchable by default, so a new
+   * call site is correct without its author having to remember a flag.
    */
   searchable?: boolean;
   className?: string;
@@ -149,12 +142,7 @@ export function SearchableSelect({
     [groups, options]
   );
 
-  const total = React.useMemo(
-    () => allGroups.reduce((n, g) => n + g.options.length, 0),
-    [allGroups]
-  );
-
-  const showSearch = searchable ?? total > SEARCH_THRESHOLD;
+  const showSearch = searchable ?? true;
 
   /**
    * Groups that still have a matching option, with the non-matching options

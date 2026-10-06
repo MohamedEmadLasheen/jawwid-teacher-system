@@ -104,7 +104,7 @@ export function PrimaryTeacherReviewPage() {
   }, [rows, filter, evidenceFilter, search, skippedIds]);
 
   /**
-   * Both review filters are FIXED enums, so SEARCH_THRESHOLD decides — and at
+   * Both review filters are FIXED enums of seven and six — over the line, and at
    * seven and six options respectively they are both over the line.
    */
   const statusFilterOptions = useMemo<SearchableSelectOption[]>(() => [

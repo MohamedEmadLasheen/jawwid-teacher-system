@@ -15,7 +15,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
  *
  *   long    a roster-sized list, grouped by shift window exactly as the
  *           Teacher Weekly Schedule passes it. Search, keyboard, grouping.
- *   short   four options. Asserts the search field is ABSENT at or below the
+ *   short   four fixed options with an explicit searchable={false}. Asserts
+ *           that opting out is the ONLY way the search field disappears, at the
  *           threshold, which is the other half of the >5 rule.
  *   arabic  Arabic names carrying the spellings the data actually holds.
  *   in a dialog  the Edit Lesson case — a popover opened from inside a
@@ -73,24 +74,28 @@ const ARABIC = [
 ].map((n) => ({ value: n, label: n }));
 
 /**
- * The >5 rule, one selector per interesting count, plus a DYNAMIC collection
- * whose current count is deliberately below the threshold — it must still be
- * searchable, because its size is a property of the data and not of the UI.
+ * The policy, one selector per interesting count.
+ *
+ * Searchability is STRUCTURAL: the default is a search field at every count,
+ * because the control must not change shape as rows are added. A fixed list
+ * of five or fewer may opt out, and does so explicitly via `searchable={false}`
+ * — the `rule-optout-*` fixtures. A DYNAMIC collection currently holding three
+ * rows is still searchable, which is the case a count-based rule gets wrong.
  */
 const COUNT_CASES = [0, 1, 5, 6, 7, 8, 24] as const;
 const nOptions = (n: number) =>
   Array.from({ length: n }, (_, i) => ({ value: `v${i}`, label: `Option ${i + 1}` }));
 
-function RuleCase({ n, dynamic }: { n: number; dynamic?: boolean }) {
+function RuleCase({ n, dynamic, optOut }: { n: number; dynamic?: boolean; optOut?: boolean }) {
   const [value, setValue] = useState('');
   return (
     <SearchableSelect
-      data-testid={dynamic ? `rule-dynamic-${n}` : `rule-${n}`}
+      data-testid={optOut ? `rule-optout-${n}` : dynamic ? `rule-dynamic-${n}` : `rule-${n}`}
       className="h-9 text-sm w-64"
       value={value}
       onChange={setValue}
       options={nOptions(n)}
-      searchable={dynamic ? true : undefined}
+      searchable={optOut ? false : dynamic ? true : undefined}
       placeholder={`${n} options`}
       searchPlaceholder="Search..."
       emptyText="No results found"
@@ -126,6 +131,9 @@ function Harness() {
         <label className="text-sm font-medium">Duration (4 options)</label>
         <SearchableSelect
           data-testid="short"
+          /* Four fixed options — allowed to stay plain, and now stated
+             rather than inferred from the count. */
+          searchable={false}
           className="h-9 text-sm w-48"
           value={short}
           onChange={setShort}
@@ -152,6 +160,9 @@ function Harness() {
 
       {/* One selector per option count, to pin the >5 rule itself. */}
       <div className="space-y-1" data-testid="rule-cases">
+        {/* Explicit opt-outs: fixed lists of five or fewer. */}
+        <RuleCase n={4} optOut />
+        <RuleCase n={5} optOut />
         {COUNT_CASES.map((n) => <RuleCase key={n} n={n} />)}
         {/* Three options today, but teachers/students/courses grow — the
             control must not change shape as rows are added. */}

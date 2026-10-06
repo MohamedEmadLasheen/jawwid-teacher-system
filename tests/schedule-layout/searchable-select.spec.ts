@@ -34,7 +34,7 @@ test('a list longer than five options gets a search field', async ({ page }) => 
   await expect(options(page)).toHaveCount(14);
 });
 
-test('a list of five or fewer stays a plain list with no search field', async ({ page }) => {
+test('a short list stays plain ONLY when it explicitly opts out', async ({ page }) => {
   await page.goto(url());
   await open(page, 'short');
   await expect(searchBox(page)).toHaveCount(0);
@@ -47,33 +47,51 @@ test('the search field takes focus as soon as the list opens', async ({ page }) 
   await expect(searchBox(page)).toBeFocused();
 });
 
-// The rule itself, one case per interesting count. `expected` is whether a
-// search field must be present.
-const RULE: Array<{ n: number; options: number; search: boolean; note: string }> = [
-  { n: 0,  options: 0,  search: false, note: 'empty list' },
-  { n: 1,  options: 1,  search: false, note: 'single option' },
-  { n: 5,  options: 5,  search: false, note: 'exactly at the threshold' },
-  { n: 6,  options: 6,  search: true,  note: 'one over the threshold' },
-  { n: 7,  options: 7,  search: true,  note: 'a weekday-sized fixed enum' },
-  { n: 8,  options: 8,  search: true,  note: 'a category-sized fixed enum' },
-  { n: 24, options: 24, search: true,  note: 'the timeline column count' },
+// Searchability is STRUCTURAL, so the default is the same at every count.
+//
+// This table used to encode a count-based rule: search absent at 0/1/5,
+// present from 6. That described the old `options.length > 5` default, which
+// made the rendered control a function of how much data existed — the exact
+// behaviour the policy now forbids. The control no longer reads a count, so
+// the expectation is uniform, and "a short fixed list may stay plain" is
+// expressed where it belongs: as an explicit `searchable={false}` at the call
+// site, asserted separately below.
+const COUNTS = [
+  { n: 0,  options: 0,  note: 'empty list' },
+  { n: 1,  options: 1,  note: 'single option' },
+  { n: 5,  options: 5,  note: 'five options' },
+  { n: 6,  options: 6,  note: 'six options' },
+  { n: 7,  options: 7,  note: 'a weekday-sized fixed enum' },
+  { n: 8,  options: 8,  note: 'a category-sized fixed enum' },
+  { n: 24, options: 24, note: 'the timeline column count' },
 ];
 
-for (const c of RULE) {
-  test(`the >5 rule @ ${c.n} options (${c.note}): search ${c.search ? 'present' : 'absent'}`,
-    async ({ page }) => {
-      await page.goto(url());
-      await trigger(page, `rule-${c.n}`).click();
+for (const c of COUNTS) {
+  test(`searchable by default @ ${c.n} options (${c.note})`, async ({ page }) => {
+    await page.goto(url());
+    await trigger(page, `rule-${c.n}`).click();
 
-      if (c.options === 0) {
-        // Nothing to list, so the empty state stands in for the options.
-        await expect(page.locator('[data-testid="searchable-select-empty"]')).toBeVisible();
-      } else {
-        await expect(listbox(page)).toBeVisible();
-        await expect(options(page)).toHaveCount(c.options);
-      }
-      await expect(searchBox(page)).toHaveCount(c.search ? 1 : 0);
-    });
+    if (c.options === 0) {
+      // Nothing to list, so the empty state stands in for the options.
+      await expect(page.locator('[data-testid="searchable-select-empty"]')).toBeVisible();
+    } else {
+      await expect(listbox(page)).toBeVisible();
+      await expect(options(page)).toHaveCount(c.options);
+    }
+    // No count, anywhere, decides this.
+    await expect(searchBox(page)).toHaveCount(1);
+  });
+}
+
+// The only way to get a plain list: say so in the code.
+for (const n of [4, 5]) {
+  test(`an explicit searchable={false} suppresses search @ ${n} fixed options`, async ({ page }) => {
+    await page.goto(url());
+    await trigger(page, `rule-optout-${n}`).click();
+    await expect(listbox(page)).toBeVisible();
+    await expect(options(page)).toHaveCount(n);
+    await expect(searchBox(page)).toHaveCount(0);
+  });
 }
 
 test('a DYNAMIC collection is searchable even with only 3 options today', async ({ page }) => {
@@ -81,8 +99,8 @@ test('a DYNAMIC collection is searchable even with only 3 options today', async 
   await trigger(page, 'rule-dynamic-3').click();
   await expect(listbox(page)).toBeVisible();
   await expect(options(page)).toHaveCount(3);
-  // The whole point: three is below the threshold, and the search field is
-  // still there, because the collection's size is data, not design.
+  // The whole point: a collection that will grow is searchable while it is
+  // still small, so the control does not change shape as rows are added.
   await expect(searchBox(page)).toBeVisible();
 });
 
@@ -253,11 +271,12 @@ const ARABIC_QUERIES: Array<{ name: string; query: string; expect: string }> = [
   { name: 'bare alef finds hamza-alef', query: 'احمد', expect: 'أحمد حسين' },
   { name: 'bare alef finds madda-alef', query: 'اية', expect: 'آية مصطفى' },
   { name: 'the exact stored spelling', query: 'أحمد', expect: 'أحمد حسين' },
-  { name: 'ta marbuta folded to ha', query: 'رقيه', expect: 'رقية رمضان' },
-  { name: 'alef maqsura folded to ya', query: 'مصطفي', expect: 'آية مصطفى' },
+  { name: 'the exact ta-marbuta spelling', query: 'رقية', expect: 'رقية رمضان' },
+  { name: 'the exact alef-maqsura spelling', query: 'مصطفى', expect: 'آية مصطفى' },
   { name: 'a query carrying harakat', query: 'أَحْمَد', expect: 'أحمد حسين' },
+  { name: 'a query carrying a kashida', query: 'احـــمد', expect: 'أحمد حسين' },
   { name: 'a partial surname', query: 'رمضان', expect: 'رقية رمضان' },
-  { name: 'the surname typed first', query: 'رمضان رقيه', expect: 'رقية رمضان' },
+  { name: 'the surname typed first', query: 'رمضان رقية', expect: 'رقية رمضان' },
 ];
 
 for (const q of ARABIC_QUERIES) {
@@ -270,10 +289,31 @@ for (const q of ARABIC_QUERIES) {
   });
 }
 
+/**
+ * ة/ه and ى/ي are different letters, not variant spellings, and this academy
+ * has students whose names differ by exactly that. Swapping one is a query for
+ * somebody else, so it must return nothing rather than the wrong person —
+ * asserted here in the real rendered control, not only in the pure suite.
+ */
+const ARABIC_NON_MATCHES: Array<{ name: string; query: string }> = [
+  { name: 'ه does not find ة (رقيه / رقية)', query: 'رقيه' },
+  { name: 'ي does not find ى (مصطفي / مصطفى)', query: 'مصطفي' },
+];
+
+for (const q of ARABIC_NON_MATCHES) {
+  test(`Arabic search keeps letters distinct: ${q.name}`, async ({ page }) => {
+    await page.goto(url('rtl'));
+    await open(page, 'arabic');
+    await searchBox(page).fill(q.query);
+    await expect(options(page)).toHaveCount(0);
+    await expect(page.locator('[data-testid="searchable-select-empty"]')).toBeVisible();
+  });
+}
+
 test('an Arabic name can be chosen and is then displayed on the trigger', async ({ page }) => {
   await page.goto(url('rtl'));
   await open(page, 'arabic');
-  await searchBox(page).fill('رقيه');
+  await searchBox(page).fill('رقية');
   await options(page).first().click();
   await expect(page.locator('[data-testid="arabic-value"]')).toHaveText('رقية رمضان');
   await expect(trigger(page, 'arabic')).toContainText('رقية رمضان');

@@ -57,12 +57,16 @@ check('bare alef finds hamza-alef (أ)', search('احمد', AR), ['أحمد حس
 check('bare alef finds madda-alef (آ)', search('اية', AR), ['آية مصطفى']);
 check('bare alef finds hamza-below alef (إ)', search('اسماء', AR), ['إسماء مجدي']);
 check('exact Arabic spelling also matches', search('أحمد', AR), ['أحمد حسين']);
-check('ta marbuta folds to ha (رقية / رقيه)', search('رقيه', AR), ['رقية رمضان']);
-check('alef maqsura folds to ya (مصطفى / مصطفي)', search('مصطفي', AR), ['آية مصطفى']);
+// ة and ى are NOT folded — they are different letters, not variant spellings
+// of ه and ي. A query that swaps them is a query for a different name.
+check('ta marbuta is NOT ha (رقيه does not find رقية)', search('رقيه', AR), []);
+check('alef maqsura is NOT ya (مصطفي does not find مصطفى)', search('مصطفي', AR), []);
+check('the exact ta-marbuta spelling still matches', search('رقية', AR), ['رقية رمضان']);
+check('the exact alef-maqsura spelling still matches', search('مصطفى', AR), ['آية مصطفى']);
 check('harakat in the query are ignored', search('أَحْمَد', AR), ['أحمد حسين']);
 check('tatweel in the query is ignored', search('احـــمد', AR), ['أحمد حسين']);
 check('Arabic partial, last name only', search('رمضان', AR), ['رقية رمضان']);
-check('Arabic surname typed first', search('رمضان رقيه', AR), ['رقية رمضان']);
+check('Arabic surname typed first', search('رمضان رقية', AR), ['رقية رمضان']);
 check('Arabic no-match yields nothing', search('سليمان', AR), []);
 
 // Both scripts present in one list — neither query leaks into the other.
@@ -85,11 +89,11 @@ check('Arabic-indic digits fold to ASCII',
 const FOLDS = [
   ['أحمد', 'احمد'],
   ['إيمان', 'ايمان'],
-  ['آمنة', 'امنه'],   // alef-madda AND ta-marbuta in one name
+  ['آمنة', 'امنة'],   // alef-madda folds; the ta marbuta is kept as-is
   ['أ', 'ا'],
   ['مؤمن', 'مومن'],   // ؤ -> و
   ['رئيس', 'رييس'],   // ئ -> ي
-  ['عائشة', 'عايشه'],
+  ['عائشة', 'عايشة'],
 ];
 for (const [stored, typed] of FOLDS) {
   check(`"${typed}" finds "${stored}"`, matchesSearch(stored, typed), true);
@@ -102,6 +106,38 @@ check('a fully vowelled name is found by the bare spelling',
   matchesSearch('مُحَمَّد', 'محمد'), true);
 check('a bare name is found by a vowelled query',
   matchesSearch('محمد', 'مُحَمَّد'), true);
+
+// ------------------------------------------- ة/ه and ى/ي MUST stay distinct
+// These are the regressions this suite exists to catch. Folding either pair
+// merges names that belong to different students, and the failure mode is
+// silent: a search returns the wrong person rather than no person.
+const PRESERVED = [
+  ['ة', 'ه', 'ta marbuta vs ha'],
+  ['ى', 'ي', 'alef maqsura vs ya'],
+  ['آمنة', 'آمنه', 'Amna spelled with ة vs ه'],
+  ['منى', 'مني', 'Mona spelled with ى vs ي'],
+  ['رقية', 'رقيه', 'Roqaya spelled with ة vs ه'],
+  ['مصطفى', 'مصطفي', 'Mostafa spelled with ى vs ي'],
+];
+for (const [a, b, what] of PRESERVED) {
+  check(`${what}: normalises differently`, normalizeForSearch(a) === normalizeForSearch(b), false);
+  check(`${what}: "${b}" does not find "${a}"`, matchesSearch(a, b), false);
+  check(`${what}: "${a}" does not find "${b}"`, matchesSearch(b, a), false);
+  check(`${what}: each still finds itself`,
+    [matchesSearch(a, a), matchesSearch(b, b)], [true, true]);
+}
+
+// What IS still folded, so the correction above did not over-reach.
+for (const [stored, typed, what] of [
+  ['أحمد', 'احمد', 'hamza-above alef'],
+  ['إيمان', 'ايمان', 'hamza-below alef'],
+  ['آمنة', 'امنة', 'madda alef'],
+  ['ٱلله', 'الله', 'alef wasla'],
+  ['مُحَمَّد', 'محمد', 'harakat'],
+  ['مـحـمـد', 'محمد', 'tatweel'],
+]) {
+  check(`still folded — ${what}: "${typed}" finds "${stored}"`, matchesSearch(stored, typed), true);
+}
 
 // ------------------------------------------------- no unacceptable collapse
 // Folding must not merge names that are genuinely different people. Only

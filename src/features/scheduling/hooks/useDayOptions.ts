@@ -6,8 +6,9 @@ import type { SearchableSelectOption } from '@/components/ui/searchable-select';
 /**
  * The seven weekdays as selector options, translated.
  *
- * A FIXED list, so it carries no `searchable` flag — SEARCH_THRESHOLD decides,
- * and seven is over the line, so every weekday selector gets a search field.
+ * A FIXED list of seven — over the five-option line, so every weekday
+ * selector is searchable. It carries no `searchable` flag because searchable
+ * is the default; only a fixed list of five or fewer opts out.
  *
  * It lives here because four screens need the identical list (lesson edit,
  * the internal lessons form, and both availability editors) and the mapping
