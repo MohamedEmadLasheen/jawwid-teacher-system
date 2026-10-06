@@ -20,7 +20,7 @@ export default defineConfig({
     dedupe: ['react', 'react-dom'],
   },
   optimizeDeps: {
-    entries: ['tests/schedule-layout/index.html', 'tests/schedule-layout/quick-actions.html', 'tests/schedule-layout/master-grid.html', 'tests/schedule-layout/lesson-edit.html', 'tests/schedule-layout/searchable-select.html', 'tests/schedule-layout/legend-filters.html', 'tests/schedule-layout/student-admin.html', 'tests/schedule-layout/schedule-admin.html'],
+    entries: ['tests/schedule-layout/index.html', 'tests/schedule-layout/quick-actions.html', 'tests/schedule-layout/master-grid.html', 'tests/schedule-layout/lesson-edit.html', 'tests/schedule-layout/searchable-select.html', 'tests/schedule-layout/legend-filters.html', 'tests/schedule-layout/teacher-weekly.html', 'tests/schedule-layout/student-admin.html', 'tests/schedule-layout/schedule-admin.html'],
     include: ['react', 'react-dom', 'react-dom/client', '@tanstack/react-query', '@dnd-kit/core'],
   },
   // SCHEDULE_TEST_PORT lets a second checkout (a git worktree, CI shard) run
