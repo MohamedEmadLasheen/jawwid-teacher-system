@@ -506,3 +506,466 @@ test('no console errors across a full search-and-select flow', async ({ page }) 
   await options(page).nth(1).click();
   expect(errors).toEqual([]);
 });
+
+/* ============================================================================
+ * MOBILE — the visible viewport, and what the software keyboard does to it
+ *
+ * The real defect was never "the box is too tall". iOS does NOT shrink the
+ * layout viewport when the keyboard opens, so a popover sized from it (which
+ * is what `--radix-popper-available-height` is) is placed against a screen
+ * that is partly behind the keys. These tests pin the contract that the
+ * mobile panel is driven by `window.visualViewport` instead.
+ *
+ * LIMITATION, stated plainly: Playwright cannot raise a real iOS software
+ * keyboard. What it CAN do is reproduce the only thing the keyboard does to
+ * the page — shrink `visualViewport.height` and push `offsetTop` down — and
+ * assert the panel follows. A real-device check is still required for the
+ * rendering itself and is reported separately.
+ * ==========================================================================*/
+
+const PHONE = { width: 375, height: 812 };
+/** Roughly an iPhone keyboard with its accessory bar. */
+const KEYBOARD_H = 336;
+
+/**
+ * Replaces window.visualViewport with a controllable stand-in BEFORE any app
+ * code runs, so the component subscribes to this one. The shape and the
+ * events are the same; only the numbers are ours to move.
+ */
+async function installViewportHarness(page: Page) {
+  await page.addInitScript(() => {
+    const bus = new EventTarget();
+    const state = { width: 0, height: 0, offsetTop: 0, offsetLeft: 0 };
+    const stub = {
+      get width() { return state.width || window.innerWidth; },
+      get height() { return state.height || window.innerHeight; },
+      get offsetTop() { return state.offsetTop; },
+      get offsetLeft() { return state.offsetLeft; },
+      addEventListener: bus.addEventListener.bind(bus),
+      removeEventListener: bus.removeEventListener.bind(bus),
+      dispatchEvent: bus.dispatchEvent.bind(bus),
+    };
+    Object.defineProperty(window, 'visualViewport', {
+      configurable: true,
+      get: () => stub,
+    });
+    (window as unknown as Record<string, unknown>).__setVisualViewport = (
+      patch: Partial<typeof state>
+    ) => {
+      Object.assign(state, patch);
+      bus.dispatchEvent(new Event('resize'));
+    };
+  });
+}
+
+/** Mimics the keyboard opening: the visible area shortens. */
+const showKeyboard = (page: Page, viewportHeight = PHONE.height) =>
+  page.evaluate((h) => {
+    (window as unknown as Record<string, (p: unknown) => void>).__setVisualViewport({
+      height: h,
+    });
+  }, viewportHeight - KEYBOARD_H);
+
+const hideKeyboard = (page: Page, viewportHeight = PHONE.height) =>
+  page.evaluate((h) => {
+    (window as unknown as Record<string, (p: unknown) => void>).__setVisualViewport({
+      height: h,
+    });
+  }, viewportHeight);
+
+const panelBox = async (page: Page) => {
+  const box = await page.locator('[data-testid="long-panel"]').boundingBox();
+  if (!box) throw new Error('mobile panel not rendered');
+  return box;
+};
+
+/**
+ * The panel reacts to a viewport change inside a requestAnimationFrame (the
+ * keyboard emits a burst of resize events and the component coalesces them),
+ * so a read taken in the same tick as the change can still see the old box.
+ * Settle on the height before asserting.
+ */
+const panelHeight = (page: Page) =>
+  expect.poll(async () => Math.round((await panelBox(page)).height), { timeout: 3000 });
+
+test('mobile: opening the selector shows the search field immediately', async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await installViewportHarness(page);
+  await page.goto(url());
+
+  await trigger(page, 'long').click();
+  const panel = page.locator('[data-testid="long-panel"]');
+  await expect(panel).toBeVisible();
+  await expect(searchBox(page)).toBeVisible();
+
+  // The search field is at the TOP of the panel, above the first option.
+  const search = (await searchBox(page).boundingBox())!;
+  const firstOption = (await options(page).first().boundingBox())!;
+  expect(search.y).toBeLessThan(firstOption.y);
+});
+
+test('mobile: the panel is pinned to the visible viewport, not the trigger', async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await installViewportHarness(page);
+  await page.goto(url());
+
+  await trigger(page, 'long').click();
+  const box = await panelBox(page);
+  expect(box.y).toBeCloseTo(8, 0);
+  expect(box.x).toBeCloseTo(8, 0);
+  expect(box.width).toBeCloseTo(PHONE.width - 16, 0);
+  expect(box.y + box.height).toBeLessThanOrEqual(PHONE.height);
+});
+
+test('mobile: the keyboard shortens the panel and the search field stays visible', async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await installViewportHarness(page);
+  await page.goto(url());
+
+  await trigger(page, 'long').click();
+  const before = Math.round((await panelBox(page)).height);
+
+  await showKeyboard(page);
+  // The panel genuinely shrank — it is not merely clipped.
+  await panelHeight(page).toBeLessThan(before);
+  const after = await panelBox(page);
+  // And it fits entirely inside what is still visible above the keyboard.
+  const visible = PHONE.height - KEYBOARD_H;
+  expect(after.y + after.height).toBeLessThanOrEqual(visible + 1);
+
+  // The search field — the thing being typed into — is inside that area.
+  const search = (await searchBox(page).boundingBox())!;
+  expect(search.y).toBeGreaterThanOrEqual(0);
+  expect(search.y + search.height).toBeLessThanOrEqual(visible + 1);
+});
+
+test('mobile: the result list keeps its own scrolling while the keyboard is up', async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await installViewportHarness(page);
+  await page.goto(url());
+
+  await trigger(page, 'long').click();
+  await showKeyboard(page);
+
+  const list = page.locator('[cmdk-list]');
+  const metrics = await list.evaluate((el) => ({
+    scrollHeight: el.scrollHeight,
+    clientHeight: el.clientHeight,
+    overflowY: getComputedStyle(el).overflowY,
+  }));
+  expect(metrics.overflowY).toBe('auto');
+  expect(metrics.scrollHeight).toBeGreaterThan(metrics.clientHeight);
+
+  // It really scrolls, rather than just reporting that it could.
+  const moved = await list.evaluate((el) => {
+    el.scrollTop = 120;
+    return el.scrollTop;
+  });
+  expect(moved).toBeGreaterThan(0);
+});
+
+test('mobile: the panel follows the visual viewport when iOS scrolls it', async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await installViewportHarness(page);
+  await page.goto(url());
+
+  await trigger(page, 'long').click();
+  await page.evaluate(() => {
+    (window as unknown as Record<string, (p: unknown) => void>).__setVisualViewport({
+      offsetTop: 60,
+    });
+  });
+  await expect
+    .poll(async () => Math.round((await panelBox(page)).y), { timeout: 3000 })
+    .toBe(68); // 60 offset + the 8px margin
+});
+
+test('mobile: the panel recovers its height when the keyboard closes', async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await installViewportHarness(page);
+  await page.goto(url());
+
+  await trigger(page, 'long').click();
+  const before = Math.round((await panelBox(page)).height);
+
+  await showKeyboard(page);
+  await panelHeight(page).toBeLessThan(before);
+
+  await hideKeyboard(page);
+  // Recovered, within a couple of pixels of where it started — an exact
+  // match would be asserting sub-pixel layout rounding, not the behaviour.
+  await panelHeight(page).toBeGreaterThan(before - 5);
+});
+
+test('mobile: the page behind cannot scroll while the panel is open', async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await installViewportHarness(page);
+  await page.goto(url());
+
+  const before = await page.evaluate(() => getComputedStyle(document.body).overflow);
+  await trigger(page, 'long').click();
+  await expect(page.locator('[data-testid="long-panel"]')).toBeVisible();
+
+  const locked = await page.evaluate(() => getComputedStyle(document.body).overflow);
+  expect(locked).toBe('hidden');
+  expect(locked).not.toBe(before);
+
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-testid="long-panel"]')).toHaveCount(0);
+  await expect.poll(async () =>
+    page.evaluate(() => getComputedStyle(document.body).overflow)
+  ).toBe(before);
+});
+
+test('mobile: search, grouping and selection all still work in the panel', async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await installViewportHarness(page);
+  await page.goto(url());
+
+  await trigger(page, 'long').click();
+  await showKeyboard(page);
+
+  await searchBox(page).fill('ramad');
+  await expect(options(page)).toHaveCount(2);
+  await expect(page.getByText('Full-time —')).toBeVisible();
+  await expect(page.getByText('Part-time —')).toHaveCount(0);
+
+  await options(page).first().click();
+  await expect(page.locator('[data-testid="long-value"]')).toHaveText('Menna Ramadan');
+  await expect(page.locator('[data-testid="long-panel"]')).toHaveCount(0);
+});
+
+test('mobile: Arabic search works in the panel, in RTL', async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await installViewportHarness(page);
+  await page.goto(url('rtl'));
+
+  await trigger(page, 'arabic').click();
+  await showKeyboard(page);
+  // Bare alef finding hamza-alef — a fold the current policy keeps. ة and ى
+  // are deliberately NOT folded (they distinguish real names), so this must
+  // not be written as رقيه → رقية.
+  await searchBox(page).fill('احمد');
+  await expect(options(page)).toHaveCount(1);
+
+  const panel = page.locator('[data-testid="arabic-panel"]');
+  expect(await panel.evaluate((el) => getComputedStyle(el).direction)).toBe('rtl');
+  const box = (await panel.boundingBox())!;
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(PHONE.width + 1);
+
+  await options(page).first().click();
+  await expect(page.locator('[data-testid="arabic-value"]')).toHaveText('أحمد حسين');
+});
+
+test('mobile: a <=5 option list still gets no search field', async ({ page }) => {
+  await page.setViewportSize(PHONE);
+  await installViewportHarness(page);
+  await page.goto(url());
+
+  await trigger(page, 'short').click();
+  await expect(page.locator('[data-testid="short-panel"]')).toBeVisible();
+  await expect(searchBox(page)).toHaveCount(0);
+  await expect(options(page)).toHaveCount(4);
+});
+
+test('desktop: still an anchored popover, with no dialog panel and no scroll lock', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await installViewportHarness(page);
+  await page.goto(url());
+
+  const before = await page.evaluate(() => getComputedStyle(document.body).overflow);
+  await trigger(page, 'long').click();
+
+  // The mobile panel must not exist at desktop widths.
+  await expect(page.locator('[data-testid="long-panel"]')).toHaveCount(0);
+  await expect(page.locator('[data-radix-popper-content-wrapper]')).toHaveCount(1);
+  await expect(page.evaluate(() => getComputedStyle(document.body).overflow)).resolves.toBe(before);
+
+  // Still anchored to the trigger. Compared on CENTRES, not edges: the
+  // shadcn popover carries a `zoom-in-95` enter animation that does not
+  // complete under reduced motion, leaving the box at 95% scale about its
+  // own centre — a pre-existing rendering quirk of the primitive, unrelated
+  // to this change, which an edge comparison would trip over.
+  const t = (await trigger(page, 'long').boundingBox())!;
+  const popover = (await page
+    .locator('[data-radix-popper-content-wrapper] > *')
+    .first()
+    .boundingBox())!;
+  expect(Math.abs((popover.x + popover.width / 2) - (t.x + t.width / 2)))
+    .toBeLessThanOrEqual(2);
+  // It hangs below its trigger rather than being pinned to the viewport.
+  expect(popover.y).toBeGreaterThan(t.y);
+});
+
+/* ============================================================================
+ * SCROLLING INSIDE A DIALOG — the regression this file exists to prevent
+ *
+ * A modal Radix Dialog mounts react-remove-scroll, which cancels wheel events
+ * whose target is not inside the dialog's own subtree. These popovers are
+ * portalled to <body>, so they were "outside" by that test: the list still
+ * overflowed and still painted a scrollbar, but the wheel did nothing and the
+ * options past the fold were unreachable with a mouse.
+ *
+ * Every assertion below is deliberately BEHAVIOURAL. `overflow-y: auto`,
+ * `scrollHeight > clientHeight` and a visible scrollbar were all TRUE while
+ * the bug was live — asserting any of them would have passed throughout. The
+ * only thing that distinguishes working from broken is whether a real,
+ * trusted wheel gesture moves scrollTop, so that is what is measured.
+ * ==========================================================================*/
+
+/** The element that actually scrolls: cmdk's list, not the popover. */
+const cmdkList = (page: Page) => page.locator('[cmdk-list]');
+
+const listMetrics = (page: Page) =>
+  page.evaluate(() => {
+    const l = document.querySelector('[cmdk-list]')!;
+    return {
+      scrollTop: Math.round(l.scrollTop),
+      scrollHeight: l.scrollHeight,
+      clientHeight: l.clientHeight,
+      maxScroll: l.scrollHeight - l.clientHeight,
+    };
+  });
+
+/** A real trusted wheel over the centre of the list. */
+async function wheelOverList(page: Page, deltaY: number) {
+  const box = (await cmdkList(page).boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.wheel(0, deltaY);
+  await page.waitForTimeout(300);
+}
+
+/** Is this option both inside the list's visible box and the top hit at its centre? */
+const optionReachable = (page: Page, name: string) =>
+  page.evaluate((n) => {
+    const list = document.querySelector('[cmdk-list]')!;
+    const lr = list.getBoundingClientRect();
+    const el = [...document.querySelectorAll('[cmdk-item]')]
+      .find((i) => (i as HTMLElement).innerText.trim() === n);
+    if (!el) return { rendered: false, visible: false, hitTests: false };
+    const b = el.getBoundingClientRect();
+    const hit = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2);
+    return {
+      rendered: true,
+      visible: b.top >= lr.top - 1 && b.bottom <= lr.bottom + 1,
+      hitTests: (hit?.closest('[cmdk-item]') as HTMLElement | null)?.innerText.trim() === n,
+    };
+  }, name);
+
+test('in a dialog: a real wheel gesture scrolls the option list', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(url());
+  await page.locator('[data-testid="open-dialog"]').click();
+  await expect(page.getByRole('dialog', { name: 'Lesson Details' })).toBeVisible();
+
+  await trigger(page, 'in-dialog').click();
+  await expect(cmdkList(page)).toBeVisible();
+
+  const before = await listMetrics(page);
+  // Precondition: there is genuinely something to scroll. This is a
+  // precondition, NOT the assertion — it was true while the bug was live.
+  expect(before.maxScroll).toBeGreaterThan(0);
+  expect(before.scrollTop).toBe(0);
+
+  await wheelOverList(page, 200);
+  const after = await listMetrics(page);
+  expect(after.scrollTop).toBeGreaterThan(before.scrollTop);
+});
+
+test('in a dialog: the last option is reachable by wheel and can be selected', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(url());
+  await page.locator('[data-testid="open-dialog"]').click();
+  await trigger(page, 'in-dialog').click();
+  await expect(cmdkList(page)).toBeVisible();
+
+  const LAST = 'Yasmin Asaad';
+  expect(await optionReachable(page, LAST)).toMatchObject({ rendered: true, visible: false });
+
+  await wheelOverList(page, 2000);
+  const metrics = await listMetrics(page);
+  expect(metrics.scrollTop).toBe(metrics.maxScroll);
+
+  // Reachable: on screen AND the top element at its own centre.
+  expect(await optionReachable(page, LAST)).toMatchObject({ visible: true, hitTests: true });
+
+  // And actually selectable by a plain click at that position.
+  await page.getByRole('option', { name: LAST, exact: true }).click();
+  await expect(page.locator('[data-testid="in-dialog-value"]')).toHaveText(LAST);
+  await expect(page.getByRole('dialog', { name: 'Lesson Details' })).toBeVisible();
+});
+
+test('in a dialog: the multi-select list scrolls by wheel too', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(url());
+  await page.locator('[data-testid="open-dialog"]').click();
+  await trigger(page, 'in-dialog-multi').click();
+  await expect(cmdkList(page)).toBeVisible();
+
+  const before = await listMetrics(page);
+  expect(before.maxScroll).toBeGreaterThan(0);
+  await wheelOverList(page, 400);
+  const after = await listMetrics(page);
+  expect(after.scrollTop).toBeGreaterThan(before.scrollTop);
+
+  await wheelOverList(page, 2000);
+  expect(await optionReachable(page, 'Participant 20')).toMatchObject({
+    visible: true, hitTests: true,
+  });
+});
+
+test('outside a dialog: wheel still scrolls, and no scroll lock is taken', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(url());
+
+  const lockBefore = await page.evaluate(() => document.body.getAttribute('data-scroll-locked'));
+  await trigger(page, 'long').click();
+  await expect(cmdkList(page)).toBeVisible();
+
+  const before = await listMetrics(page);
+  await wheelOverList(page, 200);
+  const after = await listMetrics(page);
+  expect(after.scrollTop).toBeGreaterThan(before.scrollTop);
+
+  // The popover must NOT take a lock outside a dialog: doing so would freeze
+  // the page behind every dropdown and shift the layout by the scrollbar.
+  expect(await page.evaluate(() => document.body.getAttribute('data-scroll-locked')))
+    .toBe(lockBefore);
+});
+
+test('in a dialog: Escape closes the list, keeps the dialog, restores focus', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(url());
+  await page.locator('[data-testid="open-dialog"]').click();
+  const card = page.getByRole('dialog', { name: 'Lesson Details' });
+
+  await trigger(page, 'in-dialog').click();
+  await expect(cmdkList(page)).toBeVisible();
+
+  await page.keyboard.press('Escape');
+  await expect(cmdkList(page)).toHaveCount(0);
+  await expect(card).toBeVisible();
+  await expect(trigger(page, 'in-dialog')).toBeFocused();
+
+  // The dialog's own lock survives the popover's lock being released.
+  expect(await page.evaluate(() => document.body.getAttribute('data-scroll-locked'))).toBe('1');
+
+  // And the dialog is still usable afterwards.
+  await trigger(page, 'in-dialog').click();
+  await expect(cmdkList(page)).toBeVisible();
+});
+
+test('dir=rtl, in a dialog: wheel scrolling works the same', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.goto(url('rtl'));
+  await page.locator('[data-testid="open-dialog"]').click();
+  await trigger(page, 'in-dialog').click();
+  await expect(cmdkList(page)).toBeVisible();
+
+  expect(await cmdkList(page).evaluate((el) => getComputedStyle(el).direction)).toBe('rtl');
+  const before = await listMetrics(page);
+  expect(before.maxScroll).toBeGreaterThan(0);
+  await wheelOverList(page, 300);
+  expect((await listMetrics(page)).scrollTop).toBeGreaterThan(before.scrollTop);
+});

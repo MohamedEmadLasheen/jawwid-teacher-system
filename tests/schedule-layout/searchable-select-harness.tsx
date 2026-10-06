@@ -4,6 +4,7 @@ import '@/index.css';
 import i18n from '@/i18n';
 
 import { SearchableSelect } from '@/components/ui/searchable-select';
+import { MultiSelectFilter } from '@/features/scheduling/components/MultiSelectFilter';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 /**
@@ -103,12 +104,19 @@ function RuleCase({ n, dynamic, optOut }: { n: number; dynamic?: boolean; optOut
   );
 }
 
+/** Long enough to overflow the multi-select's own 16rem cap. */
+const MANY = Array.from({ length: 20 }, (_, i) => ({
+  id: `m${i}`,
+  label: `Participant ${String(i + 1).padStart(2, '0')}`,
+}));
+
 function Harness() {
   const [long, setLong] = useState('Arwa Ahmed');
   const [short, setShort] = useState('30');
   const [arabic, setArabic] = useState('');
   const [inDialog, setInDialog] = useState('Arwa Ahmed');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [multi, setMulti] = useState<string[]>([]);
 
   return (
     <div className="p-4 space-y-6" style={{ maxWidth: 640 }}>
@@ -197,6 +205,23 @@ function Harness() {
               emptyText="No results found"
             />
             <p data-testid="in-dialog-value" className="text-xs text-muted-foreground">{inDialog}</p>
+          </div>
+
+          {/* The multi-select asked the same question, in the same dialog. */}
+          <div className="space-y-1">
+            <label className="text-sm font-medium">Participants (multi, 20 options)</label>
+            <MultiSelectFilter
+              data-testid="in-dialog-multi"
+              className="w-full"
+              options={MANY}
+              selectedIds={multi}
+              onChange={setMulti}
+              placeholder="Participants"
+              searchable
+            />
+            <p data-testid="in-dialog-multi-value" className="text-xs text-muted-foreground">
+              {multi.join(',')}
+            </p>
           </div>
         </DialogContent>
       </Dialog>
