@@ -37,7 +37,13 @@ interface ScheduleGridRowProps {
  * together as one timeline.
  */
 export function ScheduleGridRow({ row, columnWidth, teacherColumnWidth, isCompact = false, onEmptyClick, onLessonClick, label }: ScheduleGridRowProps) {
-  const layout = useMemo(() => computeRowLayout(row.lessons, row.availability), [row.lessons, row.availability]);
+  // `row.occupancy` — not `row.lessons` — decides what counts as booked: the
+  // lesson list is filtered, the occupancy is not, so a supervisor or status
+  // filter can never repaint a teacher's booked minutes as free capacity.
+  const layout = useMemo(
+    () => computeRowLayout(row.lessons, row.availability, row.occupancy),
+    [row.lessons, row.availability, row.occupancy]
+  );
   const axisWidth = timelineWidth(columnWidth);
 
   return (

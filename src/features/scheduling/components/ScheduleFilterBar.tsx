@@ -137,9 +137,16 @@ export function ScheduleFilterBar() {
         <Label className="text-sm cursor-pointer">{t('scheduling.primeTimeOnly')}</Label>
       </label>
 
+      {/* Both switches are the same state the Free time / Outside shift legend
+          chips toggle — one field each, so the two controls can never disagree. */}
       <label className="flex items-center gap-2 h-9 px-1 shrink-0">
         <Switch checked={filters.availableOnly} onCheckedChange={(v) => setFilter('availableOnly', v)} />
         <Label className="text-sm cursor-pointer">{t('scheduling.availableOnly')}</Label>
+      </label>
+
+      <label className="flex items-center gap-2 h-9 px-1 shrink-0">
+        <Switch checked={filters.outsideShiftOnly} onCheckedChange={(v) => setFilter('outsideShiftOnly', v)} />
+        <Label className="text-sm cursor-pointer">{t('scheduling.outsideShiftOnly')}</Label>
       </label>
     </div>
   );

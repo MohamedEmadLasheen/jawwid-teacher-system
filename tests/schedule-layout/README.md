@@ -10,6 +10,15 @@ npx playwright test --config tests/schedule-layout/playwright.config.ts
 
 (First run only: `npx playwright install chromium`.)
 
+The harness server binds port 5310. Set `SCHEDULE_TEST_PORT` to run from a
+second checkout (a git worktree, a CI shard) at the same time — otherwise the
+second run reuses the first one's server and silently tests the **other**
+checkout's source:
+
+```bash
+SCHEDULE_TEST_PORT=5317 npx playwright test --config tests/schedule-layout/playwright.config.ts
+```
+
 ## Why these exist
 
 The pure geometry suites in `scripts/schedule-geometry-tests/` could not catch
@@ -53,6 +62,32 @@ These assertions were validated by removing the fix and re-running: **5 LTR
 tests passed and all 5 RTL tests failed, plus the cross-direction equivalence
 test** — 6 failed, 5 passed. The suite fails on the bug and passes on the fix,
 so it is not vacuously green.
+
+## Legend filters (`legend-filters.spec.ts`)
+
+The filter semantics are proved as pure functions in
+`scripts/schedule-geometry-tests/filters.test.mjs`. This spec covers what
+only exists once the components render, in **both directions** and at 375px:
+
+| Group | Coverage |
+|---|---|
+| Semantics as controls | Every legend item is a `<button>` with `aria-pressed`, never a styled span |
+| Data-driven labels | The shift chips still derive name, window and headcount from the roster |
+| It actually filters | Clicking Full-time changes the rendered rows; clicking again restores them |
+| OR within a category | Full-time + Part-time; two supervisors; Trial + Active |
+| AND across categories | Full-time + Dina + Trial, including the zero-match case |
+| Free time | Only teachers with real unsold capacity survive, their lessons stay drawn, and no free band overlaps a lesson card |
+| Outside shift | Only teachers booked outside their own window, showing only those lessons |
+| One source of truth | The bar's switches drive the chips and the chips drive the bar's status select |
+| Search | Combines with a legend filter as AND, not OR |
+| Keyboard & focus | Tab-focusable, visible focus ring, Space and Enter both toggle |
+| No layout shift | Every chip's box is byte-identical before and after three toggles |
+| Zero results | A message plus a working "Clear filters" button |
+| Mobile | Chips wrap, stay ≥24px tall, never overflow the viewport, and filter on tap |
+
+The layout-shift assertion is not decorative: it caught a real regression in
+the first implementation, where the selected state added `font-medium` and
+the wider label reflowed the wrapped legend.
 
 ## Fixtures only
 

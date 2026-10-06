@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DndContext, type DragEndEvent } from '@dnd-kit/core';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { useScheduleUiStore } from '@/store/scheduleUiStore';
+import { Button } from '@/components/ui/button';
+import { useScheduleUiStore, hasActiveFilters } from '@/store/scheduleUiStore';
 import { useScheduleGrid } from '../hooks/useScheduleGrid';
 import { useScheduleMetrics } from '../hooks/useScheduleMetrics';
 import { useScheduleDragSensors } from '../hooks/useScheduleDragSensors';
@@ -39,10 +40,11 @@ export function MasterScheduleGrid({ onEmptyClick, onLessonClick, onProposeMove 
   const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const { selectedDay, filters, searchQuery } = useScheduleUiStore();
+  const { selectedDay, filters, searchQuery, setSearchQuery, resetFilters } = useScheduleUiStore();
   const { rows, isLoading, error } = useScheduleGrid(selectedDay, filters, searchQuery);
   const { columnWidth, teacherColumnWidth, rowHeight, isCompact } = useScheduleMetrics(scrollRef, GRID_COLUMNS.length);
-  const { groups } = useScheduleRoster();
+  const { groups, templateIdsByTeacherId } = useScheduleRoster();
+  const isFiltered = hasActiveFilters(filters) || searchQuery.trim().length > 0;
   const isToday = selectedDay === new Date().getDay();
 
   // One flat list of group headers + teacher rows, so a single virtualizer
@@ -50,8 +52,9 @@ export function MasterScheduleGrid({ onEmptyClick, onLessonClick, onProposeMove 
   // here enumerates teachers or hours.
   const GROUP_HEADER_HEIGHT = 34;
   const items = useMemo(() => {
-    const groupOf = new Map<string, string>();
-    groups.forEach((g) => g.teachers.forEach((tc) => groupOf.set(tc.id, g.templateId)));
+    // Group membership comes from the roster hook, the same map the shift-group
+    // filter and the roster legend read — not a second local derivation.
+    const groupOf = (teacherId: string) => templateIdsByTeacherId.get(teacherId)?.[0];
     const byTemplate = new Map(groups.map((g) => [g.templateId, g]));
 
     const out: Array<
@@ -60,17 +63,19 @@ export function MasterScheduleGrid({ onEmptyClick, onLessonClick, onProposeMove 
     > = [];
     let current: string | null = null;
     for (const row of rows) {
-      const templateId = groupOf.get(row.teacher.id);
+      const templateId = groupOf(row.teacher.id);
       if (templateId && templateId !== current) {
         current = templateId;
         const g = byTemplate.get(templateId)!;
-        const count = rows.filter((r) => groupOf.get(r.teacher.id) === templateId).length;
+        // Counted over the VISIBLE rows, so the banner agrees with what is
+        // drawn under it while a filter is active.
+        const count = rows.filter((r) => groupOf(r.teacher.id) === templateId).length;
         out.push({ kind: 'group', key: `g-${templateId}`, name: g.name, startMinute: g.startMinute, endMinute: g.endMinute, count });
       }
       out.push({ kind: 'row', key: row.teacher.id, row });
     }
     return out;
-  }, [rows, groups]);
+  }, [rows, groups, templateIdsByTeacherId]);
 
   // Distance from the top of the scroll container to the top of the row list
   // (i.e. the sticky header's height). Measured rather than hardcoded so a
@@ -140,7 +145,23 @@ export function MasterScheduleGrid({ onEmptyClick, onLessonClick, onProposeMove 
               {isLoading ? (
                 <p className="text-sm text-muted-foreground p-4">…</p>
               ) : rows.length === 0 ? (
-                <p className="text-sm text-muted-foreground p-4">—</p>
+                // A filter combination can legitimately match nothing (an
+                // empty Free-time day, a supervisor with no lessons today).
+                // Say so, and offer the one-click way back.
+                <div className="p-4 flex flex-wrap items-center gap-3">
+                  <p className="text-sm text-muted-foreground">
+                    {isFiltered ? t('scheduling.noFilterMatches') : '—'}
+                  </p>
+                  {isFiltered && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => { resetFilters(); setSearchQuery(''); }}
+                    >
+                      {t('scheduling.clearFilters')}
+                    </Button>
+                  )}
+                </div>
               ) : (
                 <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
                   {isToday && (

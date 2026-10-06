@@ -91,8 +91,10 @@ export function MasterSchedulePage() {
           </Tabs>
           <PrimeTimeIndicator />
         </div>
-        <ScheduleRosterLegend />
-        <ColorLegend />
+        {/* Interactive here only: these chips write to scheduleUiStore, which
+            is exactly the filter state this page's grid reads. */}
+        <ScheduleRosterLegend interactive />
+        <ColorLegend interactive />
       </div>
 
       <MasterScheduleGrid

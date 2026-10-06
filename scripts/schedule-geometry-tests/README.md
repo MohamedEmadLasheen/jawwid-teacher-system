@@ -8,12 +8,17 @@ acceptance criteria.
 ./scripts/schedule-geometry-tests/run.sh
 ```
 
-Two suites run in sequence:
+The suites run in sequence:
 
 | File | Asserts |
 |---|---|
-| `timeline.test.mjs` | Coordinate system and free-capacity algebra (47) |
-| `acceptance.test.mjs` | System acceptance criteria (72) |
+| `timeline.test.mjs` | Coordinate system and free-capacity algebra |
+| `acceptance.test.mjs` | System acceptance criteria |
+| `roster.test.mjs` | Roster membership and working windows |
+| `viewport.test.mjs` | Visible-timeline bounds |
+| `quickactions.test.mjs` | Mobile quick-action rules |
+| `sametimeslot.test.mjs` | Slot membership and bulk-edit preflight |
+| `filters.test.mjs` | Schedule filter semantics (97) |
 
 **Every lesson in both suites is a fixture defined in the test file.** The
 suites deliberately do not read production lesson data: the legacy lesson
@@ -22,11 +27,12 @@ design or the acceptance of this system. Teacher availability is the only
 input the free-capacity behaviour depends on.
 
 No test-runner dependency is added to the project. The runner uses the
-`esbuild` binary Vite already installs to bundle the two **pure** modules
-under test to ESM, then runs the assertions on plain Node:
+`esbuild` binary Vite already installs to bundle the **pure** modules under
+test to ESM, then runs the assertions on plain Node — among them:
 
 - `src/features/scheduling/utils/timelineGeometry.ts`
 - `src/features/scheduling/utils/computeRowLayout.ts`
+- `src/features/scheduling/utils/deriveScheduleRows.ts`
 
 ## What is covered
 
@@ -83,3 +89,37 @@ Browser-level behaviour (the frozen day column during horizontal
 scrolling, header/lesson drift under live scroll, and master-grid
 virtualization) is verified by DOM measurement rather than here, since it
 depends on layout rather than pure functions.
+
+## Filter suite
+
+`filters.test.mjs` covers `deriveScheduleRows` — the whole pipeline from
+roster + lessons + availability + filter state to the visible rows.
+
+**The semantics it pins down**
+
+- **AND across categories, OR within one.** The worked example (Full-time +
+  Dina + Trial) is asserted directly, as is the trap it guards: three
+  selections must not collapse into a union.
+- **Shift groups are filtered by shift-template id**, the same identity
+  `buildScheduleRoster` groups by — not by `teacherType`, which cannot
+  separate one shift group from another because every roster teacher is
+  `shift` (asserted).
+- **Free time is real unsold capacity.** Rows survive only when
+  `availability − all of today's lessons` is non-empty, so a solidly booked
+  teacher and a teacher with no configured window both drop out.
+- **Filtering never invents capacity.** A row carries its unfiltered
+  `occupancy` alongside its filtered `lessons`, so hiding a lesson (by
+  status, supervisor, …) cannot repaint its minutes as free.
+- **Outside shift comes from the teacher's own window**, never the viewport:
+  widening one teacher's availability removes them from the result.
+- **Occurrence exceptions feed the filters** — a cancellation frees capacity,
+  a reschedule can move a lesson in or out of the shift, and nothing in the
+  source arrays is mutated.
+
+### Guarding against vacuous tests
+
+Validated by restoring the previous implementation — occupancy taken from the
+*filtered* lessons, no row-level free-capacity predicate, and the shipped
+`if (filters.availableOnly) { teacherLessons = []; }` — and re-running:
+**20 assertions failed, 77 passed.** The suite fails on the old behaviour and
+passes on the new one.

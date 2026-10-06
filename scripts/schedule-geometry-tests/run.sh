@@ -17,6 +17,7 @@ node_modules/esbuild/bin/esbuild \
   src/features/scheduling/utils/timelineGeometry.ts \
   src/features/scheduling/utils/computeRowLayout.ts \
   src/features/scheduling/utils/buildScheduleRoster.ts \
+  src/features/scheduling/utils/deriveScheduleRows.ts \
   src/features/scheduling/utils/timeGrid.ts \
   src/features/scheduling/utils/lessonTimeOptions.ts \
   src/features/scheduling/utils/sameTimeSlot.ts \
@@ -46,6 +47,7 @@ cp scripts/schedule-geometry-tests/quickactions.test.mjs "$OUT/"
 cp scripts/schedule-geometry-tests/sametimeslot.test.mjs "$OUT/"
 cp scripts/schedule-geometry-tests/studentweekly.test.mjs "$OUT/"
 cp scripts/schedule-geometry-tests/searchtext.test.mjs "$OUT/"
+cp scripts/schedule-geometry-tests/filters.test.mjs "$OUT/"
 
 status=0
 node "$OUT/timeline.test.mjs"   || status=1
@@ -63,4 +65,6 @@ echo
 node "$OUT/studentweekly.test.mjs" || status=1
 echo
 node "$OUT/searchtext.test.mjs" || status=1
+echo
+node "$OUT/filters.test.mjs" || status=1
 exit $status
