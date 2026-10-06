@@ -1,10 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronsUpDown } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import type { Teacher } from '@/lib/types';
 
 /**
@@ -26,7 +24,6 @@ export function AssignPrimaryTeacherDialog({
 }) {
   const { t } = useTranslation();
   const [teacherId, setTeacherId] = useState<string | null>(defaultTeacherId);
-  const [open, setOpen] = useState(false);
   const selected = teachers.find((tc) => tc.id === teacherId);
 
   return (
@@ -37,34 +34,16 @@ export function AssignPrimaryTeacherDialog({
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">{studentName}</p>
 
-          <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" role="combobox" className="w-full justify-between font-normal">
-                <span className="truncate">{selected?.fullName ?? t('teacherReview.dialog.selectPlaceholder')}</span>
-                <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-              <Command filter={(value, search) => {
-                const tc = teachers.find((x) => x.id === value);
-                if (!tc) return 0;
-                return tc.fullName.toLowerCase().includes(search.toLowerCase()) ? 1 : 0;
-              }}
-              >
-                <CommandInput placeholder={t('common.search')} />
-                <CommandList>
-                  <CommandEmpty>{t('common.noData')}</CommandEmpty>
-                  <CommandGroup>
-                    {teachers.map((tc) => (
-                      <CommandItem key={tc.id} value={tc.id} onSelect={() => { setTeacherId(tc.id); setOpen(false); }}>
-                        {tc.fullName}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+          <SearchableSelect
+            testId="assign-primary-teacher"
+            ariaLabel={t('teacherReview.dialog.selectPlaceholder')}
+            value={teacherId ?? undefined}
+            onValueChange={setTeacherId}
+            placeholder={t('teacherReview.dialog.selectPlaceholder')}
+            searchPlaceholder={t('common.search')}
+            emptyText={t('common.noData')}
+            options={teachers.map((tc) => ({ value: tc.id, label: tc.fullName, searchText: tc.id }))}
+          />
 
           {selected && (
             <p className="text-sm bg-muted/50 rounded-md p-2.5">

@@ -946,10 +946,27 @@ test('create mode still offers its own controls and creates a lesson', async ({ 
   for (const label of ['Create Lesson', 'Teacher', 'Days', 'Course', 'Duration', 'Students']) {
     await expect(dialog).toContainText(label);
   }
-  // All seven days are still offered.
-  for (const day of ['Sunday', 'Wednesday', 'Saturday']) {
-    await expect(dialog).toContainText(day);
-  }
+  // All seven days are still offered — now inside the searchable day picker
+  // rather than as an inline checkbox row. Seven is over the threshold, so
+  // this control is searchable like every other list of its size.
+  await page.locator('[data-testid="create-days"]').click();
+  expect(await page.locator('[role="option"]').allInnerTexts()).toEqual([
+    'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday',
+  ]);
+  // Search narrows it, and the picker stays open across picks (multi-select).
+  await page.getByPlaceholder('Search').fill('wed');
+  expect(await page.locator('[role="option"]').allInnerTexts()).toEqual(['Wednesday']);
+  await page.getByRole('option', { name: 'Wednesday' }).click();
+  await page.keyboard.press('Escape');
+  // Sunday came pre-selected from the clicked slot; Wednesday joins it, in
+  // week order rather than click order.
+  await expect(page.locator('[data-testid="create-days"]')).toContainText('Sunday, Wednesday');
+
+  // Put the selection back to the single default day for the rest of the test.
+  await page.locator('[data-testid="create-days"]').click();
+  await page.getByRole('option', { name: 'Wednesday' }).click();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('[data-testid="create-days"]')).toContainText('Sunday');
   // And it is NOT the scheduling edit card.
   expect(await page.locator('[data-testid="lesson-edit"]').count()).toBe(0);
   expect(await page.locator('[data-testid="edit-scope"]').count()).toBe(0);

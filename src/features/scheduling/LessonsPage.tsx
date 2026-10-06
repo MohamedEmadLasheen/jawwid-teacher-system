@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
+import { SearchableSelect, SearchableMultiSelect } from '@/components/ui/searchable-select';
 import { CheckCircle2, AlertTriangle } from 'lucide-react';
 import type { DayOfWeek } from '@/lib/types';
 
@@ -40,11 +40,6 @@ export function LessonsPage() {
   const [studentIds, setStudentIds] = useState<string[]>([]);
   const [preview, setPreview] = useState<{ hasConflict: boolean; message: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const toggleStudent = (id: string) => {
-    setStudentIds((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));
-    setPreview(null);
-  };
 
   const handlePreview = async () => {
     if (!teacherId || studentIds.length === 0) return;
@@ -92,36 +87,42 @@ export function LessonsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1">
               <Label>{t('nav.teachers')}</Label>
-              <Select value={teacherId} onValueChange={(v) => { setTeacherId(v); setPreview(null); }}>
-                <SelectTrigger><SelectValue placeholder={t('nav.teachers')} /></SelectTrigger>
-                <SelectContent>
-                  {teachers.filter((tc) => !tc.isDeleted).map((tc) => (
-                    <SelectItem key={tc.id} value={tc.id}>{tc.fullName}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                testId="lessons-teacher"
+                ariaLabel={t('nav.teachers')}
+                value={teacherId}
+                onValueChange={(v) => { setTeacherId(v); setPreview(null); }}
+                placeholder={t('nav.teachers')}
+                searchPlaceholder={t('nav.teachers')}
+                options={teachers.filter((tc) => !tc.isDeleted).map((tc) => ({
+                  value: tc.id, label: tc.fullName, searchText: tc.id,
+                }))}
+              />
             </div>
             <div className="space-y-1">
               <Label>{t('students.course')}</Label>
-              <Select value={courseId} onValueChange={setCourseId}>
-                <SelectTrigger><SelectValue placeholder={t('students.coursePending')} /></SelectTrigger>
-                <SelectContent>
-                  {courses.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>{isAr ? c.nameAr : c.nameEn}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                testId="lessons-course"
+                ariaLabel={t('students.course')}
+                value={courseId}
+                onValueChange={setCourseId}
+                placeholder={t('students.coursePending')}
+                searchPlaceholder={t('students.course')}
+                options={courses.map((c) => ({
+                  value: c.id, label: isAr ? c.nameAr : c.nameEn, searchText: `${c.nameAr} ${c.nameEn}`,
+                }))}
+              />
             </div>
             <div className="space-y-1">
               <Label>{t('scheduling.day.sunday')}</Label>
-              <Select value={String(dayOfWeek)} onValueChange={(v) => { setDayOfWeek(Number(v) as DayOfWeek); setPreview(null); }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {DAYS_OF_WEEK.map((d) => (
-                    <SelectItem key={d.value} value={String(d.value)}>{t(d.labelKey)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                testId="lessons-day"
+                ariaLabel={t('scheduling.dayColumn')}
+                value={String(dayOfWeek)}
+                onValueChange={(v) => { setDayOfWeek(Number(v) as DayOfWeek); setPreview(null); }}
+                searchPlaceholder={t('common.search')}
+                options={DAYS_OF_WEEK.map((d) => ({ value: String(d.value), label: t(d.labelKey) }))}
+              />
             </div>
             <div className="space-y-1">
               <Label>{t('scheduling.startTime')}</Label>
@@ -142,15 +143,20 @@ export function LessonsPage() {
 
           <div className="space-y-1">
             <Label>{t('nav.students')}</Label>
-            <div className="flex flex-wrap gap-3 max-h-40 overflow-y-auto border rounded-lg p-3">
-              {students.filter((s) => !s.isDeleted).map((s) => (
-                <label key={s.id} className="flex items-center gap-1.5 text-sm">
-                  <Checkbox checked={studentIds.includes(s.id)} onCheckedChange={() => toggleStudent(s.id)} />
-                  {s.fullName}
-                </label>
-              ))}
-              {students.length === 0 && <p className="text-xs text-muted-foreground">{t('students.noStudents')}</p>}
-            </div>
+            {/* Was a scrolling wall of checkboxes over every student in the
+                academy — an unbounded selection control with no search at all,
+                which the >5 rule covers whether or not the control is a dropdown. */}
+            <SearchableMultiSelect
+              testId="lessons-students"
+              ariaLabel={t('nav.students')}
+              values={studentIds}
+              onValuesChange={(ids) => { setStudentIds(ids); setPreview(null); }}
+              placeholder={t('students.noStudents')}
+              searchPlaceholder={t('scheduling.searchStudentParentId')}
+              options={students.filter((s) => !s.isDeleted).map((s) => ({
+                value: s.id, label: s.fullName, searchText: s.id,
+              }))}
+            />
           </div>
 
           {preview && (

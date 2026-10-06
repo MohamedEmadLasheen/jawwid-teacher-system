@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { matchesSearch } from '@/lib/searchMatch';
 import { useAuthStore } from '@/store/authStore';
 import { useLogStore } from '@/store/logStore';
 import {
@@ -47,7 +48,7 @@ export function ParentsPage() {
 
   const filtered = parents.filter((p) => {
     if (p.isDeleted !== showDeleted) return false;
-    if (search && !p.fullName.toLowerCase().includes(search.toLowerCase()) && !p.phone.includes(search)) return false;
+    if (search && !matchesSearch(`${p.fullName} ${p.phone}`, search)) return false;
     return true;
   });
 

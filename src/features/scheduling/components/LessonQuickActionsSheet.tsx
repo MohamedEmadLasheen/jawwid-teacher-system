@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useTeacherStore } from '@/store/teacherStore';
+import { matchesSearch } from '@/lib/searchMatch';
 import { useStudents } from '../hooks/useStudents';
 import { useCurrentPrimaryTeachers } from '../hooks/usePrimaryTeacherAssignments';
 import { useCheckScheduleConflict } from '../hooks/useScheduleRpc';
@@ -107,10 +108,14 @@ export function LessonQuickActionsSheet({
   const singlePrimaryTeacherId = primaryIds.size === 1 ? [...primaryIds][0] : null;
 
   const teacherOptions = useMemo(() => {
-    const q = teacherQuery.trim().toLowerCase();
+    // The drawer keeps its full-width, 48px-target list — forcing a popover
+    // here would be a mobile regression. What it does NOT keep is its own
+    // search rule: matching goes through the same matchesSearch the shared
+    // SearchableSelect uses, so "احمد" finds أحمد here exactly as it does on
+    // the desktop pickers.
     const pool = teachers
       .filter((tc) => !tc.isDeleted && tc.id !== lesson.teacherId)
-      .filter((tc) => !q || tc.fullName.toLowerCase().includes(q));
+      .filter((tc) => matchesSearch(`${tc.fullName} ${tc.id}`, teacherQuery));
     if (!singlePrimaryTeacherId) return pool;
     return [
       ...pool.filter((tc) => tc.id === singlePrimaryTeacherId),

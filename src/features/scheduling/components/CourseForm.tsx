@@ -5,9 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 
 interface CourseFormProps {
   course?: Course;
@@ -49,14 +47,14 @@ export function CourseForm({ course, onSubmit, onCancel }: CourseFormProps) {
         </div>
         <div className="space-y-1">
           <Label>{t('courses.category')}</Label>
-          <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v as CourseCategory })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {ALL_CATEGORIES.map((cat) => (
-                <SelectItem key={cat} value={cat}>{t(`specialization.${cat}`)}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            testId="course-category"
+            ariaLabel={t('courses.category')}
+            value={form.category}
+            onValueChange={(v) => setForm({ ...form, category: v as CourseCategory })}
+            searchPlaceholder={t('courses.category')}
+            options={ALL_CATEGORIES.map((cat) => ({ value: cat, label: t(`specialization.${cat}`) }))}
+          />
         </div>
         <div className="space-y-1">
           <Label>{t('courses.defaultDuration')}</Label>

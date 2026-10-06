@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { DAYS_OF_WEEK, GRID_COLUMNS } from '../constants/schedulingConstants';
 import { minuteToDisplayLabel } from '../utils/timeGrid';
 import {
@@ -226,46 +227,42 @@ export function StudentWeeklyScheduleList({
               <p className="text-sm font-medium">{t('scheduling.weekly.addTitle')}</p>
               <div className="space-y-1">
                 <Label htmlFor="add-teacher">{t('scheduling.teacher')}</Label>
-                <Select
+                <SearchableSelect
+                  id="add-teacher"
+                  testId="add-teacher"
+                  ariaLabel={t('scheduling.teacher')}
                   value={draft.teacherId}
                   onValueChange={(v) => setDraft((d) => ({ ...d, teacherId: v }))}
-                >
-                  <SelectTrigger id="add-teacher" data-testid="add-teacher"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {teachers.filter((tc) => !tc.isDeleted).map((tc) => (
-                      <SelectItem key={tc.id} value={tc.id}>{tc.fullName}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  searchPlaceholder={t('common.search')}
+                  options={teachers.filter((tc) => !tc.isDeleted).map((tc) => ({
+                    value: tc.id, label: tc.fullName, searchText: tc.id,
+                  }))}
+                />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label htmlFor="add-day">{t('scheduling.dayColumn')}</Label>
-                  <Select
+                  <SearchableSelect
+                    id="add-day"
+                    testId="add-day"
+                    ariaLabel={t('scheduling.dayColumn')}
                     value={String(draft.dayOfWeek)}
                     onValueChange={(v) => setDraft((d) => ({ ...d, dayOfWeek: Number(v) as DayOfWeek }))}
-                  >
-                    <SelectTrigger id="add-day" data-testid="add-day"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {DAYS_OF_WEEK.map((d) => (
-                        <SelectItem key={d.value} value={String(d.value)}>{t(d.labelKey)}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    searchPlaceholder={t('common.search')}
+                    options={DAYS_OF_WEEK.map((d) => ({ value: String(d.value), label: t(d.labelKey) }))}
+                  />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="add-time">{t('scheduling.startTime')}</Label>
-                  <Select
+                  <SearchableSelect
+                    id="add-time"
+                    testId="add-time"
+                    ariaLabel={t('scheduling.startTime')}
                     value={String(draft.startMinute)}
                     onValueChange={(v) => setDraft((d) => ({ ...d, startMinute: Number(v) }))}
-                  >
-                    <SelectTrigger id="add-time" data-testid="add-time"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {GRID_COLUMNS.map((m) => (
-                        <SelectItem key={m} value={String(m)}>{minuteToDisplayLabel(m)}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    searchPlaceholder={t('common.search')}
+                    options={GRID_COLUMNS.map((m) => ({ value: String(m), label: minuteToDisplayLabel(m) }))}
+                  />
                 </div>
               </div>
               <div className="space-y-1">

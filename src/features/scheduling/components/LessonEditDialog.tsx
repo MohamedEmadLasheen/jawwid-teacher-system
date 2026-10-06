@@ -14,6 +14,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useTeacherStore } from '@/store/teacherStore';
 import { useStudents } from '../hooks/useStudents';
 import { useCheckScheduleConflict } from '../hooks/useScheduleRpc';
@@ -478,47 +479,46 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
 
             <div className="space-y-1">
               <Label htmlFor="edit-teacher">{t('scheduling.teacher')}</Label>
-              <Select value={teacherId} onValueChange={change(setTeacherId)}>
-                <SelectTrigger id="edit-teacher" data-testid="edit-teacher"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {teachers.filter((tc) => !tc.isDeleted).map((tc) => (
-                    <SelectItem key={tc.id} value={tc.id}>{tc.fullName}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                id="edit-teacher"
+                testId="edit-teacher"
+                ariaLabel={t('scheduling.teacher')}
+                value={teacherId}
+                onValueChange={change(setTeacherId)}
+                searchPlaceholder={t('common.search')}
+                options={teachers.filter((tc) => !tc.isDeleted).map((tc) => ({
+                  value: tc.id, label: tc.fullName, searchText: tc.id,
+                }))}
+              />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label htmlFor="edit-day">{t('scheduling.dayColumn')}</Label>
-                <Select
+                <SearchableSelect
+                  id="edit-day"
+                  testId="edit-day"
+                  ariaLabel={t('scheduling.dayColumn')}
                   value={String(dayOfWeek)}
                   onValueChange={change((v: string) => setDayOfWeek(Number(v) as DayOfWeek))}
-                >
-                  <SelectTrigger id="edit-day" data-testid="edit-day"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {DAYS_OF_WEEK.map((d) => (
-                      <SelectItem key={d.value} value={String(d.value)}>{t(d.labelKey)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  searchPlaceholder={t('common.search')}
+                  options={DAYS_OF_WEEK.map((d) => ({ value: String(d.value), label: t(d.labelKey) }))}
+                />
               </div>
 
               <div className="space-y-1">
                 <Label htmlFor="edit-time">{t('scheduling.startTime')}</Label>
                 {/* The configured timeline's own columns — the same source the
                     grid and the mobile picker use, so no hour is hardcoded. */}
-                <Select
+                <SearchableSelect
+                  id="edit-time"
+                  testId="edit-time"
+                  ariaLabel={t('scheduling.startTime')}
                   value={String(startMinute)}
                   onValueChange={change((v: string) => setStartMinute(Number(v)))}
-                >
-                  <SelectTrigger id="edit-time" data-testid="edit-time"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {GRID_COLUMNS.map((m) => (
-                      <SelectItem key={m} value={String(m)}>{minuteToDisplayLabel(m)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  searchPlaceholder={t('common.search')}
+                  options={GRID_COLUMNS.map((m) => ({ value: String(m), label: minuteToDisplayLabel(m) }))}
+                />
               </div>
             </div>
 
