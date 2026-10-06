@@ -11,8 +11,12 @@
  *   1. An untrimmed query. A trailing space from a paste or a soft keyboard
  *      matched nothing at all.
  *   2. Arabic orthography. "احمد" is what gets typed; "أحمد" is what is
- *      stored. Different code points, so `includes` said no. Same for ى/ي,
- *      ة/ه, and any name carrying harakat.
+ *      stored. Different code points, so `includes` said no. Same for any
+ *      name carrying harakat, a kashida, or an alef wasla.
+ *
+ *      Note what is NOT folded, and why: ة/ه and ى/ي look alike but are
+ *      different letters, and this academy has students whose names differ by
+ *      exactly that. See LETTER_FOLDING.
  *   3. Word order. "ahmed arwa" could not find "Arwa Ahmed", even though
  *      both words are right there.
  *
@@ -34,11 +38,21 @@ const COMBINING_MARKS = /[̀-ًͯ-ٰٟ]/g;
 /** Tatweel (U+0640) is pure typographic stretching and carries no meaning. */
 const TATWEEL = /ـ/g;
 
-/** The letters NFD leaves alone. */
+/**
+ * The letters NFD leaves alone.
+ *
+ * Only alef wasla is folded. ة and ى are DELIBERATELY absent: unlike a hamza
+ * seat or a haraka, they are not an orthographic variant of the letter they
+ * resemble — they distinguish real names. Folding ة→ه merges آمنة with آمنه,
+ * and ى→ي merges منى with مني. The academy's records contain both spellings
+ * as separate students, so collapsing them would make a search for one return
+ * the other and quietly hide the distinction from whoever is booking a lesson.
+ *
+ * Anything added to this table must be an orthographic variant of the same
+ * letter, never two letters that merely look alike.
+ */
 const LETTER_FOLDING: Array<readonly [RegExp, string]> = [
-  [/ٱ/g, 'ا'], // ٱ alef wasla   → ا
-  [/ى/g, 'ي'], // ى alef maqsura → ي
-  [/ة/g, 'ه'], // ة ta marbuta   → ه
+  [/ٱ/g, 'ا'], // ٱ alef wasla → ا
 ];
 
 /** ٠١٢٣٤٥٦٧٨٩ → 0123456789, so a query typed on an Arabic keypad matches. */

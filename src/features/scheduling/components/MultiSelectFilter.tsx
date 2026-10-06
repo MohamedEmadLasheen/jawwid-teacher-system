@@ -8,7 +8,6 @@ import {
 import { ChevronsUpDown } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { matchesSearch } from '@/lib/searchText';
-import { SEARCH_THRESHOLD } from '@/components/ui/searchable-select';
 
 export interface MultiSelectOption {
   id: string;
@@ -33,7 +32,8 @@ interface MultiSelectFilterProps {
   /**
    * Force the search field on or off — same contract as SearchableSelect:
    * pass `searchable` for any collection that grows with the data, and leave
-   * it undefined only for a fixed enum, where SEARCH_THRESHOLD decides.
+   * it `false` only for a list fixed in the code with five options or fewer.
+   * There is no count-based rule — see SearchableSelect.
    */
   searchable?: boolean;
   searchPlaceholder?: string;
@@ -55,7 +55,7 @@ export function MultiSelectFilter({
 
   /** Same rule as the single-select, so the two controls behave alike: an
    *  explicit `searchable` wins, otherwise the bounded-list threshold. */
-  const showSearch = searchable ?? options.length > SEARCH_THRESHOLD;
+  const showSearch = searchable ?? true;
 
   /** Filtered here rather than by cmdk's fuzzy scorer, through the shared
    *  matcher — one search rule for every selector in the app. */
