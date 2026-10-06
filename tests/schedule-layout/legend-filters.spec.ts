@@ -25,6 +25,10 @@ type Fixtures = {
   zainabId: string;
   fullTimeTeachers: string[];
   partTimeTeachers: string[];
+  dinaTeachers: string[];
+  zainabTeachers: string[];
+  trialTeachers: string[];
+  pausedTeachers: string[];
 };
 
 async function open(page: Page, dir: 'ltr' | 'rtl' = 'ltr') {
@@ -118,6 +122,94 @@ for (const dir of ['ltr', 'rtl'] as const) {
       );
     });
 
+    // ---------------------------------------------------------------------
+    // The schedule must actually narrow — not merely leave rows empty.
+    // ---------------------------------------------------------------------
+    test('each supervisor narrows the rows to that supervisor\'s real data', async ({ page }) => {
+      const f = await open(page, dir);
+
+      await page.locator(`[data-testid="legend-supervisor-${f.dinaId}"]`).click();
+      expect((await visibleTeachers(page)).sort()).toEqual([...f.dinaTeachers].sort());
+
+      // Swap to the other supervisor: a different, non-overlapping row set.
+      await page.locator(`[data-testid="legend-supervisor-${f.dinaId}"]`).click();
+      await page.locator(`[data-testid="legend-supervisor-${f.zainabId}"]`).click();
+      expect((await visibleTeachers(page)).sort()).toEqual([...f.zainabTeachers].sort());
+
+      // Toggling off restores the full roster.
+      await page.locator(`[data-testid="legend-supervisor-${f.zainabId}"]`).click();
+      expect(await visibleTeachers(page)).toEqual([...f.fullTimeTeachers, ...f.partTimeTeachers]);
+    });
+
+    test('supervisors OR within the category, at row level', async ({ page }) => {
+      const f = await open(page, dir);
+      await page.locator(`[data-testid="legend-supervisor-${f.dinaId}"]`).click();
+      await page.locator(`[data-testid="legend-supervisor-${f.zainabId}"]`).click();
+      const union = [...new Set([...f.dinaTeachers, ...f.zainabTeachers])].sort();
+      expect((await visibleTeachers(page)).sort()).toEqual(union);
+    });
+
+    test('Trial, Active and Paused each narrow the rows', async ({ page }) => {
+      const f = await open(page, dir);
+
+      await page.locator('[data-testid="legend-status-trial"]').click();
+      expect((await visibleTeachers(page)).sort()).toEqual([...f.trialTeachers].sort());
+      await page.locator('[data-testid="legend-status-trial"]').click();
+
+      await page.locator('[data-testid="legend-status-active"]').click();
+      const active = await visibleTeachers(page);
+      expect(active.length).toBeGreaterThan(0);
+      // The paused-only teacher must NOT appear under Active.
+      for (const name of f.pausedTeachers) expect(active).not.toContain(name);
+      await page.locator('[data-testid="legend-status-active"]').click();
+
+      // Paused is fetched on demand — the row exists only once it is asked for.
+      expect(await visibleTeachers(page)).not.toEqual(f.pausedTeachers);
+      await page.locator('[data-testid="legend-status-paused"]').click();
+      await expect(state(page)).toHaveAttribute('data-lifecycle-statuses', 'paused');
+      await expect
+        .poll(async () => (await visibleTeachers(page)).sort())
+        .toEqual([...f.pausedTeachers].sort());
+    });
+
+    test('Active + Paused shows both, and toggling back restores', async ({ page }) => {
+      const f = await open(page, dir);
+      await page.locator('[data-testid="legend-status-active"]').click();
+      await page.locator('[data-testid="legend-status-paused"]').click();
+      await expect.poll(async () => {
+        const names = await visibleTeachers(page);
+        return f.pausedTeachers.every((n) => names.includes(n)) && names.length > f.pausedTeachers.length;
+      }).toBe(true);
+
+      await page.locator('[data-testid="legend-status-paused"]').click();
+      await page.locator('[data-testid="legend-status-active"]').click();
+      expect(await visibleTeachers(page)).toEqual([...f.fullTimeTeachers, ...f.partTimeTeachers]);
+    });
+
+    test('hiding a lesson never repaints its minutes as free', async ({ page }) => {
+      const f = await open(page, dir);
+
+      const bandsFor = async (teacher: string) => page.evaluate((name) => {
+        const row = Array.from(document.querySelectorAll('.sticky.start-0 p'))
+          .find((p) => (p.textContent ?? '').trim() === name)?.closest('div.flex');
+        if (!row) return null;
+        return Array.from(row.querySelectorAll('div.z-10')).map((b) => {
+          const r = b.getBoundingClientRect();
+          return [Math.round(r.width), Math.round(r.left)];
+        });
+      }, teacher);
+
+      const subject = f.dinaTeachers.find((n) => f.zainabTeachers.includes(n))!;
+      const before = await bandsFor(subject);
+
+      // Hide some of that teacher's lessons with a supervisor filter.
+      await page.locator(`[data-testid="legend-supervisor-${f.dinaId}"]`).click();
+      expect(await visibleTeachers(page)).toContain(subject);
+      // The free-capacity bands must be byte-identical: occupancy comes from
+      // the unfiltered set, so a hidden lesson still holds its minutes.
+      expect(await bandsFor(subject)).toEqual(before);
+    });
+
     test('a supervisor chip writes the EXISTING supervisor filter, and several OR', async ({ page }) => {
       const f = await open(page, dir);
       const before = await visibleLessonCount(page);
@@ -198,13 +290,16 @@ for (const dir of ['ltr', 'rtl'] as const) {
       await page.locator(`[data-testid="legend-supervisor-${f.dinaId}"]`).click();
       await page.locator('[data-testid="legend-status-trial"]').click();
 
-      expect(await visibleTeachers(page)).toEqual(f.fullTimeTeachers);
-      // The only trial lesson belongs to Zainab's student, so nothing matches.
+      // AND across three categories. The only trial lesson belongs to
+      // Zainab's student, so no lesson is both Dina's and a trial — and with
+      // nothing left to draw, no row is an answer either.
+      expect(await visibleTeachers(page)).toEqual([]);
       expect(await visibleLessonCount(page)).toBe(0);
 
-      // Swap Dina for Zainab and the one qualifying lesson appears.
+      // Swap Dina for Zainab and exactly the qualifying row and lesson appear.
       await page.locator(`[data-testid="legend-supervisor-${f.dinaId}"]`).click();
       await page.locator(`[data-testid="legend-supervisor-${f.zainabId}"]`).click();
+      expect(await visibleTeachers(page)).toEqual(f.trialTeachers);
       expect(await visibleLessonCount(page)).toBe(1);
     });
 

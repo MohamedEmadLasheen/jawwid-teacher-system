@@ -56,15 +56,33 @@ export interface LessonWithParticipants extends Lesson {
 
 type LessonWithParticipantsRow = Row & { lesson_participants: { id: string; student_id: string; created_at: string }[] | null };
 
+/**
+ * The lifecycle statuses the Schedule shows unless something asks for more.
+ *
+ * This is the canonical "booked" set: a trial or an active lesson occupies its
+ * slot. Paused and ended lessons do not, which is why they are absent here and
+ * why capacity is judged against this set alone (see useTeacherDaySlots).
+ */
+export const DEFAULT_GRID_LIFECYCLES: Lesson['lifecycleStatus'][] = ['trial', 'active'];
+
 /** Fetches one day's lessons with their participants in a single nested-select request — the Master Grid's primary query.
- * Paginated: at demo/production scale a single day can hold well over 1000 recurring lessons, past PostgREST's default cap. */
-export async function fetchLessonsForDay(dayOfWeek: number): Promise<LessonWithParticipants[]> {
+ * Paginated: at demo/production scale a single day can hold well over 1000 recurring lessons, past PostgREST's default cap.
+ *
+ * `statuses` defaults to DEFAULT_GRID_LIFECYCLES, so every existing caller —
+ * the grid's booked set, the time picker's capacity check, academy health and
+ * the recommendation engine — keeps exactly the data it had. Only a caller
+ * that explicitly asks for another status gets one, and it gets it under its
+ * own query key rather than overwriting the shared booked set. */
+export async function fetchLessonsForDay(
+  dayOfWeek: number,
+  statuses: Lesson['lifecycleStatus'][] = DEFAULT_GRID_LIFECYCLES
+): Promise<LessonWithParticipants[]> {
   const rows = await fetchAllRows<LessonWithParticipantsRow>((from, to) =>
     supabase
       .from('lessons')
       .select('*, lesson_participants(id, student_id, created_at)')
       .eq('day_of_week', dayOfWeek)
-      .in('lifecycle_status', ['trial', 'active'])
+      .in('lifecycle_status', statuses)
       .order('start_minute', { ascending: true })
       .order('id', { ascending: true }) // tiebreaker — see fetchLessons()
       .range(from, to)
