@@ -28,8 +28,18 @@ export interface ScheduleGridTeacherRow {
 export interface DeriveScheduleRowsInput {
   /** Roster teachers, already in roster order — the only rows the Schedule shows. */
   rosterTeachers: Teacher[];
-  /** The day's lessons, AFTER applyOccurrenceExceptions. */
+  /** Everything the rows may DRAW, after applyOccurrenceExceptions. */
   lessons: LessonWithParticipants[];
+  /**
+   * The canonical BOOKED set, for occupancy. Defaults to `lessons`.
+   *
+   * These differ only when the UI has asked for a lifecycle the Schedule does
+   * not show by default: a paused lesson becomes visible, but it does not
+   * occupy its slot, so it must not subtract from free capacity. Keeping
+   * occupancy on its own input is also what guarantees requirement 6 — the
+   * free-capacity bands are identical whatever the filters say.
+   */
+  occupancyLessons?: LessonWithParticipants[];
   /** The day's unified availability rows, for every teacher. */
   availability: UnifiedAvailabilitySlot[];
   /** studentId → owning supervisor, for the supervisor filter. */
@@ -112,6 +122,28 @@ export function deriveScheduleRows(input: DeriveScheduleRowsInput): ScheduleGrid
     rosterTeachers, lessons, availability, supervisorIdByStudentId,
     studentNameById, templateIdsByTeacherId, filters,
   } = input;
+  const occupancySource = input.occupancyLessons ?? lessons;
+
+  /**
+   * Is any filter narrowing WHICH LESSONS a row draws?
+   *
+   * When one is, a teacher with nothing left to draw is not part of the
+   * answer and their row is dropped — clicking a supervisor shows that
+   * supervisor's schedule, not the whole roster with one row filled in. When
+   * none is, an empty row is meaningful (a teacher on shift with no lessons
+   * is exactly what Free time is looking for) and rows are kept.
+   */
+  const narrowsLessons =
+    filters.coursePendingOnly ||
+    filters.courseIds.length > 0 ||
+    filters.lifecycleStatuses.length > 0 ||
+    filters.supervisorIds.length > 0 ||
+    filters.studentIds.length > 0 ||
+    filters.primeTimeOnly ||
+    filters.groupFilter !== null ||
+    filters.timeRangeStart !== null ||
+    filters.timeRangeEnd !== null ||
+    filters.outsideShiftOnly;
   const search = input.searchQuery.trim().toLowerCase();
 
   return rosterTeachers
@@ -127,8 +159,11 @@ export function deriveScheduleRows(input: DeriveScheduleRowsInput): ScheduleGrid
     .map((teacher) => {
       const teacherAvailability = availability.filter((a) => a.teacherId === teacher.id);
       const allLessons = lessons.filter((l) => l.teacherId === teacher.id);
-      // Booked minutes, fixed before any lesson filter runs — see `occupancy`.
-      const occupancy = allLessons.map(asInterval);
+      // Booked minutes, taken from the canonical booked set and fixed before
+      // any lesson filter runs — see `occupancy` and `occupancyLessons`.
+      const occupancy = occupancySource
+        .filter((l) => l.teacherId === teacher.id)
+        .map(asInterval);
 
       // ── 2. lesson-level ───────────────────────────────────────────────
       let teacherLessons = allLessons;
@@ -188,10 +223,11 @@ export function deriveScheduleRows(input: DeriveScheduleRowsInput): ScheduleGrid
       return computeFreeIntervals(row.availability, row.occupancy).length > 0;
     })
     .filter((row) => {
-      // OUTSIDE SHIFT: at least one lesson really is outside the window. The
-      // lesson-level pass above already reduced `lessons` to those, so an
-      // empty list here means this teacher has none.
-      if (!filters.outsideShiftOnly) return true;
+      // A row with nothing left to draw is not an answer to the question the
+      // filter asked. This subsumes the outside-shift case: the lesson pass
+      // already reduced `lessons` to the out-of-window ones, so an empty list
+      // means this teacher has none.
+      if (!narrowsLessons) return true;
       return row.lessons.length > 0;
     })
     // ── search ──────────────────────────────────────────────────────────

@@ -211,16 +211,30 @@ check('B  a supervisor with no lessons today draws none',
   lessonIdsOf(derive({ supervisorIds: ['sup-nobody'] })), []);
 check('B  a student with no supervisor is never matched by a supervisor filter',
   lessonIdsOf(derive({ supervisorIds: [DINA, ZAINAB, REHAB] })).includes('L-none'), false);
-check('B  rows are not dropped by a lesson-level filter (roster stays stable)',
-  teacherIdsOf(derive({ supervisorIds: [REHAB] })).length, 6);
-check('B  …and the non-matching rows really are empty',
-  rowFor(derive({ supervisorIds: [REHAB] }), 'FT-1').lessons, []);
+// A lesson-level filter NARROWS THE SCHEDULE. Clicking a supervisor answers
+// "show me this supervisor's schedule", so a teacher with none of their
+// lessons is not part of the answer and their row goes away. The previous
+// behaviour kept all 14 rows with one filled in, which read as "the filter
+// did nothing".
+check('B  a supervisor filter drops rows with none of their lessons',
+  teacherIdsOf(derive({ supervisorIds: [REHAB] })), ['PT-1']);
+check('B  …and the surviving row carries only their lessons',
+  rowFor(derive({ supervisorIds: [REHAB] }), 'PT-1').lessons.map((l) => l.id), ['L-pt1-in']);
+check('B  a supervisor with no lessons today leaves no rows at all',
+  teacherIdsOf(derive({ supervisorIds: ['sup-nobody'] })), []);
+check('B  two supervisors OR at row level too',
+  teacherIdsOf(derive({ supervisorIds: [DINA, ZAINAB] })), ['FT-1', 'FT-2', 'PT-1', 'PT-2', 'NOWIN']);
 
 console.log('='.repeat(78));
 console.log('C · LESSON LIFECYCLE FILTER (lifecycleStatuses — the existing field)');
 console.log('='.repeat(78));
 
 check('C  Trial → only trial lessons', lessonIdsOf(derive({ lifecycleStatuses: ['trial'] })), ['L-ft1-t']);
+check('C  Trial → only the rows holding one', teacherIdsOf(derive({ lifecycleStatuses: ['trial'] })), ['FT-1']);
+check('C  Active → only the rows holding one',
+  teacherIdsOf(derive({ lifecycleStatuses: ['active'] })), ['FT-1', 'FT-2', 'PT-1', 'PT-2', 'NOWIN']);
+check('C  a status nothing holds today leaves no rows',
+  teacherIdsOf(derive({ lifecycleStatuses: ['paused'] })), []);
 check('C  Active → only active lessons', lessonIdsOf(derive({ lifecycleStatuses: ['active'] })).sort(),
   ['L-ft1-a', 'L-ft2-all', 'L-nowin', 'L-pt1-in', 'L-pt1-out', 'L-pt2-out']);
 check('C  Trial + Active OR together',
@@ -292,9 +306,17 @@ console.log('='.repeat(78));
     fmt(computeRowLayout(row.lessons, row.availability).freeIntervals),
     ['12:00-15:00', '16:00-19:00']);
 
-  const supRow = rowFor(derive({ supervisorIds: [REHAB] }), 'FT-2');
-  check('D2 a supervisor filter does not free up a fully-booked teacher',
-    fmt(computeRowLayout(supRow.lessons, supRow.availability, supRow.occupancy).freeIntervals), []);
+  // PT-1 survives a REHAB filter with only one of their two lessons visible.
+  // Occupancy must still cover BOTH, or the hidden 19:00 lesson's minutes
+  // would be repainted as free capacity.
+  const supRow = rowFor(derive({ supervisorIds: [REHAB] }), 'PT-1');
+  check('D2 a supervisor filter hides a lesson without freeing its minutes',
+    [supRow.lessons.map((l) => l.id), fmt(supRow.occupancy)],
+    [['L-pt1-in'], ['14:00-15:00', '19:00-20:00']]);
+  check('D2 …so the free bands are what they were before the filter',
+    fmt(computeRowLayout(supRow.lessons, supRow.availability, supRow.occupancy).freeIntervals),
+    fmt(computeRowLayout(rowFor(derive(), 'PT-1').lessons, rowFor(derive(), 'PT-1').availability,
+      rowFor(derive(), 'PT-1').occupancy).freeIntervals));
 }
 
 console.log('='.repeat(78));
@@ -338,9 +360,13 @@ console.log('='.repeat(78));
 check('F  free time leaves every lifecycle status alone',
   [...new Set(derive({ availableOnly: true }).flatMap((r) => r.lessons.map((l) => l.lifecycleStatus)))].sort(),
   ['active', 'trial']);
-check('F  free time + Trial: free-capacity rows, trial lessons only',
+// Free time AND Trial: a row must have real unsold capacity AND a trial
+// lesson. FT-3 has capacity but no trial, so it is no longer an answer.
+check('F  free time + Trial: capacity AND a trial lesson',
   derive({ availableOnly: true, lifecycleStatuses: ['trial'] }).map((r) => [r.teacher.id, r.lessons.map((l) => l.id)]),
-  [['FT-1', ['L-ft1-t']], ['FT-3', []], ['PT-1', []], ['PT-2', []]]);
+  [['FT-1', ['L-ft1-t']]]);
+check('F  free time ALONE still keeps a teacher with no lessons at all',
+  teacherIdsOf(derive({ availableOnly: true })).includes('FT-3'), true);
 check('F  outside shift + free time AND together',
   teacherIdsOf(derive({ availableOnly: true, outsideShiftOnly: true })), ['PT-1', 'PT-2']);
 check('F  outside shift + free time on a fully-booked window → nothing',
@@ -355,20 +381,19 @@ console.log('='.repeat(78));
 // The brief's worked example: Full-time + Dina + Trial.
 {
   const rows = derive({ shiftTemplateIds: [FULL_TPL.id], supervisorIds: [DINA], lifecycleStatuses: ['trial'] });
-  check('G  Full-time + Dina + Trial → only full-time rows',
-    teacherIdsOf(rows), ['FT-1', 'FT-2', 'FT-3']);
-  check('G  …and no lesson is both Dina\'s and a trial today, so none is drawn',
-    lessonIdsOf(rows), []);
+  check('G  Full-time + Dina + Trial → no lesson is both, so no rows',
+    teacherIdsOf(rows), []);
+  check('G  …and nothing is drawn', lessonIdsOf(rows), []);
 }
 check('G  Full-time + Zainab + Trial → the one lesson that is both',
   lessonIdsOf(derive({ shiftTemplateIds: [FULL_TPL.id], supervisorIds: [ZAINAB], lifecycleStatuses: ['trial'] })),
   ['L-ft1-t']);
 check('G  Dina OR Zainab, ANDed with Trial, is not a global OR',
   lessonIdsOf(derive({ supervisorIds: [DINA, ZAINAB], lifecycleStatuses: ['trial'] })), ['L-ft1-t']);
-check('G  Part-time + Dina → Dina\'s lessons, part-time rows only',
+check('G  Part-time + Dina → part-time rows that actually hold a Dina lesson',
   derive({ shiftTemplateIds: [PART_TPL.id], supervisorIds: [DINA] })
     .map((r) => [r.teacher.id, r.lessons.map((l) => l.id)]),
-  [['PT-1', ['L-pt1-out']], ['PT-2', []], ['NOWIN', ['L-nowin']]]);
+  [['PT-1', ['L-pt1-out']], ['NOWIN', ['L-nowin']]]);
 check('G  Full-time + free time',
   teacherIdsOf(derive({ shiftTemplateIds: [FULL_TPL.id], availableOnly: true })), ['FT-1', 'FT-3']);
 check('G  Part-time + outside shift',
@@ -480,10 +505,12 @@ check('J  rows are fresh objects — nothing is aliased back into the inputs',
 // same active filters applied to a different day's lessons just re-derive.
 {
   const otherDay = [lesson('L-mon', 'FT-2', 13 * 60, { students: ['S-d1'] })];
+  // Same active filters, a different day's lessons: only the teacher who has
+  // a Dina lesson that day AND free capacity survives.
   check('J  switching days re-derives under the same active filters',
     derive({ availableOnly: true, supervisorIds: [DINA] }, '', otherDay)
       .map((r) => [r.teacher.id, r.lessons.map((l) => l.id)]),
-    [['FT-1', []], ['FT-2', ['L-mon']], ['FT-3', []], ['PT-1', []], ['PT-2', []]]);
+    [['FT-2', ['L-mon']]]);
 }
 
 // A teacher assigned to two templates matches either — OR within the category.

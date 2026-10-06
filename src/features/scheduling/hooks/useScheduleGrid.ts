@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useScheduleRoster } from './useScheduleRoster';
 import { useSupervisorStore } from '@/store/supervisorStore';
 import * as lessonsSvc from '@/services/scheduling/lessons.service';
+import { DEFAULT_GRID_LIFECYCLES } from '@/services/scheduling/lessons.service';
 import * as availabilitySvc from '@/services/scheduling/teacherAvailability.service';
 import { useStudents } from './useStudents';
 import { useCourses } from './useCourses';
@@ -44,9 +45,27 @@ export function useScheduleGrid(dayOfWeek: number, filters: ScheduleFilters, sea
 
   const occurrenceDate = nextDateForDayOfWeek(dayOfWeek as DayOfWeek);
 
+  // The booked set. Always the default lifecycles, never filter-dependent:
+  // this is the shared cache entry useTeacherDaySlots reads to judge capacity,
+  // and a filter must not be able to change what counts as booked.
   const lessonsQuery = useQuery({
     queryKey: schedulingKeys.grid(dayOfWeek),
     queryFn: () => lessonsSvc.fetchLessonsForDay(dayOfWeek),
+  });
+
+  /**
+   * Statuses the user asked for that the grid does not load by default —
+   * today that means `paused`. Empty unless one is actually selected, so
+   * nothing extra is ever fetched just to be hidden again.
+   */
+  const extraLifecycles = useMemo(
+    () => filters.lifecycleStatuses.filter((s) => !DEFAULT_GRID_LIFECYCLES.includes(s)),
+    [filters.lifecycleStatuses]
+  );
+  const extraLessonsQuery = useQuery({
+    queryKey: schedulingKeys.gridExtraLifecycles(dayOfWeek, extraLifecycles),
+    queryFn: () => lessonsSvc.fetchLessonsForDay(dayOfWeek, extraLifecycles),
+    enabled: extraLifecycles.length > 0,
   });
   const availabilityQuery = useQuery({
     queryKey: schedulingKeys.availabilityForDay(dayOfWeek),
@@ -61,11 +80,18 @@ export function useScheduleGrid(dayOfWeek: number, filters: ScheduleFilters, sea
     // Apply today's occurrence-scoped deviations (cancel/reschedule) first, so
     // every filter below — free capacity included — sees the day as it will
     // actually be taught rather than the recurring shape.
-    const lessons = applyOccurrenceExceptions(lessonsQuery.data ?? [], exceptionsQuery.data ?? []);
+    const exceptions = exceptionsQuery.data ?? [];
+    const booked = applyOccurrenceExceptions(lessonsQuery.data ?? [], exceptions);
+    const extra = applyOccurrenceExceptions(extraLessonsQuery.data ?? [], exceptions);
 
     return deriveScheduleRows({
       rosterTeachers,
-      lessons,
+      // Drawable = the booked set plus whatever extra lifecycle was asked for.
+      lessons: extra.length > 0 ? [...booked, ...extra] : booked,
+      // Occupancy stays the booked set alone: a paused lesson is visible when
+      // asked for, but it does not hold its slot, so it must not change the
+      // free-capacity bands.
+      occupancyLessons: booked,
       availability: availabilityQuery.data ?? [],
       supervisorIdByStudentId: new Map(students.map((s) => [s.id, s.supervisorId])),
       studentNameById: new Map(students.map((s) => [s.id, s.fullName])),
@@ -75,7 +101,7 @@ export function useScheduleGrid(dayOfWeek: number, filters: ScheduleFilters, sea
     });
   }, [
     rosterTeachers, templateIdsByTeacherId, students,
-    lessonsQuery.data, availabilityQuery.data, exceptionsQuery.data,
+    lessonsQuery.data, extraLessonsQuery.data, availabilityQuery.data, exceptionsQuery.data,
     filters, searchQuery,
   ]);
 
@@ -83,7 +109,8 @@ export function useScheduleGrid(dayOfWeek: number, filters: ScheduleFilters, sea
     rows,
     courses,
     supervisors,
-    isLoading: lessonsQuery.isLoading || availabilityQuery.isLoading || exceptionsQuery.isLoading,
-    error: lessonsQuery.error || availabilityQuery.error || exceptionsQuery.error,
+    isLoading: lessonsQuery.isLoading || availabilityQuery.isLoading || exceptionsQuery.isLoading
+      || (extraLifecycles.length > 0 && extraLessonsQuery.isLoading),
+    error: lessonsQuery.error || extraLessonsQuery.error || availabilityQuery.error || exceptionsQuery.error,
   };
 }

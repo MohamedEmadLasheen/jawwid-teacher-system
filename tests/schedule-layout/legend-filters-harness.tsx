@@ -95,7 +95,7 @@ const students = [
 
 const mkLesson = (
   id: string, teacherId: string, startMinute: number,
-  opts: { durationMinutes?: number; studentId?: string; lifecycleStatus?: 'trial' | 'active' } = {}
+  opts: { durationMinutes?: number; studentId?: string; lifecycleStatus?: 'trial' | 'active' | 'paused' } = {}
 ) => {
   const durationMinutes = opts.durationMinutes ?? 60;
   const studentId = opts.studentId ?? 'S-d1';
@@ -117,6 +117,19 @@ const lessons = [
   mkLesson('L-pt1-in', 'PT-1', 14 * 60, { studentId: 'S-z1' }),
   mkLesson('L-pt1-out', 'PT-1', 19 * 60, { studentId: 'S-d1' }),
   mkLesson('L-pt2-out', 'PT-2', 10 * 60, { studentId: 'S-z1' }),
+];
+
+/**
+ * Paused lessons live in their own cache entry, exactly as production does:
+ * the grid only queries gridExtraLifecycles when Paused is selected, so a
+ * paused lesson is invisible until it is asked for — and it never contributes
+ * occupancy, because it does not hold its slot.
+ *
+ * FT-3 has no other lesson, which is what makes the row-narrowing provable:
+ * the row appears only under Paused.
+ */
+const pausedLessons = [
+  mkLesson('L-ft3-p', 'FT-3', 14 * 60, { studentId: 'S-d1', lifecycleStatus: 'paused' }),
 ];
 
 /** Mirrors MasterSchedulePage's filter section, legends included. */
@@ -155,6 +168,7 @@ queryClient.setQueryData(schedulingKeys.studentParents(), []);
 queryClient.setQueryData(schedulingKeys.shiftTemplates(), shiftTemplates);
 queryClient.setQueryData(schedulingKeys.teacherShiftAssignments(undefined), shiftAssignments);
 queryClient.setQueryData(schedulingKeys.grid(DAY), lessons);
+queryClient.setQueryData(schedulingKeys.gridExtraLifecycles(DAY, ['paused']), pausedLessons);
 queryClient.setQueryData(schedulingKeys.availabilityForDay(DAY), availability);
 queryClient.setQueryData(schedulingKeys.exceptionsForDate(nextDateForDayOfWeek(DAY)), []);
 
@@ -171,6 +185,11 @@ useScheduleUiStore.setState({ selectedDay: DAY, searchQuery: '', filters: DEFAUL
   dinaId: DINA,
   zainabId: ZAINAB,
   fullTimeTeachers: ['Arwa Ahmed', 'Doaa Zakaria', 'Hend Mohammed'],
+  // Who holds what, so no spec hardcodes a fixture name twice.
+  dinaTeachers: ['Arwa Ahmed', 'Doaa Zakaria', 'Aya Mustafa'],
+  zainabTeachers: ['Arwa Ahmed', 'Aya Mustafa', 'Zainab Hazem'],
+  trialTeachers: ['Arwa Ahmed'],
+  pausedTeachers: ['Hend Mohammed'],
   partTimeTeachers: ['Aya Mustafa', 'Zainab Hazem'],
 };
 
