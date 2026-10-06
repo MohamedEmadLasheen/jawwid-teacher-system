@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { DndContext, type DragEndEvent } from '@dnd-kit/core';
 import { useScheduleGrid } from '../hooks/useScheduleGrid';
@@ -8,7 +8,7 @@ import { ScheduleGridRow } from './ScheduleGridRow';
 import { ScheduleTimeHeader } from './ScheduleTimeHeader';
 import { timelineWidth } from '../utils/timelineGeometry';
 import { DAYS_OF_WEEK, GRID_COLUMNS } from '../constants/schedulingConstants';
-import { DEFAULT_FILTERS, type ScheduleFilters } from '@/store/scheduleUiStore';
+import { DEFAULT_FILTERS, useScheduleUiStore, type ScheduleFilters } from '@/store/scheduleUiStore';
 import type { DayOfWeek } from '@/lib/types';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
 
@@ -43,10 +43,45 @@ export function TeacherWeekGrid({ teacherId, onEmptyClick, onLessonClick, onProp
   const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
   const { columnWidth, teacherColumnWidth, rowHeight, isCompact } = useScheduleMetrics(scrollRef, GRID_COLUMNS.length);
-  const filters: ScheduleFilters = { ...DEFAULT_FILTERS, teacherIds: [teacherId] };
+  /**
+   * The legend's filters, straight from the one store the Master Schedule
+   * uses — so a chip means the same thing on both screens and there is no
+   * second filter engine.
+   *
+   * `teacherIds` is forced LAST and deliberately: this view is pinned to the
+   * teacher chosen in the selector above, and a teacher filter left over from
+   * the Master Schedule must never be able to swap the week out from under it.
+   */
+  const storeFilters = useScheduleUiStore((state) => state.filters);
+  const filters = useMemo<ScheduleFilters>(
+    () => ({ ...storeFilters, teacherIds: [teacherId] }),
+    [storeFilters, teacherId]
+  );
 
-  // Fixed 7 calls (one per real calendar day) — not a .map() over a hook,
-  // so the same hooks fire in the same order on every render.
+  /**
+   * The same week with NO legend filters applied.
+   *
+   * It exists because this view's rows are DAYS, not teachers. The shared
+   * engine drops a row with nothing left to draw — right for the Master
+   * Schedule, wrong here, where a week that silently loses Wednesday reads as
+   * a broken calendar rather than a filtered one. When the filtered pass drops
+   * a day, this pass supplies the day's shell: its real availability and its
+   * real `occupancy`, with an empty lesson list.
+   *
+   * Using the unfiltered row for that shell is also what keeps capacity
+   * honest — occupancy never comes from the filtered lesson set, so hiding a
+   * lesson cannot repaint its minutes as free.
+   *
+   * It costs no extra requests: both passes read the same React Query keys,
+   * so they share one cache entry per day.
+   */
+  const baseFilters = useMemo<ScheduleFilters>(
+    () => ({ ...DEFAULT_FILTERS, teacherIds: [teacherId] }),
+    [teacherId]
+  );
+
+  // Fixed 7+7 calls (one pair per real calendar day) — not a .map() over a
+  // hook, so the same hooks fire in the same order on every render.
   const sunday = useScheduleGrid(0, filters, '');
   const monday = useScheduleGrid(1, filters, '');
   const tuesday = useScheduleGrid(2, filters, '');
@@ -55,6 +90,15 @@ export function TeacherWeekGrid({ teacherId, onEmptyClick, onLessonClick, onProp
   const friday = useScheduleGrid(5, filters, '');
   const saturday = useScheduleGrid(6, filters, '');
   const days = [sunday, monday, tuesday, wednesday, thursday, friday, saturday];
+
+  const baseSunday = useScheduleGrid(0, baseFilters, '');
+  const baseMonday = useScheduleGrid(1, baseFilters, '');
+  const baseTuesday = useScheduleGrid(2, baseFilters, '');
+  const baseWednesday = useScheduleGrid(3, baseFilters, '');
+  const baseThursday = useScheduleGrid(4, baseFilters, '');
+  const baseFriday = useScheduleGrid(5, baseFilters, '');
+  const baseSaturday = useScheduleGrid(6, baseFilters, '');
+  const baseDays = [baseSunday, baseMonday, baseTuesday, baseWednesday, baseThursday, baseFriday, baseSaturday];
 
   const isLoading = days.some((d) => d.isLoading);
   const error = days.find((d) => d.error)?.error;
@@ -83,7 +127,12 @@ export function TeacherWeekGrid({ teacherId, onEmptyClick, onLessonClick, onProp
             <p className="text-sm text-muted-foreground p-4">…</p>
           ) : (
             DAYS_OF_WEEK.map(({ value: dayOfWeek, labelKey }) => {
-              const row = days[dayOfWeek].rows[0];
+              // Every one of the seven days stays on screen. A day the
+              // filters emptied falls back to its unfiltered shell with no
+              // lessons — same availability, same occupancy, nothing drawn.
+              const base = baseDays[dayOfWeek].rows[0];
+              const row = days[dayOfWeek].rows[0] ?? (base && { ...base, lessons: [] });
+              // Only a teacher who is not on the roster at all has no shell.
               if (!row) return null;
 
               const handleDragEnd = (event: DragEndEvent) => {

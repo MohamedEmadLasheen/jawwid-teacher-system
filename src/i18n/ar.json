@@ -802,6 +802,7 @@
     "outsideShift": "خارج الشيفت",
     "outsideShiftOnly": "خارج الشيفت فقط",
     "noFilterMatches": "لا يوجد معلمون مطابقون للفلاتر الحالية.",
+    "inheritedFilters": "فلاتر الجدول مفعلة وتقوم بتضييق هذا الأسبوع.",
     "clearFilters": "مسح الفلاتر"
   },
   "operations": {

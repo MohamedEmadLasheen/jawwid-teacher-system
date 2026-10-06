@@ -191,7 +191,7 @@ for (const dir of ['ltr', 'rtl'] as const) {
 
       const bandsFor = async (teacher: string) => page.evaluate((name) => {
         const row = Array.from(document.querySelectorAll('.sticky.start-0 p'))
-          .find((p) => (p.textContent ?? '').trim() === name)?.closest('div.flex');
+          .find((p) => (p.textContent ?? '').trim() === name)?.closest('.sticky')?.parentElement;
         if (!row) return null;
         return Array.from(row.querySelectorAll('div.z-10')).map((b) => {
           const r = b.getBoundingClientRect();
@@ -262,7 +262,7 @@ for (const dir of ['ltr', 'rtl'] as const) {
       // Free bands must not cover the booked minutes.
       const overlap = await page.evaluate(() => {
         const rows = Array.from(document.querySelectorAll('.sticky.start-0 p'))
-          .map((p) => p.closest('div.flex')!)
+          .map((p) => p.closest('.sticky')!.parentElement!)
           .filter((row) => (row.querySelector('.sticky.start-0 p')?.textContent ?? '').trim() === 'Arwa Ahmed');
         const row = rows[0];
         const box = (el: Element) => el.getBoundingClientRect();

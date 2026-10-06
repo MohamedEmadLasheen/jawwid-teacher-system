@@ -10,6 +10,8 @@ import { ScheduleRosterLegend } from './components/ScheduleRosterLegend';
 import { LessonDetailDialog } from './components/LessonDetailDialog';
 import { ChangeSimulatorDialog } from './components/ChangeSimulatorDialog';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { hasActiveFilters, useScheduleUiStore } from '@/store/scheduleUiStore';
 import { SearchableSelect, type SearchableSelectGroup } from '@/components/ui/searchable-select';
 import type { DayOfWeek } from '@/lib/types';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
@@ -33,6 +35,8 @@ export function TeacherWeeklySchedulePage() {
   // active shift assignment — grouped by their working window. Every other
   // teacher in the academy is deliberately absent.
   const { groups, rosterTeachers } = useScheduleRoster();
+  const { filters, resetFilters, setSearchQuery } = useScheduleUiStore();
+  const filtersAreActive = hasActiveFilters(filters);
   const activeTeachers = rosterTeachers;
   const [searchParams] = useSearchParams();
   const [teacherId, setTeacherId] = useState('');
@@ -96,8 +100,33 @@ export function TeacherWeeklySchedulePage() {
           emptyText={t('common.noResults')}
           aria-label={t('scheduling.selectTeacher')}
         />
-        <ScheduleRosterLegend />
-        <ColorLegend />
+        {/* Interactive, exactly as on the Master Schedule: both legends write
+            to the one scheduleUiStore, which is the same state this page's
+            week grid reads. */}
+        <ScheduleRosterLegend interactive />
+        <ColorLegend interactive />
+
+        {/* Filters are deliberately NOT reset when navigating here — the
+            Intelligence Centre deep-links into the schedule with filters
+            already applied, and resetting would break that. The cost is that
+            a week can arrive pre-filtered with no filter bar on this page to
+            explain why, so say so and offer the way out. */}
+        {filtersAreActive && (
+          <div
+            className="flex flex-wrap items-center gap-3 rounded-lg border border-dashed px-3 py-2"
+            data-testid="weekly-active-filters"
+          >
+            <p className="text-xs text-muted-foreground">{t('scheduling.inheritedFilters')}</p>
+            <Button
+              size="sm"
+              variant="outline"
+              data-testid="weekly-clear-filters"
+              onClick={() => { resetFilters(); setSearchQuery(''); }}
+            >
+              {t('scheduling.clearFilters')}
+            </Button>
+          </div>
+        )}
       </div>
 
       {teacherId && teacherRow && (

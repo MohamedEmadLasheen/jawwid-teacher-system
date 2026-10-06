@@ -802,6 +802,7 @@
     "outsideShift": "Outside shift",
     "outsideShiftOnly": "Outside shift only",
     "noFilterMatches": "No teachers match the current filters.",
+    "inheritedFilters": "Schedule filters are active and are narrowing this week.",
     "clearFilters": "Clear filters"
   },
   "operations": {
