@@ -260,48 +260,83 @@ check('…and the same student with an Admin passes',
 // ── 6. the existing supervisor filter still means what it meant ─────────
 {
   const DAY = 0;
-  const teachers = [{ id: 'T1', fullName: 'Arwa Ahmed', isDeleted: false, teacherType: 'shift' }];
-  const mkLesson = (id, studentId) => ({
-    id, teacherId: 'T1', courseId: null, dayOfWeek: DAY, startMinute: 14 * 60,
+  // T2 teaches only Asmaa's student, so an Admin filter has a row to drop —
+  // without a second teacher the row-level behaviour is unobservable.
+  const teachers = [
+    { id: 'T1', fullName: 'Arwa Ahmed', isDeleted: false, teacherType: 'shift' },
+    { id: 'T2', fullName: 'Doaa Zakaria', isDeleted: false, teacherType: 'shift' },
+  ];
+  const mkLesson = (id, studentId, teacherId = 'T1') => ({
+    id, teacherId, courseId: null, dayOfWeek: DAY, startMinute: 14 * 60,
     durationMinutes: 60, endMinute: 15 * 60, lifecycleStatus: 'active',
     participants: [participant(id, studentId, '2026-01-01T00:00:00Z')],
   });
-  const lessons = [mkLesson('L-dina', AHMED.id), mkLesson('L-asmaa', OMAR.id), mkLesson('L-legacy', LEGACY.id)];
+  const lessons = [
+    mkLesson('L-dina', AHMED.id), mkLesson('L-asmaa', OMAR.id), mkLesson('L-legacy', LEGACY.id),
+    mkLesson('L-t2-asmaa', OMAR.id, 'T2'),
+  ];
   const base = {
     rosterTeachers: teachers,
     lessons,
-    availability: [{ teacherId: 'T1', dayOfWeek: DAY, startMinute: 12 * 60, endMinute: 19 * 60, source: 'shift' }],
+    availability: [
+      { teacherId: 'T1', dayOfWeek: DAY, startMinute: 12 * 60, endMinute: 19 * 60, source: 'shift' },
+      { teacherId: 'T2', dayOfWeek: DAY, startMinute: 12 * 60, endMinute: 19 * 60, source: 'shift' },
+    ],
     supervisorIdByStudentId: new Map([[AHMED.id, DINA], [OMAR.id, ASMAA], [LEGACY.id, null]]),
     studentNameById: new Map([[AHMED.id, AHMED.fullName], [OMAR.id, OMAR.fullName], [LEGACY.id, LEGACY.fullName]]),
-    templateIdsByTeacherId: new Map([['T1', ['tpl']]]),
+    templateIdsByTeacherId: new Map([['T1', ['tpl']], ['T2', ['tpl']]]),
     searchQuery: '',
   };
+  // Mirrors DEFAULT_FILTERS in src/store/scheduleUiStore.ts field for field.
+  // `groupFilter` is null, NOT 'all': the pipeline treats any non-null group
+  // filter as narrowing, so spelling the idle state wrong here would test a
+  // different pipeline state than the one the Schedule actually opens in.
   const FILTERS = {
-    teacherIds: [], teacherType: null, shiftTemplateIds: [], courseIds: [], coursePendingOnly: false,
-    lifecycleStatuses: [], supervisorIds: [], studentIds: [], primeTimeOnly: false, groupFilter: 'all',
-    timeRangeStart: null, timeRangeEnd: null, availableOnly: false, outsideShiftOnly: false,
+    teacherIds: [], courseIds: [], studentIds: [], coursePendingOnly: false,
+    teacherType: null, shiftTemplateIds: [], supervisorIds: [], lifecycleStatuses: [],
+    availableOnly: false, outsideShiftOnly: false, primeTimeOnly: false,
+    groupFilter: null, timeRangeStart: null, timeRangeEnd: null,
   };
-  const idsFor = (supervisorIds) =>
-    deriveScheduleRows({ ...base, filters: { ...FILTERS, supervisorIds } })
-      .flatMap((r) => r.lessons.map((l) => l.id));
+  const rowsFor = (supervisorIds) =>
+    deriveScheduleRows({ ...base, filters: { ...FILTERS, supervisorIds } });
+  const idsFor = (supervisorIds) => rowsFor(supervisorIds).flatMap((r) => r.lessons.map((l) => l.id));
 
-  check('no Admin filter shows every lesson', idsFor([]), ['L-dina', 'L-asmaa', 'L-legacy']);
+  const namesFor = (supervisorIds) => rowsFor(supervisorIds).map((r) => r.teacher.fullName);
+
+  check('no Admin filter shows every lesson', idsFor([]),
+    ['L-dina', 'L-asmaa', 'L-legacy', 'L-t2-asmaa']);
+  check('…and keeps every teacher row', namesFor([]), ['Arwa Ahmed', 'Doaa Zakaria']);
   check('selecting Dina shows Dina\'s students\' lessons', idsFor([DINA]), ['L-dina']);
-  check('selecting Asmaa shows Asmaa\'s students\' lessons', idsFor([ASMAA]), ['L-asmaa']);
-  check('two Admins OR together within the category', idsFor([DINA, ASMAA]), ['L-dina', 'L-asmaa']);
+  check('selecting Asmaa shows Asmaa\'s students\' lessons', idsFor([ASMAA]),
+    ['L-asmaa', 'L-t2-asmaa']);
+  check('two Admins OR together within the category', idsFor([DINA, ASMAA]),
+    ['L-dina', 'L-asmaa', 'L-t2-asmaa']);
   check('an unowned student\'s lesson matches no Admin filter', idsFor([DINA, ZAINAB, REHAB, ASMAA]),
-    ['L-dina', 'L-asmaa']);
+    ['L-dina', 'L-asmaa', 'L-t2-asmaa']);
+
+  // Picking an Admin shows THAT ADMIN'S SCHEDULE — a teacher with none of
+  // their lessons drops out of the roster rather than sitting there empty.
+  check('picking Dina drops a teacher who has none of Dina\'s lessons',
+    namesFor([DINA]), ['Arwa Ahmed']);
+  check('picking Zainab, who owns nobody here, empties the schedule',
+    [namesFor([ZAINAB]), idsFor([ZAINAB])], [[], []]);
+  check('clearing the Admin filter brings every row back', namesFor([]),
+    ['Arwa Ahmed', 'Doaa Zakaria']);
+
+  // Hiding a lesson by Admin must not repaint its minutes as free capacity.
+  const occupancyOf = (supervisorIds) =>
+    rowsFor(supervisorIds).map((r) => [r.teacher.id, r.occupancy.length]);
+  check('an Admin filter never invents free capacity for the rows it keeps',
+    occupancyOf([DINA]), [['T1', 3]]);
 
   // The reassignment, seen by the filter rather than by the colour.
   const moved = { ...base, supervisorIdByStudentId: new Map([[AHMED.id, ASMAA], [OMAR.id, ASMAA], [LEGACY.id, null]]) };
+  const movedIds = (supervisorIds) =>
+    deriveScheduleRows({ ...moved, filters: { ...FILTERS, supervisorIds } })
+      .flatMap((r) => r.lessons.map((l) => l.id));
   check('after Dina → Asmaa the lesson follows the new Admin\'s filter',
-    deriveScheduleRows({ ...moved, filters: { ...FILTERS, supervisorIds: [ASMAA] } })
-      .flatMap((r) => r.lessons.map((l) => l.id)),
-    ['L-dina', 'L-asmaa']);
-  check('…and no longer matches Dina',
-    deriveScheduleRows({ ...moved, filters: { ...FILTERS, supervisorIds: [DINA] } })
-      .flatMap((r) => r.lessons.map((l) => l.id)),
-    []);
+    movedIds([ASMAA]), ['L-dina', 'L-asmaa', 'L-t2-asmaa']);
+  check('…and no longer matches Dina', movedIds([DINA]), []);
 }
 
 console.log('\n── student → responsible Admin ─────────────────────────────');

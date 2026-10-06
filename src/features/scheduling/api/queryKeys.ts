@@ -15,6 +15,14 @@ export const schedulingKeys = {
   lessons: () => [...schedulingKeys.all, 'lessons'] as const,
   lessonParticipants: () => [...schedulingKeys.all, 'lessonParticipants'] as const,
   grid: (dayOfWeek: number) => [...schedulingKeys.all, 'grid', dayOfWeek] as const,
+  /**
+   * Lessons in a lifecycle status the grid does not show by default (today:
+   * paused). Deliberately a SEPARATE key from `grid`: that one is the shared
+   * "everything actually booked" entry the time picker and the conflict checks
+   * read, so it must never vary with a UI filter.
+   */
+  gridExtraLifecycles: (dayOfWeek: number, statuses: readonly string[]) =>
+    [...schedulingKeys.all, 'gridExtraLifecycles', dayOfWeek, [...statuses].sort().join(',')] as const,
   availabilityForDay: (dayOfWeek: number) => [...schedulingKeys.all, 'availabilityForDay', dayOfWeek] as const,
   exceptionsForDate: (occurrenceDate: string) => [...schedulingKeys.all, 'exceptionsForDate', occurrenceDate] as const,
   health: () => [...schedulingKeys.all, 'health'] as const,
