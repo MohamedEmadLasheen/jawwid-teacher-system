@@ -1029,8 +1029,16 @@ test('dir=rtl: the card renders right-to-left with Arabic labels', async ({ page
  * Searchable selectors, through the REAL card
  * ==========================================================================*/
 
-/** The search field inside whichever selector is currently open. */
-const editSearch = (page: Page) => page.locator('[cmdk-input]');
+/**
+ * The search field inside whichever selector is currently OPEN.
+ *
+ * Scoped to `[data-state="open"]` because Radix keeps a closing popover in
+ * the DOM for the length of its exit animation: opening a second selector
+ * immediately after choosing in the first briefly leaves two search inputs
+ * mounted, and an unscoped locator then fails strict mode.
+ */
+const editSearch = (page: Page) =>
+  page.locator('[data-state="open"] [cmdk-input]');
 
 test('the teacher selector searches by partial name and still applies the pick', async ({ page }) => {
   await open(page);
@@ -1122,4 +1130,88 @@ test('duration stays a plain select — four options, no search field', async ({
   await page.locator('[data-testid="edit-duration"]').click();
   await expect(page.getByRole('option')).toHaveCount(4);
   await expect(editSearch(page)).toHaveCount(0);
+});
+
+/* ============================================================================
+ * Student Weekly Schedule — the add-lesson selectors
+ *
+ * This surface arrived with PR #11, after the original selector audit, so the
+ * rule is proven here explicitly rather than assumed.
+ * ==========================================================================*/
+
+/** Opens the weekly Add Lesson form with its selectors ready. */
+async function openWeeklyAdd(page: Page) {
+  await open(page);
+  await setConflict(page, false);
+  await expect.poll(async () => (await weeklyRows(page)).length).toBeGreaterThan(0);
+  await page.locator('[data-testid="weekly-add-open"]').click();
+  await expect(page.locator('[data-testid="weekly-add-form"]')).toBeVisible();
+}
+
+test('weekly add: the teacher selector is searchable and filters by partial name', async ({ page }) => {
+  await openWeeklyAdd(page);
+  await page.locator('[data-testid="add-teacher"]').click();
+  await expect(editSearch(page)).toBeVisible();
+  await editSearch(page).fill('Z');
+  await expect(page.getByRole('option')).toHaveCount(1);
+  await page.getByRole('option', { name: 'Teacher Z' }).click();
+  await expect(page.locator('[data-testid="add-teacher"]')).toContainText('Teacher Z');
+});
+
+test('weekly add: the day selector is searchable', async ({ page }) => {
+  await openWeeklyAdd(page);
+  await page.locator('[data-testid="add-day"]').click();
+  await expect(editSearch(page)).toBeVisible();
+  await expect(page.getByRole('option')).toHaveCount(7);
+  await editSearch(page).fill('Sat');
+  await expect(page.getByRole('option')).toHaveCount(1);
+  await expect(page.getByRole('option').first()).toContainText('Saturday');
+});
+
+test('weekly add: the start-time selector is searchable by either time spelling', async ({ page }) => {
+  await openWeeklyAdd(page);
+  await page.locator('[data-testid="add-time"]').click();
+  await expect(editSearch(page)).toBeVisible();
+  await expect(page.getByRole('option')).toHaveCount(24);
+  // The label reads "9:00 AM"; "09:00" only matches via the hidden 24h text.
+  await editSearch(page).fill('09:00');
+  await expect(page.getByRole('option', { name: '9:00 AM', exact: true })).toHaveCount(1);
+});
+
+test('weekly add: duration stays a plain select — four options, no search field', async ({ page }) => {
+  await openWeeklyAdd(page);
+  await page.locator('[data-testid="add-duration"]').click();
+  await expect(page.getByRole('option')).toHaveCount(4);
+  await expect(editSearch(page)).toHaveCount(0);
+});
+
+test('weekly add: searching for each field still creates exactly the chosen lesson', async ({ page }) => {
+  await openWeeklyAdd(page);
+
+  await page.locator('[data-testid="add-teacher"]').click();
+  await editSearch(page).fill('Teacher B');
+  await page.getByRole('option', { name: 'Teacher B' }).click();
+
+  await page.locator('[data-testid="add-day"]').click();
+  await editSearch(page).fill('Satur');
+  await page.getByRole('option', { name: 'Saturday' }).click();
+
+  await page.locator('[data-testid="add-time"]').click();
+  await editSearch(page).fill('09:00');
+  await page.getByRole('option', { name: '9:00 AM', exact: true }).click();
+
+  await selectOption(page, 'add-duration', '60 minutes');
+  await page.locator('[data-testid="weekly-add-confirm"]').click();
+
+  // Byte-for-byte the payload PR #11's own test asserts — searching changed
+  // how the values are chosen, not what gets written.
+  const writes = await applied(page);
+  expect(writes.map((w) => w.action)).toEqual(['create_lesson']);
+  const payload = writes[0].payload;
+  expect(payload.teacher_id).toBe('TB');
+  expect(payload.day_of_week).toBe(6);
+  expect(payload.start_minute).toBe(9 * 60);
+  expect(payload.duration_minutes).toBe(60);
+  expect(payload.student_ids).toEqual(['SA']);
+  expect(writes).toHaveLength(1);
 });
