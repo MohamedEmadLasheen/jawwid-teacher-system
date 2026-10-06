@@ -20,6 +20,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useSupervisorStore } from '@/store/supervisorStore';
 import { useAuthStore } from '@/store/authStore';
 import { useLogStore } from '@/store/logStore';
+import { SUPERVISOR_COLOR_PALETTE } from '@/lib/uiConstants';
+import { SupervisorColorDot } from '@/components/ui/SupervisorColorDot';
 import type { Supervisor, Permission } from '@/lib/types';
 
 const ALL_PERMISSIONS: Permission[] = [
@@ -27,13 +29,6 @@ const ALL_PERMISSIONS: Permission[] = [
   'teacher_onboarding', 'teacher_followup', 'operational_notes',
   'teacher_evaluations', 'quality_monitoring', 'performance_reviews',
   'manage_complaints', 'improvement_plans', 'manage_financials',
-];
-
-// Curated palette for the Master Schedule's supervisor-color coding — kept
-// small and visually distinct so lesson borders/accents stay readable.
-const COLOR_PALETTE = [
-  '#E06666', '#F9CB9C', '#93C47D', '#6FA8DC', '#8E7CC3',
-  '#76A5AF', '#E69138', '#C27BA0', '#45818E', '#A64D79',
 ];
 
 export function SupervisorsPage() {
@@ -157,7 +152,7 @@ export function SupervisorsPage() {
                       <tr key={s.id} className="hover:bg-gray-50">
                         <td className="py-3 px-4 font-medium text-gray-800">
                           <span className="inline-flex items-center gap-2">
-                            {s.colorHex && <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.colorHex }} />}
+                            {s.colorHex && <SupervisorColorDot colorHex={s.colorHex} />}
                             {s.name}
                           </span>
                         </td>
@@ -206,7 +201,7 @@ export function SupervisorsPage() {
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="min-w-0">
                       <p className="font-semibold text-sm truncate flex items-center gap-1.5">
-                        {s.colorHex && <span className="inline-block w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: s.colorHex }} />}
+                        {s.colorHex && <SupervisorColorDot colorHex={s.colorHex} />}
                         {s.name}
                       </p>
                       <p className="text-xs text-muted-foreground truncate">{s.email}</p>
@@ -291,7 +286,7 @@ export function SupervisorsPage() {
             <div className="space-y-1.5">
               <Label className="text-sm">{t('supervisors.displayColor')}</Label>
               <div className="flex flex-wrap items-center gap-2">
-                {COLOR_PALETTE.map((c) => (
+                {SUPERVISOR_COLOR_PALETTE.map((c) => (
                   <button
                     key={c}
                     type="button"

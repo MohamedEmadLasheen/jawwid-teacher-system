@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { useSupervisorStore } from '@/store/supervisorStore';
 import { useScheduleUiStore } from '@/store/scheduleUiStore';
 import { LegendFilterChip } from './LegendFilterChip';
+import { SupervisorColorDot } from '@/components/ui/SupervisorColorDot';
 import type { LessonLifecycleStatus } from '@/lib/types';
 
 interface ColorLegendProps {
@@ -60,7 +61,7 @@ export function ColorLegend({ interactive = false }: ColorLegendProps) {
           onToggle={() => toggleFilterValue('supervisorIds', s.id)}
           className={chipShape}
         >
-          <span className="inline-block w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: s.colorHex! }} />
+          <SupervisorColorDot colorHex={s.colorHex} size="md" />
           {s.name}
         </LegendFilterChip>
       ))}

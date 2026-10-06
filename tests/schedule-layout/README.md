@@ -94,3 +94,25 @@ the wider label reflowed the wrapped legend.
 The harness seeds React Query directly and aliases `@/lib/supabase` to a stub
 that resolves every query to an empty result. No test here can reach the
 database or depend on production lesson records.
+
+## Student responsible-Admin suite
+
+`student-admin.spec.ts` drives the real `StudentForm`, `ColorLegend` and
+`MasterScheduleGrid` through the whole ownership flow. Writes go through the
+real `students.mapper`, so the row stored and read back is the production
+shape — the harness fakes the transport, never the mapping.
+
+| What | Asserted |
+|---|---|
+| The selector | A real combobox listing exactly the four Admins, each with its canonical colour dot, no raw uuid, searchable, reachable by ArrowDown + Enter |
+| A departed Admin | Not offered for a new student — but kept when it is the edited student's current Admin, so opening the form cannot blank an assignment |
+| Required | Submit is refused, `aria-invalid` + `role="alert"` are set, nothing is written, and choosing an Admin clears the error immediately |
+| Create | `supervisor_id` is persisted, the stored row has no colour column, and the list shows that Admin's colour |
+| Reload | The tree is unmounted and rebuilt from the stored row; the Admin and the colour survive |
+| Edit | The form opens on the student's current Admin |
+| Dina → Asmaa | One column changes, and the lesson card on the grid repaints red → green — then survives a reload, because the colour was never stored |
+| Legacy | An unassigned student reads "Unassigned", refuses to save without an Admin, and is fixed through the same form |
+| Legend | Still draws the four Admins in their own colours |
+| Mobile (375px, touch) | The dropdown opens fully inside the viewport, all four options are tappable, the trigger is ≥36px tall, and the dialog never scrolls sideways |
+
+Every case runs under both `dir=ltr` and `dir=rtl`.

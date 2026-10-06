@@ -4,6 +4,9 @@ import { useTeacherStore } from '@/store/teacherStore';
 import { useStudents } from './hooks/useStudents';
 import { useCourses } from './hooks/useCourses';
 import { useLessons, useLessonParticipants } from './hooks/useLessons';
+import { useSupervisorStore } from '@/store/supervisorStore';
+import { SupervisorColorDot } from '@/components/ui/SupervisorColorDot';
+import { supervisorColorByStudentId } from './utils/responsibleAdmins';
 import { useCheckScheduleConflict, useApplyScheduleChange } from './hooks/useScheduleRpc';
 import { DAYS_OF_WEEK } from './constants/schedulingConstants';
 import { useDayOptions } from './hooks/useDayOptions';
@@ -29,6 +32,7 @@ export function LessonsPage() {
   const { teachers } = useTeacherStore();
   const { data: students = [] } = useStudents();
   const { data: courses = [] } = useCourses();
+  const { supervisors } = useSupervisorStore();
   const { data: lessons = [], isLoading } = useLessons();
   const { data: participants = [] } = useLessonParticipants();
   const checkConflict = useCheckScheduleConflict();
@@ -63,6 +67,15 @@ export function LessonsPage() {
     [courses, isAr]
   );
 
+  /**
+   * studentId → their Admin's colour, resolved ONCE for the whole picker
+   * rather than per row. Derived state: the colour is read from
+   * `supervisors.color_hex` through `student.supervisorId`, never stored.
+   */
+  const adminColorByStudentId = useMemo(
+    () => supervisorColorByStudentId(students, supervisors),
+    [students, supervisors]
+  );
 
   const toggleStudent = (id: string) => {
     setStudentIds((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));
@@ -175,6 +188,11 @@ export function LessonsPage() {
               {students.filter((s) => !s.isDeleted).map((s) => (
                 <label key={s.id} className="flex items-center gap-1.5 text-sm">
                   <Checkbox checked={studentIds.includes(s.id)} onCheckedChange={() => toggleStudent(s.id)} />
+                  {/* The student's responsible Admin, shown as the colour the
+                      lesson will take on the grid. Ownership already lives on
+                      the student record, so this picker only reports it — the
+                      lesson never gets an owner or a colour of its own. */}
+                  <SupervisorColorDot colorHex={adminColorByStudentId.get(s.id)} />
                   {s.fullName}
                 </label>
               ))}

@@ -76,6 +76,14 @@ interface SearchableSelectProps {
   id?: string;
   'data-testid'?: string;
   'aria-label'?: string;
+  /**
+   * Error state, forwarded to the trigger so a failed required-field check is
+   * announced and not merely coloured. The red border itself stays the
+   * caller's `className`, matching how Input is styled elsewhere.
+   */
+  'aria-invalid'?: boolean;
+  /** Id of the element holding the error message, for the same reason. */
+  'aria-describedby'?: string;
 }
 
 /**
@@ -118,6 +126,8 @@ export function SearchableSelect({
   id,
   'data-testid': testId,
   'aria-label': ariaLabel,
+  'aria-invalid': ariaInvalid,
+  'aria-describedby': ariaDescribedBy,
 }: SearchableSelectProps) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState('');
@@ -189,6 +199,8 @@ export function SearchableSelect({
           role="combobox"
           aria-expanded={open}
           aria-label={ariaLabel}
+          aria-invalid={ariaInvalid}
+          aria-describedby={ariaDescribedBy}
           data-testid={testId}
           disabled={disabled}
           className={cn('w-full justify-between font-normal', className)}

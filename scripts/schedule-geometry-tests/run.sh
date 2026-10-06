@@ -23,6 +23,9 @@ node_modules/esbuild/bin/esbuild \
   src/features/scheduling/utils/sameTimeSlot.ts \
   src/features/scheduling/utils/bulkEditPreflight.ts \
   src/features/scheduling/utils/studentWeeklySchedule.ts \
+  src/features/scheduling/utils/responsibleAdmins.ts \
+  src/features/scheduling/utils/studentValidation.ts \
+  src/features/scheduling/utils/lessonColor.ts \
   --bundle --format=esm --platform=node \
   --outdir="$OUT" --out-extension:.js=.mjs >/dev/null
 
@@ -39,6 +42,16 @@ node_modules/esbuild/bin/esbuild \
   --bundle --format=esm --platform=node \
   --outdir="$OUT" --out-extension:.js=.mjs >/dev/null
 
+# Fourth invocation, same output-base reason: the students mapper lives under
+# src/services. It is the DB<->domain boundary that carries student ownership,
+# and it is a separate module from students.service.ts precisely so it can be
+# bundled here — the service itself imports the Supabase client, which reads
+# import.meta.env and cannot be loaded under plain Node.
+node_modules/esbuild/bin/esbuild \
+  src/services/scheduling/students.mapper.ts \
+  --bundle --format=esm --platform=node \
+  --outdir="$OUT" --out-extension:.js=.mjs >/dev/null
+
 cp scripts/schedule-geometry-tests/timeline.test.mjs "$OUT/"
 cp scripts/schedule-geometry-tests/acceptance.test.mjs "$OUT/"
 cp scripts/schedule-geometry-tests/roster.test.mjs "$OUT/"
@@ -48,6 +61,7 @@ cp scripts/schedule-geometry-tests/sametimeslot.test.mjs "$OUT/"
 cp scripts/schedule-geometry-tests/studentweekly.test.mjs "$OUT/"
 cp scripts/schedule-geometry-tests/searchtext.test.mjs "$OUT/"
 cp scripts/schedule-geometry-tests/filters.test.mjs "$OUT/"
+cp scripts/schedule-geometry-tests/studentadmin.test.mjs "$OUT/"
 
 status=0
 node "$OUT/timeline.test.mjs"   || status=1
@@ -67,6 +81,8 @@ echo
 node "$OUT/searchtext.test.mjs" || status=1
 echo
 node "$OUT/filters.test.mjs" || status=1
+echo
+node "$OUT/studentadmin.test.mjs" || status=1
 
 # Static policy check — reads the real .tsx sources, so it runs against the
 # repository rather than the bundled output directory.

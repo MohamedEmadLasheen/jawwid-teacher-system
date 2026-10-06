@@ -123,3 +123,34 @@ Validated by restoring the previous implementation — occupancy taken from the
 `if (filters.availableOnly) { teacherLessons = []; }` — and re-running:
 **20 assertions failed, 77 passed.** The suite fails on the old behaviour and
 passes on the new one.
+
+## Student → responsible Admin suite
+
+`studentadmin.test.mjs` covers the ownership relationship and the colour
+derived from it, against `responsibleAdmins.ts`, `studentValidation.ts`,
+`lessonColor.ts`, `deriveScheduleRows.ts` and `students.mapper.ts`.
+
+**The rules it pins down**
+
+- **The Admin is the single source of truth for the colour.** Reassigning a
+  student from Dina to Asmaa turns their lesson from red to green with
+  `supervisorId` as the only field that differs, and recolouring the *Admin*
+  recolours the student with no student write at all.
+- **No colour is ever stored on a student.** The insert payload and the update
+  patch are asserted field by field; any colour-shaped key in either fails.
+- **A new student cannot be unowned**, and both missing fields are reported at
+  once rather than one submit at a time.
+- **A legacy unowned student is tolerated, not guessed at.** It yields no
+  colour (never a borrowed one), it matches no Admin filter, and editing it
+  requires choosing an Admin — which is how the backlog clears.
+- **A group lesson** takes the first-added participant's Admin, and skips an
+  unowned participant rather than losing its colour.
+- **The existing supervisor filter is unchanged**: OR within the category, and
+  a reassignment moves the lesson between Admins' filters.
+- **The indexed lookup is sound.** `lessonColor` memoises its id→record maps on
+  array identity to avoid an N+1 across hundreds of lesson cards; a refetched
+  array must be re-indexed rather than served stale, which is asserted.
+
+Rendered behaviour — that the selector is a real combobox with the four
+colour dots, that it blocks submit, and that the grid repaints — is verified
+in `tests/schedule-layout/student-admin.spec.ts`.

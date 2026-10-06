@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import type { Student, StudentGender, StudentStatus } from '@/lib/types';
 import { useSupervisorStore } from '@/store/supervisorStore';
 import { useCourses } from '../hooks/useCourses';
+import { buildSupervisorOptions } from '../utils/supervisorOptions';
+import { validateStudentDraft, type StudentValidationErrors } from '../utils/studentValidation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -26,24 +28,14 @@ export function StudentForm({ student, onSubmit, onCancel }: StudentFormProps) {
   const { data: courses = [] } = useCourses();
 
   /**
-   * Supervisors keep the colour swatch the Select showed: `node` is what gets
-   * drawn, `label` is what gets searched and what the closed trigger falls
-   * back to, so the dot is decoration and never part of the haystack.
+   * The responsible-Admin list, built by the one shared builder so this form,
+   * the Students page filter and the schedule legend cannot drift apart. The
+   * student's current Admin is always kept in the list, so opening an existing
+   * student can never silently blank an assignment made by someone else.
    */
   const supervisorOptions = useMemo<SearchableSelectOption[]>(
-    () => supervisors.map((s) => ({
-      value: s.id,
-      label: s.name,
-      node: (
-        <span className="inline-flex items-center gap-2">
-          {s.colorHex && (
-            <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.colorHex }} />
-          )}
-          {s.name}
-        </span>
-      ),
-    })),
-    [supervisors]
+    () => buildSupervisorOptions(supervisors, student?.supervisorId),
+    [supervisors, student?.supervisorId]
   );
 
   const courseOptions = useMemo<SearchableSelectOption[]>(
@@ -71,8 +63,21 @@ export function StudentForm({ student, onSubmit, onCancel }: StudentFormProps) {
     notes: student?.notes ?? '',
   });
 
+  /**
+   * Validation errors, shown only once a submit has been attempted — an
+   * untouched form is not "wrong" yet, it is simply unfinished.
+   */
+  const [errors, setErrors] = useState<StudentValidationErrors>({});
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    // The responsible Admin is required here rather than in the database: see
+    // the long note in utils/studentValidation.ts. Nothing is submitted until
+    // ownership is explicit, so this application never writes another
+    // unassigned student.
+    const nextErrors = validateStudentDraft(form);
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
     onSubmit(form);
   };
 
@@ -80,12 +85,24 @@ export function StudentForm({ student, onSubmit, onCancel }: StudentFormProps) {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-1">
-          <Label>{t('students.fullName')} *</Label>
+          <Label htmlFor="student-full-name">{t('students.fullName')} *</Label>
           <Input
+            id="student-full-name"
             value={form.fullName}
-            onChange={(e) => setForm({ ...form, fullName: e.target.value })}
+            onChange={(e) => {
+              setForm({ ...form, fullName: e.target.value });
+              setErrors(({ fullName: _cleared, ...rest }) => rest);
+            }}
             required
+            aria-invalid={errors.fullName ? true : undefined}
+            aria-describedby={errors.fullName ? 'student-full-name-error' : undefined}
+            className={errors.fullName ? 'border-destructive focus-visible:ring-destructive' : undefined}
           />
+          {errors.fullName && (
+            <p id="student-full-name-error" role="alert" className="text-xs text-destructive">
+              {t('common.required')}
+            </p>
+          )}
         </div>
 
         <div className="space-y-1">
@@ -160,10 +177,17 @@ export function StudentForm({ student, onSubmit, onCancel }: StudentFormProps) {
         </div>
 
         <div className="space-y-1">
-          <Label>{t('students.supervisor')}</Label>
+          <Label htmlFor="student-supervisor">{t('students.supervisor')} *</Label>
           <SearchableSelect
+            id="student-supervisor"
+            data-testid="student-supervisor"
             value={form.supervisorId ?? ''}
-            onChange={(v) => setForm({ ...form, supervisorId: v })}
+            onChange={(v) => {
+              setForm({ ...form, supervisorId: v });
+              // Clearing the error on selection, not on the next submit, is
+              // what keeps the red state from outliving the problem.
+              setErrors(({ supervisorId: _cleared, ...rest }) => rest);
+            }}
             /* Dynamic collection: searchable by architecture, not by today's count. */
             searchable
             options={supervisorOptions}
@@ -171,7 +195,15 @@ export function StudentForm({ student, onSubmit, onCancel }: StudentFormProps) {
             searchPlaceholder={t('students.selectSupervisor')}
             emptyText={t('common.noResults')}
             aria-label={t('students.supervisor')}
+            aria-invalid={errors.supervisorId ? true : undefined}
+            aria-describedby={errors.supervisorId ? 'student-supervisor-error' : undefined}
+            className={errors.supervisorId ? 'border-destructive focus-visible:ring-destructive' : undefined}
           />
+          {errors.supervisorId && (
+            <p id="student-supervisor-error" data-testid="student-supervisor-error" role="alert" className="text-xs text-destructive">
+              {t('students.supervisorRequired')}
+            </p>
+          )}
         </div>
 
         <div className="space-y-1">
