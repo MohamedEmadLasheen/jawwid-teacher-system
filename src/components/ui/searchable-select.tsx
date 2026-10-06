@@ -16,6 +16,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import * as DialogPrimitive from '@radix-ui/react-dialog';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useVisualViewport } from '@/hooks/use-visual-viewport';
 
 export interface SearchableSelectOption {
   value: string;
@@ -56,6 +59,9 @@ export interface SearchableSelectGroup {
  * disappear as rows are added.
  */
 export const SEARCH_THRESHOLD = 5;
+
+/** Breathing room between the mobile panel and the edges of the visible area. */
+const MOBILE_PANEL_MARGIN = 8;
 
 interface SearchableSelectProps {
   value?: string;
@@ -191,35 +197,177 @@ export function SearchableSelect({
     handleOpenChange(false);
   };
 
+  const isMobile = useIsMobile();
+  /* Subscribed only while a mobile panel is actually open. */
+  const viewport = useVisualViewport(isMobile && open);
+
+  /**
+   * The search field and the result list, identical on both presentations.
+   *
+   * Written once so the two layouts can never drift on what matching does,
+   * what the empty state says, or how a choice is applied — only on where the
+   * box is drawn.
+   */
+  const searchField = showSearch ? (
+    <CommandInput
+      value={query}
+      onValueChange={setQuery}
+      placeholder={searchPlaceholder}
+      /* shrink-0 is load-bearing in the mobile flex column: without it the
+         input is the first thing the layout gives up when the keyboard
+         shortens the panel, which is exactly the field the user is typing
+         into. */
+      className="shrink-0"
+    />
+  ) : null;
+
+  const resultList = (listClassName: string) => (
+    <CommandList className={listClassName}>
+      {hasResults ? (
+        visibleGroups.map((group) => (
+          /* `?? undefined` is load-bearing: cmdk folds the heading
+             into its value computation with
+             `typeof part === 'object' && 'current' in part`, and
+             `typeof null === 'object'`, so a null heading throws
+             "Cannot use 'in' operator to search for 'current' in null"
+             and takes the whole tree down with it. */
+          <CommandGroup key={group.key} heading={group.label ?? undefined}>
+            {group.options.map((option) => (
+              <CommandItem
+                key={option.value}
+                value={option.value}
+                disabled={option.disabled}
+                onSelect={() => choose(option.value)}
+                /* The current choice stays legible while scrolling a
+                   long list, not only via the tick. */
+                className={cn(
+                  option.value === value && 'font-semibold',
+                  /* A comfortable touch target on a phone; desktop rows are
+                     unchanged. */
+                  isMobile && 'min-h-11'
+                )}
+              >
+                <Check
+                  className={cn(
+                    'me-2 h-4 w-4 shrink-0',
+                    option.value === value ? 'opacity-100' : 'opacity-0'
+                  )}
+                />
+                <span className="truncate">{option.node ?? option.label}</span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        ))
+      ) : (
+        /* Rendered directly rather than through CommandEmpty, which
+           keys off cmdk's own filtered count and so never fires while
+           shouldFilter is false. */
+        <div
+          data-testid="searchable-select-empty"
+          className="py-6 text-center text-sm text-muted-foreground"
+        >
+          {emptyText}
+        </div>
+      )}
+    </CommandList>
+  );
+
+  const trigger = (
+    <Button
+      id={id}
+      type="button"
+      variant="outline"
+      role="combobox"
+      aria-expanded={open}
+      aria-label={ariaLabel}
+      data-testid={testId}
+      disabled={disabled}
+      className={cn('w-full justify-between font-normal', className)}
+      /* Radix opens a popover on Enter and Space because the trigger is a
+         real button; the arrow keys are added so reaching for the list
+         the way a native select behaves still works. */
+      onKeyDown={(event) => {
+        if (!open && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
+          event.preventDefault();
+          setOpen(true);
+        }
+      }}
+    >
+      <span className={cn('truncate', !selected && 'text-muted-foreground')}>
+        {selected ? selected.node ?? selected.label : placeholder}
+      </span>
+      <ChevronsUpDown className="ms-2 h-4 w-4 shrink-0 opacity-50" />
+    </Button>
+  );
+
+  /**
+   * MOBILE — a panel pinned to the VISIBLE viewport, not an anchored popover.
+   *
+   * An anchored popover cannot be made correct here. Radix positions it with
+   * a transformed, fixed wrapper and sizes it from
+   * `--radix-popper-available-height`, which Floating UI derives from the
+   * LAYOUT viewport. iOS does not shrink the layout viewport when the
+   * keyboard opens, so the popover is sized and placed against a screen that
+   * is partly behind the keyboard: the search field — the top of the box —
+   * ends up somewhere the user cannot see or reach, and the list scrolls
+   * under the keys. Making the box shorter does not fix that; it is anchored
+   * to the wrong rectangle.
+   *
+   * So on a phone the control stops being anchored to its trigger. It becomes
+   * a dialog whose top, left, width and max height come from
+   * `window.visualViewport` and are recomputed as the keyboard opens, closes
+   * and scrolls. Radix Dialog supplies the rest of what this needs and the
+   * popover never did: a focus trap, dismissal, and a body scroll lock so the
+   * form behind cannot become the scroll container.
+   *
+   * Auto-focus is deliberately declined. Letting the panel open first and the
+   * keyboard appear only when the field is tapped means the full list is
+   * browsable and scrollable without the keyboard ever covering it — and it
+   * matches what a phone user expects from a picker.
+   */
+  if (isMobile) {
+    return (
+      <DialogPrimitive.Root open={open} onOpenChange={handleOpenChange}>
+        <DialogPrimitive.Trigger asChild>{trigger}</DialogPrimitive.Trigger>
+        <DialogPrimitive.Portal>
+          <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/40 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+          <DialogPrimitive.Content
+            data-testid={testId ? `${testId}-panel` : undefined}
+            aria-label={ariaLabel ?? placeholder ?? searchPlaceholder}
+            onOpenAutoFocus={(event) => event.preventDefault()}
+            className={cn(
+              'fixed z-50 flex flex-col overflow-hidden rounded-lg border bg-popover text-popover-foreground shadow-lg outline-none',
+              'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
+              contentClassName
+            )}
+            style={{
+              top: viewport.offsetTop + MOBILE_PANEL_MARGIN,
+              left: viewport.offsetLeft + MOBILE_PANEL_MARGIN,
+              width: Math.max(0, viewport.width - MOBILE_PANEL_MARGIN * 2),
+              maxHeight: Math.max(0, viewport.height - MOBILE_PANEL_MARGIN * 2),
+            }}
+          >
+            {/* Radix requires an accessible name on dialog content. */}
+            <DialogPrimitive.Title className="sr-only">
+              {ariaLabel ?? placeholder ?? searchPlaceholder}
+            </DialogPrimitive.Title>
+            <Command shouldFilter={false} className="flex min-h-0 flex-1 flex-col">
+              {searchField}
+              {/* min-h-0 lets the list actually shrink inside the flex column
+                  instead of forcing the panel past its max height, and the
+                  max-h cap the desktop list carries is dropped so the panel's
+                  own viewport-derived height is the only limit. */}
+              {resultList('max-h-none min-h-0 flex-1 overflow-y-auto')}
+            </Command>
+          </DialogPrimitive.Content>
+        </DialogPrimitive.Portal>
+      </DialogPrimitive.Root>
+    );
+  }
+
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>
-        <Button
-          id={id}
-          type="button"
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          aria-label={ariaLabel}
-          data-testid={testId}
-          disabled={disabled}
-          className={cn('w-full justify-between font-normal', className)}
-          /* Radix opens a popover on Enter and Space because the trigger is a
-             real button; the arrow keys are added so reaching for the list
-             the way a native select behaves still works. */
-          onKeyDown={(event) => {
-            if (!open && (event.key === 'ArrowDown' || event.key === 'ArrowUp')) {
-              event.preventDefault();
-              setOpen(true);
-            }
-          }}
-        >
-          <span className={cn('truncate', !selected && 'text-muted-foreground')}>
-            {selected ? selected.node ?? selected.label : placeholder}
-          </span>
-          <ChevronsUpDown className="ms-2 h-4 w-4 shrink-0 opacity-50" />
-        </Button>
-      </PopoverTrigger>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
 
       {/* Pinned to the trigger width (with a floor, so a narrow filter still
           shows a readable name) and clamped to the space Radix reports as
@@ -234,56 +382,10 @@ export function SearchableSelect({
         )}
       >
         <Command shouldFilter={false}>
-          {showSearch && (
-            <CommandInput
-              value={query}
-              onValueChange={setQuery}
-              placeholder={searchPlaceholder}
-            />
+          {searchField}
+          {resultList(
+            'max-h-[min(18rem,var(--radix-popover-content-available-height,18rem))]'
           )}
-          <CommandList className="max-h-[min(18rem,var(--radix-popover-content-available-height,18rem))]">
-            {hasResults ? (
-              visibleGroups.map((group) => (
-                /* `?? undefined` is load-bearing: cmdk folds the heading
-                   into its value computation with
-                   `typeof part === 'object' && 'current' in part`, and
-                   `typeof null === 'object'`, so a null heading throws
-                   "Cannot use 'in' operator to search for 'current' in null"
-                   and takes the whole tree down with it. */
-                <CommandGroup key={group.key} heading={group.label ?? undefined}>
-                  {group.options.map((option) => (
-                    <CommandItem
-                      key={option.value}
-                      value={option.value}
-                      disabled={option.disabled}
-                      onSelect={() => choose(option.value)}
-                      /* The current choice stays legible while scrolling a
-                         long list, not only via the tick. */
-                      className={cn(option.value === value && 'font-semibold')}
-                    >
-                      <Check
-                        className={cn(
-                          'me-2 h-4 w-4 shrink-0',
-                          option.value === value ? 'opacity-100' : 'opacity-0'
-                        )}
-                      />
-                      <span className="truncate">{option.node ?? option.label}</span>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              ))
-            ) : (
-              /* Rendered directly rather than through CommandEmpty, which
-                 keys off cmdk's own filtered count and so never fires while
-                 shouldFilter is false. */
-              <div
-                data-testid="searchable-select-empty"
-                className="py-6 text-center text-sm text-muted-foreground"
-              >
-                {emptyText}
-              </div>
-            )}
-          </CommandList>
         </Command>
       </PopoverContent>
     </Popover>
