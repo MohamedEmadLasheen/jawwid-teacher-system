@@ -1,3 +1,5 @@
+import type { EvaluationCriteria } from './evaluationCriteria';
+
 export type UserRole = 'super_admin' | 'admin' | 'operation_admin' | 'quality_admin' | 'supervisor';
 
 export type TeacherLevel = 'silver' | 'gold' | 'platinum';
@@ -139,11 +141,56 @@ export interface SessionEvaluation {
   followUp: QuickRating;
   behavioralObservation: 'excellent' | 'good' | 'needs_improvement' | 'critical_issue';
   quickNotes: string[];
+  /**
+   * GENERAL COMMENT — free text about the lesson/evaluation AS A WHOLE.
+   *
+   * Deliberately NOT the same thing as a per-criterion comment, which lives
+   * inside its own criterion in `criteria`. This is the whole-evaluation field,
+   * backed by `session_evaluations.custom_note` since the first migration and
+   * reused unchanged rather than duplicated by a second column. Optional —
+   * empty string when the evaluator gave none.
+   */
   customNote: string;
+  /**
+   * The nine criteria, each with its own score and its own optional comment.
+   *
+   * `null` for a HISTORICAL evaluation created before the nine criteria
+   * existed; such a row's ratings are the 16 legacy fields above. Never
+   * substitute defaults for `null` — nine invented "Good" ratings would be
+   * fabricated data about a real teacher. See
+   * src/lib/evaluationCriteria.ts and migration 024.
+   */
+  criteria: EvaluationCriteria | null;
   overallScore: number;
   grade: EvaluationGrade;
   createdAt: string;
 }
+
+/**
+ * The 16 criterion fields of the pre-2024 evaluation form.
+ *
+ * Named as a union so the create path can state precisely that it does not
+ * supply them. They remain on `SessionEvaluation` because every READ returns
+ * them — historical evaluations carry real ratings in these fields.
+ */
+export type LegacyEvaluationCriterionField =
+  | 'tajweedAccuracy' | 'pronunciation' | 'correctionQuality' | 'listeningSkills'
+  | 'punctuality' | 'timeManagement' | 'studentEngagement' | 'classFlow'
+  | 'professionalism' | 'clarity' | 'encouragement' | 'parentCommunication'
+  | 'lessonPreparation' | 'explanationQuality' | 'errorCorrection' | 'followUp';
+
+/**
+ * What creating an evaluation supplies.
+ *
+ * A 9-criteria evaluation scores `criteria`, not the 16 legacy fields, so they
+ * are absent here rather than filled with invented values. The service does
+ * not write their columns either, which keeps "we never claimed a rating
+ * nobody gave" true from the form all the way to the row.
+ */
+export type SessionEvaluationDraft = Omit<
+  SessionEvaluation,
+  'id' | 'createdAt' | LegacyEvaluationCriterionField
+>;
 
 export type ComplaintStatus = 'open' | 'under_review' | 'resolved' | 'closed';
 export type ComplaintPriority = 'low' | 'medium' | 'high' | 'critical';

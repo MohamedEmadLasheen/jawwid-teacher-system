@@ -23,6 +23,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useLogStore } from '@/store/logStore';
 import { formatDate, formatDateTime } from '@/lib/utils';
 import { SessionEvaluationForm } from './SessionEvaluationForm';
+import { EvaluationDetails } from './EvaluationDetails';
 import type {
   ComplaintStatus, ImprovementPlanStatus, RecommendationCategory, RecommendationStatus,
 } from '@/lib/types';
@@ -209,10 +210,39 @@ export function ActionCenterPage() {
               ) : (
                 <div className="space-y-3">
                   {evaluations.slice(0, 20).map((ev) => (
-                    <div key={ev.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    /* The card is now the OUTER element, with the summary
+                       line and the expandable details stacked inside it, so an
+                       expanded panel sits inside the same rounded card rather
+                       than beside the badges. */
+                    <div key={ev.id} data-testid={`evaluation-row-${ev.id}`} className="p-3 bg-gray-50 rounded-lg">
+                     {/* items-start, not items-center: the row grows when a
+                         general comment is present, and the badges must stay
+                         beside the teacher's name rather than drifting to the
+                         vertical middle of a three-line card. */}
+                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-gray-800">{getTeacherName(ev.teacherId)}</p>
-                        <p className="text-xs text-gray-500">{ev.evaluatorName} · {formatDate(ev.sessionDate, lang)}</p>
+                        {/* GENERAL COMMENT, immediately under the teacher's
+                            name — what a supervisor looking back at a lesson
+                            reads first. Deliberately understated (small,
+                            muted, italic, capped at three lines) so it informs
+                            the row without dominating it; the full text is in
+                            the title attribute.
+
+                            Rendered only when there is one. An evaluation
+                            created before this field was used simply shows
+                            nothing here — no placeholder, and never an
+                            invented comment. */}
+                        {ev.customNote?.trim() && (
+                          <p
+                            data-testid={`evaluation-general-comment-${ev.id}`}
+                            title={ev.customNote.trim()}
+                            className="text-xs italic text-gray-600 mt-0.5 whitespace-pre-line line-clamp-3 break-words"
+                          >
+                            {ev.customNote.trim()}
+                          </p>
+                        )}
+                        <p className="text-xs text-gray-500 mt-0.5">{ev.evaluatorName} · {formatDate(ev.sessionDate, lang)}</p>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <Badge className={
@@ -225,6 +255,19 @@ export function ActionCenterPage() {
                         <Badge className="bg-primary text-primary-foreground">{ev.overallScore}</Badge>
                         <DeleteBtn kind="evaluation" id={ev.id} />
                       </div>
+                     </div>
+
+                      {/* READ-ONLY read-back of the nine criteria.
+                          Mounted only for a 9-criteria evaluation. A
+                          historical one (criteria === null) gets no control
+                          and no panel: it has no 9-criterion data, and the
+                          honest thing is to offer nothing rather than an empty
+                          section or nine invented ratings. Its own summary
+                          line — score, grade, evaluator, date, and its general
+                          comment if it has one — is unchanged. */}
+                      {ev.criteria && (
+                        <EvaluationDetails criteria={ev.criteria} evaluationId={ev.id} />
+                      )}
                     </div>
                   ))}
                 </div>

@@ -928,7 +928,27 @@
     "comment_classroom_improvement": "يحتاج تحسين في إدارة الفصل",
     "comment_parent_communication": "تواصل ممتاز مع أولياء الأمور",
     "comment_attendance_improvement": "الحضور يحتاج تحسين",
-    "comment_lesson_preparation": "تحضير متميز للدروس"
+    "comment_lesson_preparation": "تحضير متميز للدروس",
+    "criteriaTitle": "معايير التقييم",
+    "viewDetails": "عرض تفاصيل التقييم",
+    "selectTeacher": "اختر معلمًا",
+    "teacherRequired": "اختر معلمًا قبل حفظ التقييم.",
+    "criterionComment": "تعليق",
+    "criterionCommentPlaceholder": "تعليق على هذا المعيار (اختياري)...",
+    "generalComment": "التعليق العام",
+    "generalCommentHint": "عن الحصة ككل \u2014 منفصل عن تعليقات المعايير أعلاه.",
+    "generalCommentPlaceholder": "ملاحظات عامة عن هذه الحصة (اختياري)...",
+    "criterion": {
+      "cameraAppearanceLighting": "الكاميرا والمظهر والإضاءة",
+      "studentEngagement": "تفاعل الطالب مع المعلم",
+      "mistakeCorrectionQuality": "جودة تصحيح أخطاء الطالب حسب مستواه",
+      "interactiveEngagement": "قدرة المعلم على إشراك الطالب طوال الحصة بأساليب تفاعلية مناسبة",
+      "recitationTajweed": "جودة تلاوة المعلم وأحكام التجويد",
+      "fushaCommitment": "التزام المعلم باستخدام اللغة العربية الفصحى",
+      "punctuality": "الالتزام بالوقت",
+      "halaqahManagement": "إدارة الحلقة/الفصل",
+      "explanationClarity": "القدرة على توصيل المعلومة للطالب بما يناسب مستواه"
+    }
   },
   "complaint": {
     "title": "الشكاوى",
