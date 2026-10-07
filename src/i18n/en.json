@@ -1216,6 +1216,11 @@
     "performance_reviews": "Performance Reviews",
     "manage_complaints": "Manage Complaints",
     "improvement_plans": "Improvement Plans",
-    "manage_financials": "Manage Financials (Bonuses & Deductions)"
+    "manage_financials": "Manage Financials (Bonuses & Deductions)",
+    "manage_students": "Manage Students",
+    "manage_parents": "Manage Parents",
+    "manage_courses": "Manage Courses",
+    "manage_session_reports": "Manage Session Reports",
+    "view_session_reports": "View Session Reports"
   }
 }
