@@ -515,6 +515,15 @@
     "lessonsInternalHint": "Temporary internal page to validate the lesson/conflict model end-to-end. Replaced by the Master Schedule grid in a later phase.",
     "createLesson": "Create Lesson",
     "duration": "Duration",
+    "durationUnit": "minutes",
+    "durationPlaceholder": "e.g. 45",
+    "durationError": {
+      "required": "Enter the lesson duration in minutes.",
+      "notANumber": "Enter a number of minutes.",
+      "notInteger": "Enter a whole number of minutes.",
+      "notPositive": "Duration must be at least 1 minute.",
+      "pastMidnight": "This lesson would run past midnight. Shorten it or start it earlier."
+    },
     "preview": "Preview",
     "lifecycle": {
       "trial": "Trial",

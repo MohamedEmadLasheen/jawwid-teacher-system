@@ -10,6 +10,7 @@ import { supervisorColorByStudentId } from './utils/responsibleAdmins';
 import { useCheckScheduleConflict, useApplyScheduleChange } from './hooks/useScheduleRpc';
 import { DAYS_OF_WEEK } from './constants/schedulingConstants';
 import { useDayOptions } from './hooks/useDayOptions';
+import { LessonDurationInput } from './components/LessonDurationInput';
 import { labelToMinute, minuteToDisplayLabel } from './utils/timeGrid';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,7 +25,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { CheckCircle2, AlertTriangle } from 'lucide-react';
 import type { DayOfWeek } from '@/lib/types';
 
-const DURATIONS = [30, 60, 90, 120];
 
 export function LessonsPage() {
   const { t, i18n } = useTranslation();
@@ -43,7 +43,9 @@ export function LessonsPage() {
   const [courseId, setCourseId] = useState('');
   const [dayOfWeek, setDayOfWeek] = useState<DayOfWeek>(0);
   const [startLabel, setStartLabel] = useState('16:00');
-  const [duration, setDuration] = useState(30);
+  const [durationText, setDurationText] = useState('30');
+  const [duration, setDuration] = useState<number | undefined>(30);
+  const [durationTouched, setDurationTouched] = useState(false);
   const [studentIds, setStudentIds] = useState<string[]>([]);
   const [preview, setPreview] = useState<{ hasConflict: boolean; message: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -83,6 +85,7 @@ export function LessonsPage() {
   };
 
   const handlePreview = async () => {
+    if (duration === undefined) { setDurationTouched(true); return; }
     if (!teacherId || studentIds.length === 0) return;
     const result = await checkConflict.mutateAsync({
       teacherId,
@@ -95,6 +98,8 @@ export function LessonsPage() {
   };
 
   const handleCreate = async () => {
+    // The exact integer typed, or nothing is created — never a default.
+    if (duration === undefined) { setDurationTouched(true); return; }
     if (!teacherId || studentIds.length === 0) return;
     setError(null);
     try {
@@ -170,15 +175,19 @@ export function LessonsPage() {
               <Input type="time" value={startLabel} onChange={(e) => { setStartLabel(e.target.value); setPreview(null); }} />
             </div>
             <div className="space-y-1">
-              <Label>{t('scheduling.duration')}</Label>
-              <Select value={String(duration)} onValueChange={(v) => { setDuration(Number(v)); setPreview(null); }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {DURATIONS.map((d) => (
-                    <SelectItem key={d} value={String(d)}>{d} {t('courses.minutes')}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <LessonDurationInput
+                id="lessons-duration"
+                data-testid="lessons-duration"
+                value={durationText}
+                startMinute={labelToMinute(startLabel)}
+                showError={durationTouched}
+                onChange={(text, minutes) => {
+                  setDurationText(text);
+                  setDuration(minutes);
+                  setDurationTouched(true);
+                  setPreview(null);
+                }}
+              />
             </div>
           </div>
 

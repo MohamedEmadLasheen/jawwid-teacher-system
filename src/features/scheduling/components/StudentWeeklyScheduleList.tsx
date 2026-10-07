@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/select';
 import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 import { useDayOptions } from '../hooks/useDayOptions';
+import { LessonDurationInput } from './LessonDurationInput';
 import { DAYS_OF_WEEK, GRID_COLUMNS } from '../constants/schedulingConstants';
 import { minuteToDisplayLabel, minuteToLabel } from '../utils/timeGrid';
 import {
@@ -16,14 +17,16 @@ import {
 } from '../utils/studentWeeklySchedule';
 import type { Student, Teacher, DayOfWeek } from '@/lib/types';
 
-/** The durations the scheduling system already offers. Not extended here. */
-const DURATIONS = [30, 60, 90, 120];
 
 export interface NewLessonDraft {
   teacherId: string;
   dayOfWeek: DayOfWeek;
   startMinute: number;
   durationMinutes: number;
+  /** The duration exactly as typed; `durationMinutes` is its parsed value. */
+  durationText: string;
+  /** False while `durationText` does not parse — gates the Add button. */
+  durationValid: boolean;
 }
 
 interface StudentWeeklyScheduleListProps {
@@ -74,6 +77,8 @@ export function StudentWeeklyScheduleList({
     dayOfWeek: 0,
     startMinute: GRID_COLUMNS[0],
     durationMinutes: 30,
+    durationText: '30',
+    durationValid: true,
   });
 
   const dayOptions = useDayOptions();
@@ -300,27 +305,28 @@ export function StudentWeeklyScheduleList({
                 </div>
               </div>
               <div className="space-y-1">
-                <Label htmlFor="add-duration">{t('scheduling.duration')}</Label>
-                <Select
-                  value={String(draft.durationMinutes)}
-                  onValueChange={(v) => setDraft((d) => ({ ...d, durationMinutes: Number(v) }))}
-                >
-                  <SelectTrigger id="add-duration" data-testid="add-duration"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {DURATIONS.map((d) => (
-                      <SelectItem key={d} value={String(d)}>
-                        {t('scheduling.edit.durationMinutes', { n: d })}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <LessonDurationInput
+                  id="add-duration"
+                  data-testid="add-duration"
+                  value={draft.durationText}
+                  startMinute={draft.startMinute}
+                  showError
+                  onChange={(text, minutes) => setDraft((d) => ({
+                    ...d,
+                    durationText: text,
+                    /* Only a parsed value overwrites the committed integer, so
+                       a half-typed field never corrupts the draft. */
+                    durationMinutes: minutes ?? d.durationMinutes,
+                    durationValid: minutes !== undefined,
+                  }))}
+                />
               </div>
               <div className="flex gap-2">
                 <Button
                   type="button"
                   data-testid="weekly-add-confirm"
                   className="min-h-11"
-                  disabled={addDisabled || !draft.teacherId}
+                  disabled={addDisabled || !draft.teacherId || !draft.durationValid}
                   onClick={() => { onAddLesson(draft); setAdding(false); }}
                 >
                   {t('scheduling.weekly.addConfirm')}
