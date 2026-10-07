@@ -5,7 +5,7 @@ import i18n from '@/i18n';
 import { ActionCenterPage } from '@/features/action-center/ActionCenterPage';
 import { useTeacherStore } from '@/store/teacherStore';
 import { useAuthStore } from '@/store/authStore';
-import { emptyCriteria, setCriterion } from '@/lib/evaluationCriteria';
+import { EVALUATION_CRITERION_KEYS, emptyCriteria, setCriterion } from '@/lib/evaluationCriteria';
 import type { Teacher, SessionEvaluation, User } from '@/lib/types';
 
 /**
@@ -120,6 +120,29 @@ const NINE_CRITERIA: SessionEvaluation = {
   createdAt: '2025-10-01T09:00:00.000Z',
 };
 
+/**
+ * A 9-criteria evaluation with a DISTINCT score and a DISTINCT comment on
+ * every one of the nine — the fixture the read-back tests need to prove that
+ * nine comments land on nine criteria and none bleeds into another.
+ */
+const ALL_NINE: SessionEvaluation = {
+  ...HISTORICAL,
+  id: 'ev-all-nine',
+  teacherId: 't-arwa',
+  sessionDate: '2025-10-02',
+  customNote: 'Strong lesson overall.',
+  criteria: EVALUATION_CRITERION_KEYS.reduce(
+    (acc, key, i) => setCriterion(acc, key, {
+      score: (['excellent', 'good', 'acceptable', 'needs_improvement'] as const)[i % 4],
+      comment: `Observation for criterion ${i + 1}.`,
+    }),
+    emptyCriteria()
+  ),
+  overallScore: 70,
+  grade: 'good',
+  createdAt: '2025-10-01T09:00:00.000Z',
+};
+
 const USER: User = {
   id: 'u-1',
   name: DIR === 'rtl' ? 'فاطمة' : 'Fatma Quality',
@@ -133,7 +156,7 @@ const USER: User = {
 useAuthStore.setState({ currentUser: USER, isAuthenticated: true });
 useTeacherStore.setState({
   teachers: TEACHERS,
-  evaluations: [NINE_CRITERIA, HISTORICAL, HISTORICAL_WITH_NOTE],
+  evaluations: [NINE_CRITERIA, ALL_NINE, HISTORICAL, HISTORICAL_WITH_NOTE],
   complaints: [], improvementPlans: [], recommendations: [], adminNotes: [],
   deductions: [], bonuses: [], salaryRecords: [], loading: false, error: null,
 });

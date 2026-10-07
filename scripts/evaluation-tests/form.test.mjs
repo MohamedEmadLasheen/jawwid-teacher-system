@@ -41,6 +41,7 @@ const read = (rel) => readFileSync(join(ROOT, rel), 'utf8');
 const FORM = read('src/features/action-center/SessionEvaluationForm.tsx');
 const LIST = read('src/features/action-center/ActionCenterPage.tsx');
 const CRITERIA = read('src/lib/evaluationCriteria.ts');
+const DETAILS = read('src/features/action-center/EvaluationDetails.tsx');
 const EN = JSON.parse(read('src/i18n/en.json'));
 const AR = JSON.parse(read('src/i18n/ar.json'));
 
@@ -172,6 +173,49 @@ check('D  no physical left/right in the row, so RTL mirrors correctly',
   /\b(ml-|mr-|pl-|pr-|left-|right-|text-left|text-right)\d*/.test(
     row.slice(0, row.indexOf('DeleteBtn kind="evaluation"'))),
   false);
+
+console.log('='.repeat(78));
+console.log('E · THE READ-BACK VIEW IS READ-ONLY, AND NEVER FABRICATES');
+console.log('='.repeat(78));
+
+check('E  the details view renders the nine from the shared list',
+  DETAILS.includes('EVALUATION_CRITERION_KEYS.map('), true);
+check('E  it holds no second copy of the criterion keys',
+  KEYS.filter((k) => DETAILS.includes(`'${k}'`)), []);
+check('E  labels come from i18n, not hard-coded English',
+  DETAILS.includes('`evaluation.criterion.${key}`'), true);
+check('E  it renders each criterion\'s OWN score and OWN comment',
+  /criteria\[key\]\.score/.test(DETAILS) && /criteria\[key\]\.comment/.test(DETAILS), true);
+
+// READ-ONLY, asserted as an absence: no control that could change anything.
+check('E  no input, textarea or select anywhere in the view',
+  /<(input|textarea|select|Textarea|Input|Select)\b/i.test(DETAILS), false);
+check('E  no change handler of any kind',
+  /onChange|onInput|onSubmit/.test(DETAILS), false);
+check('E  it never writes to a criterion',
+  /setCriterion|serializeCriteria|addEvaluation|\.insert\(|\.update\(/.test(DETAILS), false);
+check('E  it takes no setter and holds no evaluation state',
+  /useState|setCriteria|onSave|onEdit/.test(DETAILS), false);
+
+check('E  an uncommented criterion renders nothing rather than an empty box',
+  /\{comment && \(/.test(DETAILS), true);
+check('E  the comment is trimmed before the emptiness test, so whitespace is not a comment',
+  /const comment = criteria\[key\]\.comment\.trim\(\);/.test(DETAILS), true);
+
+// The legacy guard lives at the CALL SITE: the view is never mounted without data.
+check('E  the list mounts the view only for a 9-criteria evaluation',
+  /\{ev\.criteria && \(\s*<EvaluationDetails/.test(LIST), true);
+check('E  a historical evaluation is given no details control at all',
+  /criteria \?\? emptyCriteria|criteria \|\| emptyCriteria|parseCriteria\(.*\) \?\?/.test(LIST), false);
+check('E  the summary line still carries name, grade, score, evaluator and date',
+  ['getTeacherName(ev.teacherId)', 'ev.grade', 'ev.overallScore', 'ev.evaluatorName',
+   'formatDate(ev.sessionDate'].filter((bit) => !LIST.includes(bit)),
+  []);
+
+check('E  the control is localised in both languages',
+  ['viewDetails'].filter((k) => !EN.evaluation?.[k] || !AR.evaluation?.[k]), []);
+check('E  no physical left/right in the view, so RTL mirrors correctly',
+  /\b(ml-|mr-|pl-|pr-|left-|right-|text-left|text-right)\d/.test(DETAILS), false);
 
 console.log(results.join('\n'));
 console.log('-'.repeat(78));

@@ -43,13 +43,14 @@ one.
 
 ## Fixtures
 
-Three evaluations, chosen to cover the compatibility boundary:
+Four evaluations, chosen to cover the compatibility boundary:
 
 | Fixture | Why |
 |---|---|
 | `ev-nine` | A 9-criteria evaluation with per-criterion comments and a general comment |
 | `ev-historical` | `criteria: null`, no general comment — must still render, keep its original 83/Good, and grow no invented comment |
 | `ev-historical-note` | `criteria: null` but *with* a `custom_note`, because that column has existed since migration 001 and some old rows already carry one |
+| `ev-all-nine` | A distinct score AND a distinct comment on every one of the nine — the fixture that proves nine comments land on nine criteria and none bleeds into another |
 
 The roster mixes Arabic and English names and deliberately includes two
 teachers sharing a given name, two sharing a surname, the trailing spaces the
@@ -78,3 +79,10 @@ real to disambiguate and the Arabic folding rule is exercised, not assumed.
 - **Arabic / RTL** — the selector and its popover in RTL, Arabic criterion
   labels, an Arabic comment rendering inside its row, and no horizontal
   overflow introduced anywhere on the page.
+- **Read-back** (`readback.spec.ts`) — the collapsible Evaluation Details
+  section: all nine scores and nine comments render under the right criterion;
+  an uncommented criterion renders no element rather than an empty box; the
+  section is collapsed by default, expands and collapses, contains no control
+  that could change anything, and writes nothing; a historical evaluation
+  (`criteria === null`) is given no control at all and no fabricated ratings;
+  and all of it holds in Arabic/RTL at both desktop and 375px.

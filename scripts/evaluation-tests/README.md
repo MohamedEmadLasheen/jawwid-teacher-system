@@ -10,8 +10,8 @@ created before any of them existed.
 
 | File | Asserts |
 |---|---|
-| `criteria.test.mjs` | The nine criteria, the scoring arithmetic, the JSONB round trip, historical rows, validation, and teacher search (60) |
-| `form.test.mjs` | Static policy over the real `.tsx` sources: the selector is searchable, comments go through one code path, labels exist in both languages, the general comment is displayed under the teacher's name (32) |
+| `criteria.test.mjs` | The nine criteria, the scoring arithmetic, the JSONB round trip, historical rows, write-side validation, and teacher search (86) |
+| `form.test.mjs` | Static policy over the real `.tsx` sources: the selector is searchable, comments go through one code path, the write boundary refuses a half-formed evaluation, labels exist in both languages, the general comment is displayed under the teacher's name, and the read-back view is read-only (53) |
 
 No test-runner dependency is added. `run.sh` uses the `esbuild` binary Vite
 already installs to bundle the **pure** modules under test to ESM, then runs
