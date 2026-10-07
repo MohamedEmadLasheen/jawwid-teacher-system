@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Plus, Pencil, Trash2, UserX, Shield } from 'lucide-react';
+import { Plus, Pencil, Trash2, UserX, Shield, Loader2, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,6 +17,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useSupervisorStore } from '@/store/supervisorStore';
 import { useAuthStore } from '@/store/authStore';
 import { useLogStore } from '@/store/logStore';
@@ -54,6 +55,8 @@ export function SupervisorsPage() {
   const [permOpen, setPermOpen] = useState(false);
   const [permSupervisor, setPermSupervisor] = useState<Supervisor | null>(null);
   const [selectedPerms, setSelectedPerms] = useState<Permission[]>([]);
+  const [savingPerms, setSavingPerms] = useState(false);
+  const [permError, setPermError] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     name: '', email: '', phone: '', department: '',
@@ -77,6 +80,8 @@ export function SupervisorsPage() {
   const openPermissions = (s: Supervisor) => {
     setPermSupervisor(s);
     setSelectedPerms([...s.permissions]);
+    setSavingPerms(false);
+    setPermError(null);
     setPermOpen(true);
   };
 
@@ -110,12 +115,33 @@ export function SupervisorsPage() {
     setDeleteId(null);
   };
 
-  const handleSavePermissions = () => {
-    if (permSupervisor) updateSupervisorPermissions(permSupervisor.id, selectedPerms);
-    setPermOpen(false);
+  // The permission save writes twice — supervisors.permissions, then the linked
+  // profile — and the profile write is the one route/nav enforcement actually
+  // reads. This used to be fired without await and the dialog closed
+  // immediately, so a rejected write (e.g. the profile privilege guard refusing
+  // a non-super-admin caller) looked identical to a successful one. Await it,
+  // keep the dialog open until it resolves, and surface failures for retry.
+  const handleSavePermissions = async () => {
+    if (!permSupervisor || savingPerms) return;   // no double submit
+    setSavingPerms(true);
+    setPermError(null);
+    try {
+      await updateSupervisorPermissions(permSupervisor.id, selectedPerms);
+      setPermOpen(false);                          // close only on confirmed success
+      setPermSupervisor(null);
+    } catch (err) {
+      setPermError(
+        err instanceof Error
+          ? err.message
+          : (isAr ? 'فشل حفظ الصلاحيات' : 'Failed to save permissions')
+      );
+    } finally {
+      setSavingPerms(false);
+    }
   };
 
   const togglePerm = (perm: Permission) => {
+    if (savingPerms) return;
     setSelectedPerms((prev) => prev.includes(perm) ? prev.filter((p) => p !== perm) : [...prev, perm]);
   };
 
@@ -334,13 +360,26 @@ export function SupervisorsPage() {
       </Dialog>
 
       {/* Permissions Dialog */}
-      <Dialog open={permOpen} onOpenChange={setPermOpen}>
+      {/* Never dismiss mid-save (overlay click / Escape) — the write is already
+          in flight and closing would hide its outcome, the original bug. */}
+      <Dialog open={permOpen} onOpenChange={(open) => { if (!open && savingPerms) return; setPermOpen(open); }}>
         <DialogContent className="w-[calc(100vw-32px)] max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-primary text-base">
               {t('supervisors.permissions')} — {permSupervisor?.name}
             </DialogTitle>
           </DialogHeader>
+          {permError && (
+            <Alert className="border-red-400 bg-red-50" role="alert">
+              <AlertDescription className="flex items-start gap-2 text-sm">
+                <XCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                <span>
+                  {isAr ? 'لم يتم حفظ الصلاحيات. ' : 'Permissions were not saved. '}
+                  {permError}
+                </span>
+              </AlertDescription>
+            </Alert>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 py-2">
             {ALL_PERMISSIONS.map((perm) => (
               <div key={perm} className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-gray-50">
@@ -348,6 +387,7 @@ export function SupervisorsPage() {
                   id={perm}
                   checked={selectedPerms.includes(perm)}
                   onCheckedChange={() => togglePerm(perm)}
+                  disabled={savingPerms}
                   className="shrink-0"
                 />
                 <label htmlFor={perm} className="text-xs text-gray-700 cursor-pointer leading-tight">
@@ -357,8 +397,27 @@ export function SupervisorsPage() {
             ))}
           </div>
           <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={() => setPermOpen(false)} className="w-full sm:w-auto">{t('common.cancel')}</Button>
-            <Button onClick={handleSavePermissions} className="bg-primary hover:bg-primary/90 text-primary-foreground w-full sm:w-auto">{t('common.save')}</Button>
+            <Button
+              variant="outline"
+              onClick={() => setPermOpen(false)}
+              disabled={savingPerms}
+              className="w-full sm:w-auto"
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              onClick={handleSavePermissions}
+              disabled={savingPerms}
+              aria-busy={savingPerms}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground w-full sm:w-auto"
+            >
+              {savingPerms && <Loader2 className="h-4 w-4 me-2 animate-spin" />}
+              {savingPerms
+                ? (isAr ? 'جاري الحفظ…' : 'Saving…')
+                : permError
+                  ? (isAr ? 'إعادة المحاولة' : 'Retry')
+                  : t('common.save')}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
