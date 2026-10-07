@@ -76,8 +76,24 @@ async function applied(page: Page) {
 
 /** Picks an option in a Radix Select by its visible label. */
 async function selectOption(page: Page, testId: string, label: string | RegExp) {
+  // Duration stopped being a listbox when manual durations landed: the academy
+  // runs 40- and 45-minute lessons, which four fixed options could not express.
+  // It is filled rather than picked; the minutes are read out of the same label
+  // the field tables already carry ('60 minutes', '60 دقيقة', '90 minutes'), so
+  // every call site and assertion below is unchanged.
+  if (testId.endsWith('-duration')) {
+    const minutes = String(label).match(/\d+/)?.[0];
+    if (!minutes) throw new Error(`no minutes in duration label: ${String(label)}`);
+    await page.locator(`[data-testid="${testId}"]`).fill(minutes);
+    return;
+  }
   await page.locator(`[data-testid="${testId}"]`).click();
   await page.getByRole('option', { name: label }).click();
+}
+
+/** Type a duration directly, for the cases that assert the new contract. */
+async function setDuration(page: Page, testId: string, raw: string) {
+  await page.locator(`[data-testid="${testId}"]`).fill(raw);
 }
 
 async function chooseScope(page: Page, which: 'this' | 'slot') {
@@ -1125,11 +1141,53 @@ test('the day selector is searchable and still sends the chosen day', async ({ p
   expect(writes[0].payload.new_day_of_week).toBe(3);
 });
 
-test('duration stays a plain select — four options, no search field', async ({ page }) => {
+test('duration is a manual numeric input — no options, no search field', async ({ page }) => {
   await open(page);
-  await page.locator('[data-testid="edit-duration"]').click();
-  await expect(page.getByRole('option')).toHaveCount(4);
+  const field = page.locator('[data-testid="edit-duration"]');
+  await expect(field).toHaveAttribute('type', 'number');
+  // The four fixed options are gone; there is nothing to open.
+  await field.click();
+  await expect(page.getByRole('option')).toHaveCount(0);
   await expect(editSearch(page)).toHaveCount(0);
+  // Minimum is the database's own CHECK (duration_minutes > 0); stepping is
+  // by the minute, so it cannot re-impose the half-hour grid.
+  await expect(field).toHaveAttribute('min', '1');
+  await expect(field).toHaveAttribute('step', '1');
+});
+
+test('duration accepts the values the dropdown could not express', async ({ page }) => {
+  await open(page);
+  await setConflict(page, false);
+  for (const minutes of ['40', '45', '50']) {
+    await setDuration(page, 'edit-duration', minutes);
+    await expect(page.locator('[data-testid="edit-duration"]')).toHaveValue(minutes);
+  }
+  // And the exact value is what gets saved — not rounded to 30 or 60.
+  await setDuration(page, 'edit-duration', '45');
+  await chooseScope(page, 'this');
+  await page.locator('[data-testid="save-changes"]').click();
+  const writes = await applied(page);
+  expect(writes[0].payload.new_duration_minutes).toBe(45);
+});
+
+test('an invalid duration is rejected and cannot be saved', async ({ page }) => {
+  await open(page);
+  await setConflict(page, false);
+  // 'abc' is deliberately absent: a type="number" field cannot hold it — the
+  // browser discards non-numeric keystrokes, so the string never reaches the
+  // value. The not_a_number rule still matters for pasted and programmatic
+  // input and is asserted exhaustively in
+  // scripts/schedule-geometry-tests/duration.test.mjs.
+  for (const bad of ['0', '-5', '45.5', '']) {
+    await setDuration(page, 'edit-duration', bad);
+    await expect(page.locator('[data-testid="edit-duration-error"]')).toBeVisible();
+    await expect(page.locator('[data-testid="save-changes"]')).toBeDisabled();
+  }
+  // A valid value clears the error and re-enables saving.
+  await setDuration(page, 'edit-duration', '45');
+  await expect(page.locator('[data-testid="edit-duration-error"]')).toHaveCount(0);
+  await chooseScope(page, 'this');
+  await expect(page.locator('[data-testid="save-changes"]')).toBeEnabled();
 });
 
 /* ============================================================================
@@ -1180,11 +1238,15 @@ test('weekly add: the start-time selector is searchable by either time spelling'
   await expect(page.getByRole('option', { name: '9:00 AM', exact: true })).toHaveCount(1);
 });
 
-test('weekly add: duration stays a plain select — four options, no search field', async ({ page }) => {
+test('weekly add: duration is a manual numeric input — no options, no search field', async ({ page }) => {
   await openWeeklyAdd(page);
-  await page.locator('[data-testid="add-duration"]').click();
-  await expect(page.getByRole('option')).toHaveCount(4);
+  const field = page.locator('[data-testid="add-duration"]');
+  await expect(field).toHaveAttribute('type', 'number');
+  await field.click();
+  await expect(page.getByRole('option')).toHaveCount(0);
   await expect(editSearch(page)).toHaveCount(0);
+  await setDuration(page, 'add-duration', '45');
+  await expect(field).toHaveValue('45');
 });
 
 test('weekly add: searching for each field still creates exactly the chosen lesson', async ({ page }) => {

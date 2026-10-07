@@ -19,17 +19,13 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
 import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 import { MultiSelectFilter } from './MultiSelectFilter';
+import { LessonDurationInput } from './LessonDurationInput';
 import { Label } from '@/components/ui/label';
 import { CheckCircle2, AlertTriangle } from 'lucide-react';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
 import type { DayOfWeek } from '@/lib/types';
-
-const DURATIONS = [30, 60, 90, 120];
 
 type LessonDetailDialogProps =
   | {
@@ -101,7 +97,15 @@ function CreateLessonDialog(props: Extract<LessonDetailDialogProps, { mode: 'cre
   };
 
   const [courseId, setCourseId] = useState('');
-  const [duration, setDuration] = useState(30);
+  /**
+   * Duration is held as the TEXT the user typed plus the integer it parses to.
+   * Keeping only a number could not tell an empty field from a zero, nor hold
+   * a half-typed value without snapping it — which is what the fixed dropdown
+   * this replaces used to hide.
+   */
+  const [durationText, setDurationText] = useState('30');
+  const [duration, setDuration] = useState<number | undefined>(30);
+  const [durationTouched, setDurationTouched] = useState(false);
   const [studentIds, setStudentIds] = useState<string[]>([]);
   const [preview, setPreview] = useState<{ hasConflict: boolean; message: string } | null>(null);
 
@@ -190,6 +194,9 @@ function CreateLessonDialog(props: Extract<LessonDetailDialogProps, { mode: 'cre
   );
 
   const handlePreview = async () => {
+    // A half-typed duration must not reach the conflict check: it would be
+    // answering a question about a lesson that does not exist yet.
+    if (duration === undefined) { setDurationTouched(true); return; }
     const result = await checkConflict.mutateAsync({
       teacherId,
       studentIds,
@@ -201,6 +208,10 @@ function CreateLessonDialog(props: Extract<LessonDetailDialogProps, { mode: 'cre
   };
 
   const handleCreate = async () => {
+    // The exact integer typed, or no save at all — never a substituted
+    // default. The button is disabled too; this is the guard that holds if a
+    // submit arrives by any other route.
+    if (duration === undefined) { setDurationTouched(true); return; }
     // Ownership first. Every selected student must have a Responsible Admin
     // before a lesson exists for them, and the assignment is written to the
     // STUDENT row — there is no lesson-level admin to write.
@@ -291,15 +302,19 @@ function CreateLessonDialog(props: Extract<LessonDetailDialogProps, { mode: 'cre
                 />
               </div>
               <div className="space-y-1">
-                <Label>{t('scheduling.duration')}</Label>
-                <Select value={String(duration)} onValueChange={(v) => { setDuration(Number(v)); setPreview(null); }}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {DURATIONS.map((d) => (
-                      <SelectItem key={d} value={String(d)}>{d} {t('courses.minutes')}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <LessonDurationInput
+                  id="create-duration"
+                  data-testid="create-duration"
+                  value={durationText}
+                  startMinute={props.startMinute}
+                  showError={durationTouched}
+                  onChange={(text, minutes) => {
+                    setDurationText(text);
+                    setDuration(minutes);
+                    setDurationTouched(true);
+                    setPreview(null);
+                  }}
+                />
               </div>
           </div>
 
@@ -352,10 +367,10 @@ function CreateLessonDialog(props: Extract<LessonDetailDialogProps, { mode: 'cre
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={handlePreview} disabled={studentIds.length === 0}>{t('scheduling.preview')}</Button>
+          <Button type="button" variant="outline" onClick={handlePreview} disabled={studentIds.length === 0 || duration === undefined}>{t('scheduling.preview')}</Button>
           <Button
             type="button" onClick={handleCreate}
-            disabled={studentIds.length === 0 || selectedDays.length === 0 || (preview !== null && preview.hasConflict)}
+            disabled={studentIds.length === 0 || selectedDays.length === 0 || duration === undefined || (preview !== null && preview.hasConflict)}
             className="bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             {t('scheduling.createNewLesson')}

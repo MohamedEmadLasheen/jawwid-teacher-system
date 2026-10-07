@@ -11,9 +11,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
 import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 import { useTeacherStore } from '@/store/teacherStore';
 import { useStudents, useUpdateStudent } from '../hooks/useStudents';
@@ -23,6 +20,7 @@ import { useSameTimeSlotLessons } from '../hooks/useSameTimeSlotLessons';
 import { useStudentWeeklySchedule } from '../hooks/useStudentWeeklySchedule';
 import { StudentWeeklyScheduleList, type NewLessonDraft } from './StudentWeeklyScheduleList';
 import { StudentAdminAssignmentList } from './StudentAdminAssignmentList';
+import { LessonDurationInput } from './LessonDurationInput';
 import { resolveStudentAdminRows } from '../utils/studentAdminAssignment';
 import { useDayOptions } from '../hooks/useDayOptions';
 import { findBatchCollisions } from '../utils/bulkEditPreflight';
@@ -31,8 +29,6 @@ import { minuteToDisplayLabel, minuteToLabel } from '../utils/timeGrid';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
 import type { DayOfWeek } from '@/lib/types';
 
-/** The durations the scheduling system already offers. Not extended here. */
-const DURATIONS = [30, 60, 90, 120];
 
 /** Which lessons an edit or a removal applies to. */
 type SlotScope = 'this_lesson' | 'whole_slot';
@@ -112,7 +108,16 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
   const [teacherId, setTeacherId] = useState(lesson.teacherId);
   const [dayOfWeek, setDayOfWeek] = useState<DayOfWeek>(lesson.dayOfWeek as DayOfWeek);
   const [startMinute, setStartMinute] = useState(lesson.startMinute);
-  const [duration, setDuration] = useState(lesson.durationMinutes);
+  /**
+   * The stored duration, as text plus the integer it parses to.
+   *
+   * Seeding the text from the lesson is what makes an existing 45-minute
+   * lesson DISPLAY 45. The fixed dropdown this replaces had no option for it,
+   * so Radix matched nothing and rendered an empty trigger — the stored value
+   * was invisible and a save could silently replace it.
+   */
+  const [durationText, setDurationText] = useState(String(lesson.durationMinutes));
+  const [duration, setDuration] = useState<number | undefined>(lesson.durationMinutes);
 
   const [scope, setScope] = useState<SlotScope | null>(null);
   const [verdict, setVerdict] = useState<{ ok: boolean; message: string } | null>(null);
@@ -229,6 +234,7 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
     setDayOfWeek(next.dayOfWeek as DayOfWeek);
     setStartMinute(next.startMinute);
     setDuration(next.durationMinutes);
+    setDurationText(String(next.durationMinutes));
     setScope(null);
     setVerdict(null);
     setOutcome(null);
@@ -614,20 +620,23 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
             </div>
 
             <div className="space-y-1">
-              <Label htmlFor="edit-duration">{t('scheduling.duration')}</Label>
-              <Select
-                value={String(duration)}
-                onValueChange={change((v: string) => setDuration(Number(v)))}
-              >
-                <SelectTrigger id="edit-duration" data-testid="edit-duration"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {DURATIONS.map((d) => (
-                    <SelectItem key={d} value={String(d)}>
-                      {t('scheduling.edit.durationMinutes', { n: d })}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <LessonDurationInput
+                id="edit-duration"
+                data-testid="edit-duration"
+                value={durationText}
+                startMinute={startMinute}
+                showError
+                onChange={(text, minutes) => {
+                  setDurationText(text);
+                  setDuration(minutes);
+                  /* The same two resets `change` performs: a new proposal
+                     invalidates the previous verdict and outcome. Inlined
+                     because `change` wraps a one-argument setter and this
+                     control reports both the text and the parsed integer. */
+                  setVerdict(null);
+                  setOutcome(null);
+                }}
+              />
             </div>
 
             {/* Scope appears only once something has actually changed, and
@@ -705,7 +714,7 @@ export function LessonEditDialog({ lesson, onClose, onSaved }: LessonEditDialogP
               type="button"
               data-testid="save-changes"
               className="min-h-11"
-              disabled={!dirty || !effectiveScope || busy || blockedByPreflight}
+              disabled={!dirty || duration === undefined || !effectiveScope || busy || blockedByPreflight}
               onClick={handleSave}
             >
               {t('scheduling.edit.save')}
