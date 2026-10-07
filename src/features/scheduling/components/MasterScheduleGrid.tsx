@@ -9,9 +9,8 @@ import { useScheduleMetrics } from '../hooks/useScheduleMetrics';
 import { useScheduleDragSensors } from '../hooks/useScheduleDragSensors';
 import { useScheduleRoster } from '../hooks/useScheduleRoster';
 import { ScheduleGridRow } from './ScheduleGridRow';
-import { ScheduleTimeHeader } from './ScheduleTimeHeader';
+import { ScheduleTimeHeader, scheduleContentWidth } from './ScheduleTimeHeader';
 import { CurrentTimeIndicator } from './CurrentTimeIndicator';
-import { timelineWidth } from '../utils/timelineGeometry';
 import { GRID_COLUMNS } from '../constants/schedulingConstants';
 import { minuteToDisplayLabel } from '../utils/timeGrid';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
@@ -127,7 +126,9 @@ export function MasterScheduleGrid({ onEmptyClick, onLessonClick, onProposeMove 
     return <p className="text-sm text-red-600 p-4">{message}</p>;
   }
 
-  const contentWidth = teacherColumnWidth + timelineWidth(columnWidth);
+  // One column wider than the axis: the header's terminal boundary cell
+  // lives past the last schedulable column. Rows stay axis-width.
+  const contentWidth = scheduleContentWidth(columnWidth, teacherColumnWidth);
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>

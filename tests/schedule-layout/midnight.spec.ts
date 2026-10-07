@@ -250,20 +250,21 @@ for (const dir of DIRECTIONS) {
 }
 
 // ===========================================================================
-// REGRESSION: "11:30 PM" and "12:00 AM" must never intersect.
+// REGRESSION: "11:30 PM" and "12:00 AM" sit SIDE BY SIDE on one header row.
 //
-// The first terminal-marker implementation put the label at `bottom-0` inside
-// a box with no reserved space, so it sat on top of the final column's label.
-// It LOOKED clear on a phone (0.3px of slack) and overlapped by ~3px on
-// desktop, which is exactly the shape of bug a screenshot catches and a cell-
-// box assertion misses. These assertions measure the TEXT rectangles and
-// require a real empty intersection, at every supported width, in both
-// directions.
+// Two earlier attempts failed here. The first shared the final column's label
+// box and overlapped by up to 38px. The second moved the marker to its own
+// baseline below the labels — no overlap, but stacked, which is not the
+// design. The terminal cell is now a sibling flex item of the axis box: same
+// row, one column wide, immediately after 11:30 PM, and outside every
+// geometry calculation.
+//
+// These assertions measure real DOM rectangles. A screenshot cannot prove the
+// text boxes are disjoint, and a cell-box check already fooled this suite once.
 // ===========================================================================
 const QA_WIDTHS = [320, 375, 390, 430, 768, 1280];
 
-/** Text rects of the final column label and the terminal boundary label. */
-async function labelRects(page: Page) {
+async function terminalGeometry(page: Page) {
   return page.evaluate(() => {
     const s = document.querySelector('[data-testid="scroller"]') as HTMLElement;
     const end = s.querySelector('[data-testid="timeline-end-label"]') as HTMLElement | null;
@@ -272,25 +273,32 @@ async function labelRects(page: Page) {
       (d) => d !== end && d.children.length === 0 && /^\d{1,2}:\d{2} (AM|PM)$/.test(d.textContent?.trim() ?? '')
     );
     const last = cols[cols.length - 1] as HTMLElement;
-    // The CELL box is padded; the glyphs are what can visually collide, so
-    // measure the text itself via a Range.
-    const range = document.createRange();
-    range.selectNodeContents(last);
-    const t = range.getBoundingClientRect();
-    const e = end.getBoundingClientRect();
+    const rtl = getComputedStyle(s).direction === 'rtl';
+
+    // Text rectangles, not padded cell boxes — the glyphs are what collide.
+    const tr = document.createRange(); tr.selectNodeContents(last);
+    const t = tr.getBoundingClientRect();
+    const er = document.createRange(); er.selectNodeContents(end);
+    const e = er.getBoundingClientRect();
+
+    const lb = last.getBoundingClientRect();
+    const eb = end.getBoundingClientRect();
     const overlapX = Math.max(0, Math.min(t.right, e.right) - Math.max(t.left, e.left));
     const overlapY = Math.max(0, Math.min(t.bottom, e.bottom) - Math.max(t.top, e.top));
-    const axis = s.querySelector('.flex.shrink-0.relative') as HTMLElement;
+    const bodyAxis = s.querySelector('[data-testid="row"] .relative.shrink-0.h-full') as HTMLElement | null;
+
     return {
       lastLabel: last.textContent!.trim(),
       endLabel: end.textContent!.trim(),
       columnCount: cols.length,
-      columnWidth: Math.round(last.getBoundingClientRect().width),
-      axisWidth: Math.round(axis.getBoundingClientRect().width),
-      overlapX: +overlapX.toFixed(2),
-      overlapY: +overlapY.toFixed(2),
+      columnWidth: Math.round(lb.width),
+      terminalWidth: Math.round(eb.width),
       intersects: overlapX > 0 && overlapY > 0,
-      endBelowLast: e.top >= t.bottom - 0.5,
+      centreDeltaY: +Math.abs((t.top + t.bottom) / 2 - (e.top + e.bottom) / 2).toFixed(2),
+      // Immediately after the final column, in whichever direction applies.
+      adjacent: rtl ? Math.abs(eb.right - lb.left) < 2 : Math.abs(eb.left - lb.right) < 2,
+      pointerEvents: getComputedStyle(end).pointerEvents,
+      bodyAxisWidth: bodyAxis ? Math.round(bodyAxis.getBoundingClientRect().width) : null,
       docOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     };
   });
@@ -298,47 +306,65 @@ async function labelRects(page: Page) {
 
 for (const dir of DIRECTIONS) {
   for (const width of QA_WIDTHS) {
-    test(`A-J. dir=${dir} @ ${width}px: 11:30 PM and 12:00 AM do not intersect`, async ({ page }) => {
+    test(`terminal cell: dir=${dir} @ ${width}px — side by side with 11:30 PM`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       await page.goto(`/tests/schedule-layout/index.html?dir=${dir}&responsive=1`);
       await page.waitForSelector('[data-testid="ready"]', { state: 'attached' });
       await page.waitForTimeout(250);
 
-      const m = await labelRects(page);
-      expect(m, 'the terminal label must exist').not.toBeNull();
+      const m = await terminalGeometry(page);
+      expect(m, 'the terminal cell must exist').not.toBeNull();
 
-      // A. both labels exist
+      // 1. both labels present
       expect(m!.lastLabel).toBe('11:30 PM');
       expect(m!.endLabel).toBe('12:00 AM');
 
-      // B. ZERO bounding-box intersection — the actual defect
-      expect(m!.intersects, `overlap ${m!.overlapX}x${m!.overlapY}px`).toBe(false);
-      expect(m!.overlapY).toBe(0);
+      // 2. text boxes disjoint
+      expect(m!.intersects).toBe(false);
 
-      // C/D. the terminal label sits on its own baseline, below the column
-      // label, in both directions
-      expect(m!.endBelowLast).toBe(true);
+      // 3. SAME ROW — vertical centres aligned (this is what rules out the
+      //    earlier stacked layout, which passed the overlap check)
+      expect(m!.centreDeltaY).toBeLessThanOrEqual(1.5);
 
-      // K/L. the grid itself is untouched by the presentation fix
+      // 4. immediately after the final column, mirrored correctly in RTL
+      expect(m!.adjacent).toBe(true);
+
+      // 5. exactly one column wide
+      expect(m!.terminalWidth).toBe(m!.columnWidth);
+
+      // 6/7. the schedulable axis is untouched by the header's extra cell
       expect(m!.columnCount).toBe(32);
-      expect(m!.axisWidth).toBe(32 * m!.columnWidth);
+      // 15. lesson geometry unchanged: the body is still 32 columns wide
+      expect(m!.bodyAxisWidth).toBe(32 * m!.columnWidth);
 
-      // no page-level horizontal overflow
+      // 9. it can never be clicked as a slot
+      expect(m!.pointerEvents).toBe('none');
+
+      // 14. no page-level horizontal overflow
       expect(m!.docOverflow).toBeLessThanOrEqual(1);
     });
   }
 }
 
-test('M/N. the terminal marker adds no schedulable column', async ({ page }) => {
+test('the terminal cell is not a schedulable column', async ({ page }) => {
   await open(page, 'ltr');
   const m = await measure(page);
   const labels = Object.keys(m.headerCells);
-  // M. no 12:00 AM column start exists
+
+  // 7. no 12:00 AM among the schedulable columns
   expect(labels).not.toContain('12:00 AM');
   expect(labels).toHaveLength(32);
-  // N. the boundary is anchored at GRID_END_MINUTE: the last column starts at
-  // 11:30 PM and the axis ends exactly one column later.
+
+  // 3. 11:30 PM is still the final real slot
   const sorted = labels.sort((a, b) => m.headerCells[a] - m.headerCells[b]);
   expect(sorted.at(-1)).toBe('11:30 PM');
-  expect(m.endLabel).toBe('12:00 AM');
+
+  // 10. the body offers exactly 32 clickable slots per row — no 33rd.
+  // Scoped to the background slot layer: a lesson card is also a <button>, so
+  // counting every button in the row would include the lessons too.
+  const slots = await page.evaluate(() => {
+    const bg = document.querySelector('[data-testid="row"] .absolute.inset-0.flex')!;
+    return bg.querySelectorAll('button').length;
+  });
+  expect(slots).toBe(32);
 });

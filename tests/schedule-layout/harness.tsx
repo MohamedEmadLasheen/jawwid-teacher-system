@@ -5,10 +5,9 @@ import { DndContext } from '@dnd-kit/core';
 import '@/index.css';
 import i18n from '@/i18n';
 
-import { ScheduleTimeHeader } from '@/features/scheduling/components/ScheduleTimeHeader';
+import { ScheduleTimeHeader, scheduleContentWidth } from '@/features/scheduling/components/ScheduleTimeHeader';
 import { ScheduleGridRow } from '@/features/scheduling/components/ScheduleGridRow';
 import { CurrentTimeIndicator } from '@/features/scheduling/components/CurrentTimeIndicator';
-import { timelineWidth } from '@/features/scheduling/utils/timelineGeometry';
 import { GRID_ROW_HEIGHT, GRID_TEACHER_COLUMN_WIDTH } from '@/features/scheduling/constants/schedulingConstants';
 import { useScheduleMetrics } from '@/features/scheduling/hooks/useScheduleMetrics';
 import { DAYS_OF_WEEK, GRID_COLUMNS } from '@/features/scheduling/constants/schedulingConstants';
@@ -121,7 +120,7 @@ function Harness() {
   const teacherColumnWidth = RESPONSIVE ? live.teacherColumnWidth : GRID_TEACHER_COLUMN_WIDTH;
   const rowHeight = RESPONSIVE ? live.rowHeight : GRID_ROW_HEIGHT;
   const isCompact = RESPONSIVE ? live.isCompact : false;
-  const contentWidth = teacherColumnWidth + timelineWidth(columnWidth);
+  const contentWidth = scheduleContentWidth(columnWidth, teacherColumnWidth);
 
   return (
     <div style={{ padding: 8 }}>
