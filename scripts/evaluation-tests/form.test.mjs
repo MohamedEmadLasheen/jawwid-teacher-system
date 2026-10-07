@@ -70,8 +70,8 @@ check('A  exactly ONE teacher selector — an evaluation has one teacher',
   (FORM.match(/<SearchableSelect[\s>]/g) ?? []).length, 1);
 check('A  it is a required field with an error message',
   FORM.includes("'evaluation.teacherRequired'") && FORM.includes('aria-invalid'), true);
-check('A  saving re-checks the teacher rather than trusting the button',
-  /if \(validateEvaluationDraft\(\{ teacherId \}\)\.length > 0\) return;/.test(FORM), true);
+check('A  saving re-validates the WHOLE draft rather than trusting the button',
+  /if \(validateEvaluationDraft\(\{ teacherId, criteria \}\)\.length > 0\) return;/.test(FORM), true);
 check('A  no-results and search placeholders are provided',
   FORM.includes('emptyText') && FORM.includes('searchPlaceholder'), true);
 
@@ -91,6 +91,30 @@ check('B  scores are written the same way',
   /setCriterion\(prev, key, \{ score: rating \}\)/.test(FORM), true);
 check('B  the form keeps no shared comment state across criteria',
   /\[criterionComment, setCriterionComment\]|sharedComment/.test(FORM), false);
+
+console.log('='.repeat(78));
+console.log("B2 · THE WRITE BOUNDARY REFUSES A HALF-FORMED EVALUATION");
+console.log('='.repeat(78));
+
+const SERVICE = read('src/services/evaluations.service.ts');
+
+check('B2 the create path validates the criteria before inserting',
+  /const criteriaErrors = validateCriteria\(ev\.criteria\);[\s\S]*?throw new Error/.test(SERVICE), true);
+check('B2 it NEVER falls back to writing {} — that value means "historical evaluation"',
+  /criteria: ev\.criteria \? serializeCriteria\(ev\.criteria\) : \{\}/.test(SERVICE), false);
+check('B2 the criteria column is written from serializeCriteria, unconditionally',
+  /criteria: serializeCriteria\(ev\.criteria\),/.test(SERVICE), true);
+check('B2 the create path still writes NONE of the 16 legacy criterion columns',
+  ['tajweed_accuracy', 'pronunciation', 'correction_quality', 'listening_skills',
+   'time_management', 'class_flow', 'professionalism', 'clarity', 'encouragement',
+   'parent_communication', 'lesson_preparation', 'explanation_quality',
+   'error_correction', 'follow_up']
+    .filter((col) => new RegExp(`${col}:\\s*ev\\.`).test(SERVICE)),
+  []);
+check('B2 the legacy columns are still READ, so historical rows keep working',
+  /tajweedAccuracy: row\.tajweed_accuracy/.test(SERVICE), true);
+check('B2 a failed save does not close the dialog and lose the evaluation',
+  /await addEvaluation\(evalData\);/.test(FORM) && /setSaveError\(/.test(FORM), true);
 
 console.log('='.repeat(78));
 console.log('C · LABELS COME FROM i18n, IN BOTH LANGUAGES');

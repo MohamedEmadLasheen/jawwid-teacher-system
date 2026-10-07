@@ -73,6 +73,15 @@ export function SessionEvaluationForm({ onClose }: Props) {
    * had the chance to pick yet.
    */
   const [submitAttempted, setSubmitAttempted] = useState(false);
+  /**
+   * A failed save used to be invisible: the dialog closed on the optimistic
+   * assumption that the write succeeded, so a rejected insert (RLS, network,
+   * an invalid draft) silently discarded everything the evaluator had typed.
+   * The dialog now stays open and says so, and the form state is still there
+   * to retry from.
+   */
+  const [saveError, setSaveError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const score = computeEvaluationScore(criteria, behavioral);
   const grade = gradeForScore(score);
@@ -109,12 +118,15 @@ export function SessionEvaluationForm({ onClose }: Props) {
     setGeneralComment((prev) => (prev ? `${prev}\n${text}` : text));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitAttempted(true);
-    // A teacher is required: an evaluation that names nobody is not saved,
-    // whatever the state of the submit button.
-    if (validateEvaluationDraft({ teacherId }).length > 0) return;
+    setSaveError('');
+    // Validated as a whole — a teacher AND a complete set of nine scored
+    // criteria — whatever the state of the submit button. An evaluation that
+    // names nobody is about nobody, and an incomplete criteria set must never
+    // reach the service, which would reject it anyway.
+    if (validateEvaluationDraft({ teacherId, criteria }).length > 0) return;
 
     const evalData: SessionEvaluationDraft = {
       teacherId,
@@ -131,8 +143,17 @@ export function SessionEvaluationForm({ onClose }: Props) {
       overallScore: score,
       grade,
     };
-    addEvaluation(evalData);
-    onClose();
+
+    // Awaited, so the dialog closes only once the row actually exists.
+    setSaving(true);
+    try {
+      await addEvaluation(evalData);
+      onClose();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : t('common.error'));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const gradeColors: Record<EvaluationGrade, string> = {
@@ -365,7 +386,7 @@ export function SessionEvaluationForm({ onClose }: Props) {
              always had. handleSubmit re-checks anyway, so a submit reaching it
              by any other route (Enter in a field, a programmatic submit) is
              rejected rather than relying on the button's state. */
-          disabled={teacherMissing}
+          disabled={teacherMissing || saving}
           className="bg-primary hover:bg-primary/90 text-primary-foreground"
         >
           {t('common.save')}
@@ -374,6 +395,12 @@ export function SessionEvaluationForm({ onClose }: Props) {
           {t('common.cancel')}
         </Button>
       </div>
+
+      {saveError && (
+        <p data-testid="evaluation-save-error" className="text-xs text-red-600" role="alert">
+          {saveError}
+        </p>
+      )}
     </form>
   );
 }

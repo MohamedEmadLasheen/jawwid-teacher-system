@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import type { SessionEvaluation, SessionEvaluationDraft } from '@/lib/types';
 import type { Database } from '@/lib/database.types';
-import { parseCriteria, serializeCriteria } from '@/lib/evaluationCriteria';
+import { parseCriteria, serializeCriteria, validateCriteria } from '@/lib/evaluationCriteria';
 
 type Row = Database['public']['Tables']['session_evaluations']['Row'];
 
@@ -55,6 +55,29 @@ export async function fetchEvaluations(): Promise<SessionEvaluation[]> {
 export async function createEvaluation(
   ev: SessionEvaluationDraft
 ): Promise<SessionEvaluation> {
+  /**
+   * Refuse to create a half-formed evaluation.
+   *
+   * The specific failure this prevents is not a crash but a SILENT one: an
+   * absent or incomplete `criteria` previously fell back to writing `{}`,
+   * which is exactly the value that marks a HISTORICAL evaluation. The row
+   * would have been accepted, and from then on indistinguishable from a
+   * pre-2024 record — while its 16 legacy columns held database defaults
+   * rather than the ratings such a row is supposed to carry. That corrupts
+   * the one discriminator the two eras are told apart by, and no later query
+   * could unpick it.
+   *
+   * So the create path validates and throws. The form cannot reach this (its
+   * state is a complete set by construction), which is the point: the
+   * boundary is defended independently of the screen in front of it.
+   */
+  const criteriaErrors = validateCriteria(ev.criteria);
+  if (criteriaErrors.length > 0) {
+    throw new Error(
+      `Refusing to create an evaluation with invalid criteria: ${criteriaErrors.join(', ')}`
+    );
+  }
+
   const { data, error } = await supabase
     .from('session_evaluations')
     .insert({
@@ -72,8 +95,9 @@ export async function createEvaluation(
       custom_note: ev.customNote,
       // Serialised whole, so each criterion's comment is stored inside the
       // criterion it belongs to and cannot land on another one. `{}` is never
-      // written by this path: a new evaluation always carries all nine.
-      criteria: ev.criteria ? serializeCriteria(ev.criteria) : {},
+      // written by this path — the guard above makes that a guarantee rather
+      // than an expectation, because `{}` means "historical evaluation".
+      criteria: serializeCriteria(ev.criteria),
       overall_score: ev.overallScore,
       grade: ev.grade,
     })

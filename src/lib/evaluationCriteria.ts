@@ -137,10 +137,34 @@ export function setCriterion(
  * Comments are trimmed — a textarea holding only whitespace is not a comment —
  * but the `comment` key is always written, so the stored shape is identical
  * for a commented and an uncommented criterion and the round trip is exact.
+ *
+ * VALIDATES FIRST, and throws rather than writing anything questionable. This
+ * is the last point at which the shape is still in our hands, and all three
+ * failures it catches are silent ones:
+ *
+ *   * an incomplete or malformed set used to throw a bare
+ *     "Cannot read properties of undefined (reading 'score')" from inside the
+ *     loop — a stack trace rather than a statement of what was wrong;
+ *   * an invalid score (a value outside the 4-level scale) used to be
+ *     persisted verbatim. Nothing in the database rejects it — the CHECK
+ *     constraint only asserts the column is an object — and `parseCriteria`
+ *     substitutes the default on the way back, so the stored score and the
+ *     displayed score would disagree forever, with no error anywhere.
+ *
+ * Throwing keeps a half-formed evaluation out of a live table. The create
+ * path validates before reaching here, so this is the backstop, not the
+ * mechanism the UI relies on.
  */
 export function serializeCriteria(
   criteria: EvaluationCriteria
 ): Record<string, { score: QuickRating; comment: string }> {
+  const errors = validateCriteria(criteria);
+  if (errors.length > 0) {
+    throw new Error(
+      `Refusing to persist an invalid evaluation criteria set: ${errors.join(', ')}`
+    );
+  }
+
   const out: Record<string, { score: QuickRating; comment: string }> = {};
   for (const key of EVALUATION_CRITERION_KEYS) {
     out[key] = { score: criteria[key].score, comment: criteria[key].comment.trim() };
@@ -172,6 +196,18 @@ export function parseCriteria(raw: unknown): EvaluationCriteria | null {
 
   const source = raw as Record<string, unknown>;
   if (Object.keys(source).length === 0) return null;
+
+  /**
+   * Not merely "is it non-empty" but "does it hold anything we recognise".
+   *
+   * An object carrying ONLY unknown keys — a row written by a build whose
+   * criterion keys were all renamed, or a column repurposed by hand — used to
+   * fall through to the reduce below and come back as nine fabricated `good`
+   * ratings attributed to a real teacher. Reading it as historical is the
+   * honest answer: we have no 9-criteria data here, and saying so is what
+   * every caller already knows how to handle.
+   */
+  if (!EVALUATION_CRITERION_KEYS.some((key) => key in source)) return null;
 
   return EVALUATION_CRITERION_KEYS.reduce((acc, key) => {
     const entry = source[key];
@@ -279,19 +315,88 @@ export function applyTemplate(
   }, {} as EvaluationCriteria);
 }
 
-export type EvaluationValidationError = 'teacher_required';
+export type EvaluationValidationError =
+  | 'teacher_required'
+  | 'criteria_missing'
+  | 'criteria_incomplete'
+  | 'criteria_unknown_key'
+  | 'criteria_malformed'
+  | 'criteria_invalid_score';
+
+/**
+ * Is this a complete, well-formed set of all nine criteria?
+ *
+ * Separate from the UI, because the UI is not the only thing that can produce
+ * one: the form builds its set from `emptyCriteria` and only ever mutates it
+ * through `setCriterion`, so it cannot go wrong — but the service accepts
+ * whatever it is handed, and that is the boundary where a half-formed
+ * evaluation would reach a live table.
+ *
+ * Each error names a distinct way the set can be wrong, so a caller (and a
+ * test) can tell them apart:
+ *
+ *   criteria_missing        null/undefined, or not an object at all
+ *   criteria_incomplete     a required criterion is absent
+ *   criteria_unknown_key    a key that is not one of the nine
+ *   criteria_malformed      a criterion is not an object, or its comment is
+ *                           not a string
+ *   criteria_invalid_score  a score outside the existing 4-level scale
+ *
+ * Deliberately NOT lenient the way `parseCriteria` is. Reading tolerates what
+ * is already stored, because the alternative is a crash on a row nobody can
+ * fix; WRITING refuses it, because the alternative is making that row.
+ */
+export function validateCriteria(raw: unknown): EvaluationValidationError[] {
+  if (raw === null || raw === undefined) return ['criteria_missing'];
+  if (typeof raw !== 'object' || Array.isArray(raw)) return ['criteria_missing'];
+
+  const source = raw as Record<string, unknown>;
+  const errors = new Set<EvaluationValidationError>();
+
+  for (const key of Object.keys(source)) {
+    if (!(EVALUATION_CRITERION_KEYS as readonly string[]).includes(key)) {
+      errors.add('criteria_unknown_key');
+    }
+  }
+
+  for (const key of EVALUATION_CRITERION_KEYS) {
+    const entry = source[key];
+    if (entry === undefined) {
+      errors.add('criteria_incomplete');
+      continue;
+    }
+    if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
+      errors.add('criteria_malformed');
+      continue;
+    }
+    const { score, comment } = entry as { score?: unknown; comment?: unknown };
+    if (!isQuickRating(score)) errors.add('criteria_invalid_score');
+    // A comment is OPTIONAL, so absent is fine; present-but-not-text is not.
+    if (comment !== undefined && typeof comment !== 'string') errors.add('criteria_malformed');
+  }
+
+  return [...errors];
+}
 
 /**
  * What must be true before an evaluation may be saved.
  *
  * A teacher is REQUIRED — an evaluation that names no teacher is about nobody.
- * Scores are required too, and are satisfied by construction: every criterion
- * starts at a real rating and the UI offers no way to clear one. Comments,
- * both per-criterion and general, are OPTIONAL, which is the pre-existing
- * product contract for the one comment field that already existed.
+ * All nine criteria must be present with a score drawn from the existing
+ * 4-level scale; the UI satisfies that by construction, and this states it so
+ * that nothing else can quietly not satisfy it. Comments, both per-criterion
+ * and general, are OPTIONAL — the pre-existing product contract for the one
+ * comment field that already existed, extended unchanged to the new ones.
  */
-export function validateEvaluationDraft(draft: { teacherId: string }): EvaluationValidationError[] {
+export function validateEvaluationDraft(draft: {
+  teacherId: string;
+  criteria?: unknown;
+}): EvaluationValidationError[] {
   const errors: EvaluationValidationError[] = [];
   if (!draft.teacherId.trim()) errors.push('teacher_required');
+  // Only checked when supplied, so a caller asking purely "is the teacher set
+  // yet?" while the form is still being filled in is not told the criteria are
+  // missing as well.
+  if ('criteria' in draft) errors.push(...validateCriteria(draft.criteria));
   return errors;
 }

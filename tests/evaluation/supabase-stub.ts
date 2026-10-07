@@ -25,15 +25,24 @@ export interface StubInsert {
 interface EvalStubControl {
   inserts: StubInsert[];
   deletes: Array<{ table: string; filters: Array<[string, unknown]> }>;
+  /**
+   * Set by a test to make the next insert fail the way a real one can — an RLS
+   * refusal, a dropped connection. Needed to prove the negative: that a
+   * rejected save keeps the dialog open and the evaluator's work intact,
+   * rather than closing on an optimistic assumption and discarding it.
+   */
+  failNextInsert: string | null;
   reset(): void;
 }
 
 const control: EvalStubControl = {
   inserts: [],
   deletes: [],
+  failNextInsert: null,
   reset() {
     control.inserts.length = 0;
     control.deletes.length = 0;
+    control.failNextInsert = null;
   },
 };
 
@@ -65,6 +74,7 @@ let idCounter = 0;
 function builder(table: string) {
   const filters: Array<[string, unknown]> = [];
   let pending: Record<string, unknown> | null = null;
+  let failure: { message: string } | null = null;
 
   const api = {
     select() { return api; },
@@ -75,6 +85,12 @@ function builder(table: string) {
     },
     insert(payload: Record<string, unknown>) {
       control.inserts.push({ table, payload });
+      if (control.failNextInsert) {
+        const message = control.failNextInsert;
+        control.failNextInsert = null;
+        failure = { message };
+        return api;
+      }
       pending = {
         ...LEGACY_DEFAULTS,
         ...payload,
@@ -92,7 +108,7 @@ function builder(table: string) {
         },
       };
     },
-    single() { return Promise.resolve({ data: pending, error: null }); },
+    single() { return Promise.resolve({ data: failure ? null : pending, error: failure }); },
     then(resolve: (value: { data: unknown; error: null }) => unknown) {
       return Promise.resolve({ data: pending ?? [], error: null }).then(resolve);
     },

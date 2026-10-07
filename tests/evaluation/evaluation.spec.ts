@@ -7,7 +7,10 @@ import { test, expect, type Page } from '@playwright/test';
  */
 declare global {
   interface Window {
-    __evalStub: { inserts: Array<{ table: string; payload: Record<string, unknown> }> };
+    __evalStub: {
+      inserts: Array<{ table: string; payload: Record<string, unknown> }>;
+      failNextInsert: string | null;
+    };
   }
 }
 
@@ -338,6 +341,12 @@ test.describe('the general comment', () => {
     await expect(comment).toBeVisible();
     await expect(comment).toHaveText(GENERAL_COMMENT);
 
+    // The dialog closed because the write SUCCEEDED — the counterpart to the
+    // rejected-save case, which must leave it open. Asserted on the dialog's
+    // own state rather than its presence: Radix keeps the node mounted through
+    // its exit animation.
+    await expect(page.locator('[role="dialog"]')).toHaveAttribute('data-state', 'closed');
+
     // IMMEDIATELY under the name: the comment's top edge sits below the
     // name's, and above the evaluator/date line.
     const nameBox = (await row.locator('p').first().boundingBox())!;
@@ -364,6 +373,60 @@ test.describe('the general comment', () => {
     // Long comments are capped rather than allowed to push the row open.
     const clamp = await comment.evaluate((el) => getComputedStyle(el).webkitLineClamp);
     expect(clamp).toBe('3');
+  });
+});
+
+// ======================================================================
+test.describe('write-boundary hardening', () => {
+  test('a saved evaluation never writes the empty criteria that marks a historical row', async ({ page }) => {
+    await open(page);
+    await openForm(page);
+    await pickTeacher(page, 'Arwa', /Arwa Ahmed/);
+    await page.getByTestId('evaluation-save').click();
+
+    const criteria = await page.evaluate(
+      () => window.__evalStub.inserts[0].payload.criteria as Record<string, unknown>
+    );
+    // '{}' is the discriminator for a LEGACY evaluation. A new one must never
+    // be written with it, or the two eras become indistinguishable forever.
+    expect(Object.keys(criteria)).toHaveLength(9);
+    expect(JSON.stringify(criteria)).not.toBe('{}');
+  });
+
+  test('the create path writes none of the 16 legacy criterion columns', async ({ page }) => {
+    await open(page);
+    await openForm(page);
+    await pickTeacher(page, 'Arwa', /Arwa Ahmed/);
+    await page.getByTestId('evaluation-save').click();
+
+    const payload = await page.evaluate(() => window.__evalStub.inserts[0].payload);
+    const LEGACY = [
+      'tajweed_accuracy', 'pronunciation', 'correction_quality', 'listening_skills',
+      'punctuality', 'time_management', 'student_engagement', 'class_flow',
+      'professionalism', 'clarity', 'encouragement', 'parent_communication',
+      'lesson_preparation', 'explanation_quality', 'error_correction', 'follow_up',
+    ];
+    expect(LEGACY.filter((col) => col in payload)).toEqual([]);
+  });
+
+  test('a rejected save keeps the dialog open and does not discard the work', async ({ page }) => {
+    await open(page);
+    await openForm(page);
+    await pickTeacher(page, 'Arwa', /Arwa Ahmed/);
+    await page.getByTestId('criterion-studentEngagement-comment').fill(ENGAGEMENT_COMMENT);
+    await page.getByTestId('evaluation-general-comment').fill(GENERAL_COMMENT);
+
+    await page.evaluate(() => { window.__evalStub.failNextInsert = 'row-level security violation'; });
+    await page.getByTestId('evaluation-save').click();
+
+    // The failure is stated, not swallowed.
+    await expect(page.getByTestId('evaluation-save-error')).toBeVisible();
+    await expect(page.locator('[role="dialog"]')).toHaveAttribute('data-state', 'open');
+    // The dialog is still open and everything typed is still there to retry from.
+    await expect(page.getByTestId('evaluation-general-comment')).toHaveValue(GENERAL_COMMENT);
+    await expect(page.getByTestId('criterion-studentEngagement-comment')).toHaveValue(ENGAGEMENT_COMMENT);
+    // And no phantom row was added to the list.
+    await expect(page.locator('[data-testid^="evaluation-row-stub-eval-"]')).toHaveCount(0);
   });
 });
 

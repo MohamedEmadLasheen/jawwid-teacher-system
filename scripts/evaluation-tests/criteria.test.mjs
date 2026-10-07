@@ -17,7 +17,7 @@ import {
   EVALUATION_CRITERION_KEYS, RATING_OPTIONS, RATING_SCORE, DEFAULT_RATING,
   emptyCriteria, setCriterion, serializeCriteria, parseCriteria,
   computeEvaluationScore, gradeForScore, applyTemplate, EVALUATION_TEMPLATES,
-  validateEvaluationDraft,
+  validateEvaluationDraft, validateCriteria,
 } from './evaluationCriteria.mjs';
 import { matchesSearch } from './searchText.mjs';
 
@@ -163,6 +163,45 @@ check('the existing grade thresholds, unchanged',
   [90, 89, 75, 74, 60, 59, 45, 44, 0].map(gradeForScore),
   ['excellent', 'good', 'good', 'average', 'average', 'weak', 'weak', 'critical', 'critical']);
 
+/**
+ * The whole scale, pinned. One uniform set per rating level plus a mixed one,
+ * each with its grade — so a change to the formula, the ordinal values or the
+ * thresholds fails here with a number rather than re-grading every teacher
+ * quietly.
+ *
+ * Behaviour is held at 'good' (+2) throughout, which is the form's default, so
+ * these read as the criteria's own contribution.
+ */
+const uniform = (score) =>
+  EVALUATION_CRITERION_KEYS.reduce((acc, k) => setCriterion(acc, k, { score }), emptyCriteria());
+
+const scoreOf = (c) => computeEvaluationScore(c, 'good');
+check('all 4s (excellent)      → 92 / excellent',
+  [scoreOf(uniform('excellent')), gradeForScore(scoreOf(uniform('excellent')))], [92, 'excellent']);
+check('all 3s (good)           → 70 / average',
+  [scoreOf(uniform('good')), gradeForScore(scoreOf(uniform('good')))], [70, 'average']);
+check('all 2s (acceptable)     → 47 / weak',
+  [scoreOf(uniform('acceptable')), gradeForScore(scoreOf(uniform('acceptable')))], [47, 'weak']);
+check('all 1s (needs_improvement) → 25 / critical',
+  [scoreOf(uniform('needs_improvement')), gradeForScore(scoreOf(uniform('needs_improvement')))], [25, 'critical']);
+
+// Mixed, computed by hand: 4+4+3+3+2+2+1+1+4 = 24 of a possible 36.
+// round(24/36*90) = 60, +2 behavioural = 62.
+const MIXED = ['excellent','excellent','good','good','acceptable','acceptable','needs_improvement','needs_improvement','excellent'];
+const mixed = EVALUATION_CRITERION_KEYS.reduce(
+  (acc, k, i) => setCriterion(acc, k, { score: MIXED[i] }), emptyCriteria());
+check('a mixed set is the ordinal mean, not a special case', scoreOf(mixed), 62);
+check('and grades on the same thresholds', gradeForScore(scoreOf(mixed)), 'average');
+
+// The score is a function of the NINE and nothing else.
+check('an extra legacy-named key cannot influence the score',
+  computeEvaluationScore({ ...uniform('good'), tajweedAccuracy: { score: 'needs_improvement', comment: '' } }, 'good'),
+  scoreOf(uniform('good')));
+check('no criterion is counted twice — one step changes the score by one step',
+  scoreOf(setCriterion(uniform('good'), 'punctuality', { score: 'acceptable' })),
+  // 26 of 36 → round(65) = 65, +2 = 67.
+  67);
+
 // ====================================================================== 5
 line('5 · TEMPLATES SET SCORES ONLY');
 
@@ -203,6 +242,12 @@ check('the keys that were absent fall back to the default rating, uncommented',
 check('an unknown criterion key is ignored, not surfaced',
   Object.keys(parseCriteria({ punctuality: { score: 'good' }, retiredCriterion: { score: 'excellent' } })),
   [...EVALUATION_CRITERION_KEYS]);
+// A row holding ONLY keys we do not recognise is not nine "Good" ratings for a
+// real teacher — it is a row with no 9-criteria data in it.
+check('an object with NO recognised key reads as historical, not as nine fabricated ratings',
+  parseCriteria({ retiredCriterion: { score: 'excellent', comment: 'x' } }), null);
+check('one recognised key is still enough to read it as 9-criteria data',
+  parseCriteria({ punctuality: { score: 'excellent' }, retired: {} }) !== null, true);
 check('an unrecognised score falls back rather than throwing',
   parseCriteria({ punctuality: { score: 'superb' } }).punctuality.score, DEFAULT_RATING);
 check('a non-string comment becomes an empty comment',
@@ -230,7 +275,66 @@ check('a selected teacher passes',
 // Comments are OPTIONAL — the pre-existing contract for the one comment field
 // that already existed, extended unchanged to the new ones.
 check('an evaluation with no comments at all is valid',
+  validateEvaluationDraft({ teacherId: 't1', criteria: emptyCriteria() }), []);
+
+/**
+ * WRITE-side validation. `parseCriteria` is deliberately lenient — it must
+ * never crash on a row already in the table — so the refusal to CREATE a bad
+ * one has to live here.
+ */
+check('a complete set passes', validateCriteria(emptyCriteria()), []);
+check('null / undefined is rejected',
+  [validateCriteria(null), validateCriteria(undefined)],
+  [['criteria_missing'], ['criteria_missing']]);
+check('a non-object is rejected',
+  [validateCriteria('{}'), validateCriteria(7), validateCriteria([])],
+  [['criteria_missing'], ['criteria_missing'], ['criteria_missing']]);
+check('an EMPTY object is rejected — that value means "historical evaluation"',
+  validateCriteria({}), ['criteria_incomplete']);
+
+const minusOne = { ...emptyCriteria() };
+delete minusOne.fushaCommitment;
+check('a missing criterion is rejected', validateCriteria(minusOne), ['criteria_incomplete']);
+
+check('an unknown criterion key is rejected on WRITE (though tolerated on read)',
+  validateCriteria({ ...emptyCriteria(), retiredCriterion: { score: 'good', comment: '' } }),
+  ['criteria_unknown_key']);
+check('an invalid score is rejected',
+  validateCriteria({ ...emptyCriteria(), punctuality: { score: 'superb', comment: '' } }),
+  ['criteria_invalid_score']);
+check('a malformed criterion is rejected',
+  [validateCriteria({ ...emptyCriteria(), punctuality: null }),
+   validateCriteria({ ...emptyCriteria(), punctuality: 'good' })],
+  [['criteria_malformed'], ['criteria_malformed']]);
+check('a non-string comment is rejected',
+  validateCriteria({ ...emptyCriteria(), punctuality: { score: 'good', comment: 42 } }),
+  ['criteria_malformed']);
+check('an absent comment is fine — comments are optional',
+  validateCriteria(EVALUATION_CRITERION_KEYS.reduce((a, k) => ({ ...a, [k]: { score: 'good' } }), {})),
+  []);
+
+// The draft check folds both in, and only looks at criteria when supplied —
+// so the form can still ask "is the teacher set yet?" mid-edit.
+check('the draft check reports BOTH failures at once',
+  validateEvaluationDraft({ teacherId: '', criteria: {} }),
+  ['teacher_required', 'criteria_incomplete']);
+check('criteria are not demanded when the caller did not supply them',
   validateEvaluationDraft({ teacherId: 't1' }), []);
+
+/**
+ * The backstop. serializeCriteria is the last point at which the shape is
+ * still ours, so it refuses rather than writing something unreadable — or,
+ * worse, an invalid score that `parseCriteria` would silently display as
+ * something else.
+ */
+const throws = (fn) => { try { fn(); return false; } catch { return true; } };
+check('serialising an INVALID SCORE throws instead of persisting it',
+  throws(() => serializeCriteria({ ...emptyCriteria(), punctuality: { score: 'superb', comment: '' } })),
+  true);
+check('serialising an INCOMPLETE set throws', throws(() => serializeCriteria(minusOne)), true);
+check('serialising a MALFORMED set throws',
+  throws(() => serializeCriteria({ ...emptyCriteria(), punctuality: null })), true);
+check('serialising a VALID set does not throw', throws(() => serializeCriteria(emptyCriteria())), false);
 
 // ====================================================================== 8
 line('8 · TEACHER SEARCH (the shared rule, over an evaluation roster)');
