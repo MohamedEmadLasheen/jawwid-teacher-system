@@ -36,7 +36,22 @@ export function ScheduleTimeHeader({ columnWidth, teacherColumnWidth, isCompact 
           </span>
         )}
       </div>
-      <div className="flex shrink-0 relative" style={{ width: timelineWidth(columnWidth) }}>
+      {/*
+        `pb-4` reserves a TERMINAL STRIP along the bottom of the axis that the
+        column cells can never enter — they are flex items of this box, so
+        padding is outside their content box by construction. The terminal
+        label lives in that strip and the column labels live above it, which is
+        what makes an overlap structurally impossible rather than a matter of
+        the two happening to miss each other.
+
+        The previous attempt positioned the label at `bottom-0` with no
+        reserved space, so it sat ON TOP of the final column's label box. The
+        clearance it appeared to have was only the slack between the cell's
+        padding and its text — 0.3px on a phone, and NEGATIVE on desktop where
+        the header is shorter (py-2 + 9px text). Measured, it intersected
+        "11:30 PM" at all six supported widths in both directions.
+      */}
+      <div className="flex shrink-0 relative pb-4" style={{ width: timelineWidth(columnWidth) }}>
         {GRID_COLUMNS.map((minute) => (
           <div
             key={minute}
@@ -65,12 +80,11 @@ export function ScheduleTimeHeader({ columnWidth, teacherColumnWidth, isCompact 
           no `transform` or physical `left/right`, which would mirror wrongly
           under dir="rtl".
 
-          It sits on its OWN baseline at the bottom of the header rather than
-          beside the 11:30 PM label. Sharing that column horizontally does not
-          survive a phone: at the compact face "11:30 PM" and "12:00 AM" need
-          ~100px of an 80px column and overlapped by 24px (6px even after
-          shrinking both). On its own line the two never compete at any column
-          width, in either direction.
+          It sits in the reserved terminal strip (the `pb-4` above), on its own
+          baseline BELOW the column labels — never in the same horizontal label
+          box as "11:30 PM". The two therefore cannot intersect at any column
+          width, zoom level or direction: the separation comes from layout, not
+          from a font size, a negative margin or a lucky pixel offset.
 
           The text comes from the same minuteToDisplayLabel used by every other
           label, so midnight reads "12:00 AM" (AM — midnight, not noon) with no
@@ -83,7 +97,7 @@ export function ScheduleTimeHeader({ columnWidth, teacherColumnWidth, isCompact 
         >
           <div
             data-testid="timeline-end-label"
-            className="absolute bottom-0 whitespace-nowrap pe-1 text-[9px] leading-none pb-0.5 font-semibold text-gray-600"
+            className="absolute bottom-0 pb-0.5 pe-1 whitespace-nowrap text-[9px] leading-none font-semibold text-gray-600"
             style={{ insetInlineEnd: 0 }}
           >
             {minuteToDisplayLabel(GRID_END_MINUTE)}
