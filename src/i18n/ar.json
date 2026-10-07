@@ -1216,6 +1216,11 @@
     "performance_reviews": "مراجعات الأداء",
     "manage_complaints": "إدارة الشكاوى",
     "improvement_plans": "خطط التحسين",
-    "manage_financials": "إدارة الماليات (المكافآت والخصومات)"
+    "manage_financials": "إدارة الماليات (المكافآت والخصومات)",
+    "manage_students": "إدارة الطلاب",
+    "manage_parents": "إدارة أولياء الأمور",
+    "manage_courses": "إدارة الدورات",
+    "manage_session_reports": "إدارة تقارير الحصص",
+    "view_session_reports": "عرض تقارير الحصص"
   }
 }

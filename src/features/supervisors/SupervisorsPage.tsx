@@ -22,14 +22,18 @@ import { useAuthStore } from '@/store/authStore';
 import { useLogStore } from '@/store/logStore';
 import { SUPERVISOR_COLOR_PALETTE } from '@/lib/uiConstants';
 import { SupervisorColorDot } from '@/components/ui/SupervisorColorDot';
+import { SYSTEM_ADMIN_ASSIGNABLE_PERMISSIONS } from '@/lib/permissions';
 import type { Supervisor, Permission } from '@/lib/types';
 
-const ALL_PERMISSIONS: Permission[] = [
-  'manage_teachers', 'view_reports', 'view_evaluations',
-  'teacher_onboarding', 'teacher_followup', 'operational_notes',
-  'teacher_evaluations', 'quality_monitoring', 'performance_reviews',
-  'manage_complaints', 'improvement_plans', 'manage_financials',
-];
+// Every permission a super admin may grant here, straight from the canonical
+// registry. This used to be a hand-maintained subset, which silently drifted:
+// it omitted manage_students (and manage_parents, manage_courses, view_all_data,
+// the session-report and supervisor-management keys), so ticking every box in
+// this dialog still left those routes hidden — ROUTE_PERMISSIONS gates /students
+// on manage_students | view_all_data, neither of which could be granted.
+// Deriving from the registry keeps this dialog in step with ROUTE_PERMISSIONS;
+// super-admin-only permissions are excluded by construction.
+const ALL_PERMISSIONS: Permission[] = SYSTEM_ADMIN_ASSIGNABLE_PERMISSIONS;
 
 export function SupervisorsPage() {
   const { t, i18n } = useTranslation();
