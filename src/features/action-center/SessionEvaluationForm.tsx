@@ -1,4 +1,4 @@
-﻿import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTeacherStore } from '@/store/teacherStore';
 import { useAuthStore } from '@/store/authStore';
@@ -7,12 +7,17 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import {
+  SearchableSelect, type SearchableSelectOption,
+} from '@/components/ui/searchable-select';
 import { Zap } from 'lucide-react';
-import type { QuickRating, EvaluationGrade, SessionEvaluation } from '@/lib/types';
+import {
+  EVALUATION_CRITERION_KEYS, RATING_OPTIONS, applyTemplate, computeEvaluationScore,
+  emptyCriteria, gradeForScore, setCriterion, validateEvaluationDraft,
+  type BehavioralObservation, type EvaluationCriterionKey,
+} from '@/lib/evaluationCriteria';
+import type { QuickRating, EvaluationGrade, SessionEvaluationDraft } from '@/lib/types';
 
 const QUICK_NOTES_OPTIONS = [
   'outstanding_session', 'good_session', 'weak_engagement',
@@ -27,8 +32,6 @@ const COMMENT_LIBRARY = [
   'comment_lesson_preparation',
 ];
 
-const RATING_OPTIONS: QuickRating[] = ['excellent', 'good', 'acceptable', 'needs_improvement'];
-
 const RATING_COLORS: Record<QuickRating, string> = {
   excellent: 'bg-green-500 text-white border-green-500',
   good: 'bg-blue-500 text-white border-blue-500',
@@ -36,67 +39,22 @@ const RATING_COLORS: Record<QuickRating, string> = {
   needs_improvement: 'bg-red-500 text-white border-red-500',
 };
 
-const RATING_SCORE: Record<QuickRating, number> = {
-  excellent: 4,
-  good: 3,
-  acceptable: 2,
-  needs_improvement: 1,
-};
-
-type EvalFields = {
-  tajweedAccuracy: QuickRating; pronunciation: QuickRating;
-  correctionQuality: QuickRating; listeningSkills: QuickRating;
-  punctuality: QuickRating; timeManagement: QuickRating;
-  studentEngagement: QuickRating; classFlow: QuickRating;
-  professionalism: QuickRating; clarity: QuickRating;
-  encouragement: QuickRating; parentCommunication: QuickRating;
-  lessonPreparation: QuickRating; explanationQuality: QuickRating;
-  errorCorrection: QuickRating; followUp: QuickRating;
-};
-
-const DEFAULT_RATING: QuickRating = 'good';
-
-const TEMPLATES: Record<string, Partial<EvalFields>> = {
-  template_excellent: {
-    tajweedAccuracy: 'excellent', pronunciation: 'excellent', correctionQuality: 'excellent', listeningSkills: 'excellent',
-    punctuality: 'excellent', timeManagement: 'excellent', studentEngagement: 'excellent', classFlow: 'excellent',
-    professionalism: 'excellent', clarity: 'excellent', encouragement: 'excellent', parentCommunication: 'excellent',
-    lessonPreparation: 'excellent', explanationQuality: 'excellent', errorCorrection: 'excellent', followUp: 'excellent',
-  },
-  template_followup: {
-    tajweedAccuracy: 'good', pronunciation: 'acceptable', correctionQuality: 'acceptable', listeningSkills: 'good',
-    punctuality: 'acceptable', timeManagement: 'needs_improvement', studentEngagement: 'acceptable', classFlow: 'acceptable',
-    professionalism: 'good', clarity: 'acceptable', encouragement: 'needs_improvement', parentCommunication: 'acceptable',
-    lessonPreparation: 'acceptable', explanationQuality: 'acceptable', errorCorrection: 'needs_improvement', followUp: 'needs_improvement',
-  },
-  template_attendance: {
-    tajweedAccuracy: 'good', pronunciation: 'good', correctionQuality: 'good', listeningSkills: 'good',
-    punctuality: 'needs_improvement', timeManagement: 'needs_improvement', studentEngagement: 'acceptable', classFlow: 'acceptable',
-    professionalism: 'good', clarity: 'good', encouragement: 'good', parentCommunication: 'acceptable',
-    lessonPreparation: 'good', explanationQuality: 'good', errorCorrection: 'good', followUp: 'acceptable',
-  },
-};
-
-function computeScore(fields: EvalFields, behavioral: string): number {
-  const ratingFields = Object.values(fields) as QuickRating[];
-  const sum = ratingFields.reduce((s, r) => s + RATING_SCORE[r], 0);
-  const max = ratingFields.length * 4;
-  const behavioralBonus = behavioral === 'excellent' ? 5 : behavioral === 'good' ? 2 : behavioral === 'needs_improvement' ? -5 : -10;
-  return Math.min(100, Math.max(0, Math.round((sum / max) * 90) + behavioralBonus));
-}
-
-function getGrade(score: number): EvaluationGrade {
-  if (score >= 90) return 'excellent';
-  if (score >= 75) return 'good';
-  if (score >= 60) return 'average';
-  if (score >= 45) return 'weak';
-  return 'critical';
-}
+const BEHAVIORAL_OPTIONS: readonly BehavioralObservation[] = [
+  'excellent', 'good', 'needs_improvement', 'critical_issue',
+];
 
 interface Props {
   onClose: () => void;
 }
 
+/**
+ * Create a session evaluation: one teacher, the nine criteria with a comment
+ * each, and one general comment about the lesson as a whole.
+ *
+ * The criterion list, the scoring arithmetic and the validation rule all come
+ * from src/lib/evaluationCriteria.ts — this file renders them and owns no copy
+ * of any of them.
+ */
 export function SessionEvaluationForm({ onClose }: Props) {
   const { t } = useTranslation();
   const { currentUser } = useAuthStore();
@@ -104,31 +62,40 @@ export function SessionEvaluationForm({ onClose }: Props) {
 
   const [teacherId, setTeacherId] = useState('');
   const [sessionDate, setSessionDate] = useState(new Date().toISOString().split('T')[0]);
-  const [behavioral, setBehavioral] = useState<'excellent' | 'good' | 'needs_improvement' | 'critical_issue'>('good');
+  const [behavioral, setBehavioral] = useState<BehavioralObservation>('good');
   const [quickNotes, setQuickNotes] = useState<string[]>([]);
-  const [customNote, setCustomNote] = useState('');
+  /** The GENERAL comment — about the evaluation as a whole, not any one criterion. */
+  const [generalComment, setGeneralComment] = useState('');
+  const [criteria, setCriteria] = useState(emptyCriteria);
+  /**
+   * Validation messages appear only once a save has been attempted, so the
+   * form does not open already scolding the user about a teacher they have not
+   * had the chance to pick yet.
+   */
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
-  const [fields, setFields] = useState<EvalFields>({
-    tajweedAccuracy: DEFAULT_RATING, pronunciation: DEFAULT_RATING,
-    correctionQuality: DEFAULT_RATING, listeningSkills: DEFAULT_RATING,
-    punctuality: DEFAULT_RATING, timeManagement: DEFAULT_RATING,
-    studentEngagement: DEFAULT_RATING, classFlow: DEFAULT_RATING,
-    professionalism: DEFAULT_RATING, clarity: DEFAULT_RATING,
-    encouragement: DEFAULT_RATING, parentCommunication: DEFAULT_RATING,
-    lessonPreparation: DEFAULT_RATING, explanationQuality: DEFAULT_RATING,
-    errorCorrection: DEFAULT_RATING, followUp: DEFAULT_RATING,
-  });
+  const score = computeEvaluationScore(criteria, behavioral);
+  const grade = gradeForScore(score);
 
-  const score = computeScore(fields, behavioral);
-  const grade = getGrade(score);
+  const errors = validateEvaluationDraft({ teacherId });
+  const teacherMissing = errors.includes('teacher_required');
 
-  const setField = (key: keyof EvalFields, val: QuickRating) =>
-    setFields((prev) => ({ ...prev, [key]: val }));
+  const activeTeachers = teachers.filter((tc) => !tc.isDeleted && tc.status === 'active');
 
-  const applyTemplate = (templateKey: string) => {
-    const tpl = TEMPLATES[templateKey];
-    if (tpl) setFields((prev) => ({ ...prev, ...tpl }));
-  };
+  /**
+   * Existing teacher records, reused as-is. The selector only ever reports an
+   * id back, so no code path here can create a teacher or edit one.
+   *
+   * `searchText` folds the id into the haystack the way the Schedule filters
+   * do, so pasting an id finds the row. Name matching itself — partial,
+   * any-order, and Arabic orthography-insensitive — is handled by the shared
+   * `matchesSearch` inside SearchableSelect; nothing about it is re-specified
+   * here.
+   */
+  const teacherOptions = useMemo<SearchableSelectOption[]>(
+    () => activeTeachers.map((tc) => ({ value: tc.id, label: tc.fullName, searchText: tc.id })),
+    [activeTeachers]
+  );
 
   const toggleNote = (note: string) => {
     setQuickNotes((prev) =>
@@ -136,21 +103,31 @@ export function SessionEvaluationForm({ onClose }: Props) {
     );
   };
 
-  const addComment = (commentKey: string) => {
+  /** Appends to the GENERAL comment, which is what the library has always fed. */
+  const addLibraryComment = (commentKey: string) => {
     const text = t(`evaluation.${commentKey}`);
-    setCustomNote((prev) => (prev ? `${prev}\n${text}` : text));
+    setGeneralComment((prev) => (prev ? `${prev}\n${text}` : text));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!teacherId) return;
-    const evalData: Omit<SessionEvaluation, 'id' | 'createdAt'> = {
-      teacherId, sessionDate,
+    setSubmitAttempted(true);
+    // A teacher is required: an evaluation that names nobody is not saved,
+    // whatever the state of the submit button.
+    if (validateEvaluationDraft({ teacherId }).length > 0) return;
+
+    const evalData: SessionEvaluationDraft = {
+      teacherId,
+      sessionDate,
       evaluatorId: currentUser?.id ?? '',
       evaluatorName: currentUser?.name ?? '',
-      ...fields,
+      // SessionEvaluationDraft excludes the 16 legacy criterion fields by
+      // construction: a 9-criteria evaluation does not score them, and the
+      // service does not write their columns either (see migration 024).
       behavioralObservation: behavioral,
-      quickNotes, customNote,
+      quickNotes,
+      customNote: generalComment.trim(),
+      criteria,
       overallScore: score,
       grade,
     };
@@ -166,33 +143,43 @@ export function SessionEvaluationForm({ onClose }: Props) {
     critical: 'bg-red-500',
   };
 
-  const activeTeachers = teachers.filter((t) => !t.isDeleted && t.status === 'active');
-
-  const sections: { key: string; fields: (keyof EvalFields)[] }[] = [
-    { key: 'section1', fields: ['tajweedAccuracy', 'pronunciation', 'correctionQuality', 'listeningSkills'] },
-    { key: 'section2', fields: ['punctuality', 'timeManagement', 'studentEngagement', 'classFlow'] },
-    { key: 'section3', fields: ['professionalism', 'clarity', 'encouragement', 'parentCommunication'] },
-    { key: 'section4', fields: ['lessonPreparation', 'explanationQuality', 'errorCorrection', 'followUp'] },
-  ];
-
   return (
     <form onSubmit={handleSubmit} className="space-y-5 max-h-[75vh] overflow-y-auto pe-1">
       {/* Teacher + Date */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="space-y-1">
-          <Label>{t('common.teacher')} *</Label>
-          <Select value={teacherId} onValueChange={setTeacherId}>
-            <SelectTrigger><SelectValue placeholder={t('common.teacher')} /></SelectTrigger>
-            <SelectContent>
-              {activeTeachers.map((tc) => (
-                <SelectItem key={tc.id} value={tc.id}>{tc.fullName}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Label htmlFor="evaluation-teacher">{t('common.teacher')} *</Label>
+          <SearchableSelect
+            id="evaluation-teacher"
+            data-testid="evaluation-teacher"
+            /* A dynamic collection: searchable by architecture, not by how many
+               teachers the academy happens to hold today. */
+            searchable
+            value={teacherId || undefined}
+            onChange={setTeacherId}
+            options={teacherOptions}
+            placeholder={t('evaluation.selectTeacher')}
+            searchPlaceholder={t('teachers.search')}
+            emptyText={t('common.noResults')}
+            aria-label={t('evaluation.selectTeacher')}
+            aria-invalid={submitAttempted && teacherMissing}
+            aria-describedby={submitAttempted && teacherMissing ? 'evaluation-teacher-error' : undefined}
+            className={submitAttempted && teacherMissing ? 'border-red-500' : undefined}
+          />
+          {submitAttempted && teacherMissing && (
+            <p id="evaluation-teacher-error" data-testid="evaluation-teacher-error" className="text-xs text-red-600">
+              {t('evaluation.teacherRequired')}
+            </p>
+          )}
         </div>
         <div className="space-y-1">
-          <Label>{t('evaluation.sessionDate')}</Label>
-          <Input type="date" value={sessionDate} onChange={(e) => setSessionDate(e.target.value)} />
+          <Label htmlFor="evaluation-session-date">{t('evaluation.sessionDate')}</Label>
+          <Input
+            id="evaluation-session-date"
+            type="date"
+            value={sessionDate}
+            onChange={(e) => setSessionDate(e.target.value)}
+          />
         </div>
       </div>
 
@@ -201,7 +188,7 @@ export function SessionEvaluationForm({ onClose }: Props) {
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium">{t('evaluation.overallScore')}</span>
           <div className="flex items-center gap-2">
-            <span className="text-2xl font-bold text-primary">{score}</span>
+            <span data-testid="evaluation-score" className="text-2xl font-bold text-primary">{score}</span>
             <Badge className={`${gradeColors[grade]} text-white`}>{t(`evaluation.${grade}`)}</Badge>
           </div>
         </div>
@@ -221,7 +208,8 @@ export function SessionEvaluationForm({ onClose }: Props) {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => applyTemplate(tpl)}
+              data-testid={`evaluation-${tpl}`}
+              onClick={() => setCriteria((prev) => applyTemplate(prev, tpl))}
               className="text-xs border-secondary text-secondary hover:bg-secondary hover:text-white"
             >
               {t(`evaluation.${tpl}`)}
@@ -230,26 +218,38 @@ export function SessionEvaluationForm({ onClose }: Props) {
         </div>
       </div>
 
-      {/* Evaluation Sections */}
-      {sections.map((section) => (
-        <div key={section.key} className="space-y-3">
-          <h4 className="text-sm font-semibold text-primary border-b pb-1">
-            {t(`evaluation.${section.key}`)}
-          </h4>
-          <div className="grid grid-cols-1 gap-2">
-            {section.fields.map((field) => (
-              <div key={field} className="flex items-center justify-between gap-2 flex-wrap">
-                <span className="text-sm text-muted-foreground min-w-[140px]">
-                  {t(`evaluation.${field}`)}
+      {/* The nine criteria. Each one owns its score AND its own comment. */}
+      <div className="space-y-3">
+        <h4 className="text-sm font-semibold text-primary border-b pb-1">
+          {t('evaluation.criteriaTitle')}
+        </h4>
+        <div className="space-y-3">
+          {EVALUATION_CRITERION_KEYS.map((key: EvaluationCriterionKey, index) => (
+            <div
+              key={key}
+              data-testid={`criterion-${key}`}
+              className="space-y-2 rounded-lg border bg-white p-3"
+            >
+              <div className="flex items-start justify-between gap-2 flex-wrap">
+                <span className="text-sm text-gray-700 flex gap-1.5 min-w-[11rem] flex-1">
+                  {/* shrink-0 is load-bearing: without it the flex row steals
+                      width from the number before the label, and "1." breaks
+                      across two lines once a criterion name wraps. No physical
+                      left/right, so the index sits before the label under
+                      either text direction. */}
+                  <span className="shrink-0 text-muted-foreground tabular-nums">{index + 1}.</span>
+                  <span>{t(`evaluation.criterion.${key}`)}</span>
                 </span>
-                <div className="flex gap-1">
+                <div className="flex gap-1 flex-wrap">
                   {RATING_OPTIONS.map((rating) => (
                     <button
                       key={rating}
                       type="button"
-                      onClick={() => setField(field, rating)}
+                      data-testid={`criterion-${key}-rating-${rating}`}
+                      aria-pressed={criteria[key].score === rating}
+                      onClick={() => setCriteria((prev) => setCriterion(prev, key, { score: rating }))}
                       className={`px-2 py-1 rounded text-xs border transition-all ${
-                        fields[field] === rating
+                        criteria[key].score === rating
                           ? RATING_COLORS[rating]
                           : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400'
                       }`}
@@ -259,21 +259,34 @@ export function SessionEvaluationForm({ onClose }: Props) {
                   ))}
                 </div>
               </div>
-            ))}
-          </div>
+              {/* This criterion's OWN optional comment. Writing here cannot
+                  reach any other criterion — setCriterion patches one key. */}
+              <Textarea
+                data-testid={`criterion-${key}-comment`}
+                aria-label={`${t(`evaluation.criterion.${key}`)} — ${t('evaluation.criterionComment')}`}
+                value={criteria[key].comment}
+                onChange={(e) => setCriteria((prev) => setCriterion(prev, key, { comment: e.target.value }))}
+                placeholder={t('evaluation.criterionCommentPlaceholder')}
+                rows={2}
+                className="text-sm"
+              />
+            </div>
+          ))}
         </div>
-      ))}
+      </div>
 
-      {/* Section 5: Behavioral */}
+      {/* Behavioural observation */}
       <div className="space-y-2">
         <h4 className="text-sm font-semibold text-primary border-b pb-1">
           {t('evaluation.section5')}
         </h4>
         <div className="flex gap-2 flex-wrap">
-          {(['excellent', 'good', 'needs_improvement', 'critical_issue'] as const).map((opt) => (
+          {BEHAVIORAL_OPTIONS.map((opt) => (
             <button
               key={opt}
               type="button"
+              data-testid={`behavioral-${opt}`}
+              aria-pressed={behavioral === opt}
               onClick={() => setBehavioral(opt)}
               className={`px-3 py-1.5 rounded-full text-xs border transition-all ${
                 behavioral === opt
@@ -290,7 +303,7 @@ export function SessionEvaluationForm({ onClose }: Props) {
         </div>
       </div>
 
-      {/* Section 6: Quick Notes */}
+      {/* Quick Notes */}
       <div className="space-y-2">
         <h4 className="text-sm font-semibold text-primary border-b pb-1">
           {t('evaluation.section6')}
@@ -300,6 +313,7 @@ export function SessionEvaluationForm({ onClose }: Props) {
             <button
               key={note}
               type="button"
+              aria-pressed={quickNotes.includes(note)}
               onClick={() => toggleNote(note)}
               className={`px-2 py-1 rounded-full text-xs border transition-all ${
                 quickNotes.includes(note)
@@ -313,15 +327,20 @@ export function SessionEvaluationForm({ onClose }: Props) {
         </div>
       </div>
 
-      {/* Comments Library */}
+      {/* GENERAL COMMENT — about the lesson as a whole. Separated from the
+          per-criterion comments above by its own heading and helper line, so
+          the two are never mistaken for each other. */}
       <div className="space-y-2">
-        <p className="text-sm font-medium">{t('evaluation.commentsLibrary')}</p>
+        <h4 className="text-sm font-semibold text-primary border-b pb-1">
+          {t('evaluation.generalComment')}
+        </h4>
+        <p className="text-xs text-muted-foreground">{t('evaluation.generalCommentHint')}</p>
         <div className="flex flex-wrap gap-2">
           {COMMENT_LIBRARY.map((ck) => (
             <button
               key={ck}
               type="button"
-              onClick={() => addComment(ck)}
+              onClick={() => addLibraryComment(ck)}
               className="px-2 py-1 rounded text-xs border bg-white text-gray-600 border-gray-300 hover:border-secondary hover:text-secondary transition-all"
             >
               + {t(`evaluation.${ck}`)}
@@ -329,9 +348,11 @@ export function SessionEvaluationForm({ onClose }: Props) {
           ))}
         </div>
         <Textarea
-          value={customNote}
-          onChange={(e) => setCustomNote(e.target.value)}
-          placeholder={t('common.notes')}
+          data-testid="evaluation-general-comment"
+          aria-label={t('evaluation.generalComment')}
+          value={generalComment}
+          onChange={(e) => setGeneralComment(e.target.value)}
+          placeholder={t('evaluation.generalCommentPlaceholder')}
           rows={3}
         />
       </div>
@@ -339,7 +360,12 @@ export function SessionEvaluationForm({ onClose }: Props) {
       <div className="flex gap-3 pt-2">
         <Button
           type="submit"
-          disabled={!teacherId}
+          data-testid="evaluation-save"
+          /* Still disabled without a teacher — the same affordance the form
+             always had. handleSubmit re-checks anyway, so a submit reaching it
+             by any other route (Enter in a field, a programmatic submit) is
+             rejected rather than relying on the button's state. */
+          disabled={teacherMissing}
           className="bg-primary hover:bg-primary/90 text-primary-foreground"
         >
           {t('common.save')}
@@ -351,4 +377,3 @@ export function SessionEvaluationForm({ onClose }: Props) {
     </form>
   );
 }
-

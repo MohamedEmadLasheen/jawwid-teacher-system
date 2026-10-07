@@ -75,12 +75,55 @@ export interface Database {
           follow_up: string;
           behavioral_observation: string;
           quick_notes: string[];
+          /** GENERAL COMMENT about the evaluation as a whole (migration 001, documented by 024). */
           custom_note: string;
+          /**
+           * The nine criteria, each with its own score and own optional comment
+           * (migration 024). `{}` for a historical evaluation — see
+           * src/lib/evaluationCriteria.ts.
+           */
+          criteria: Json;
           overall_score: number;
           grade: string;
           created_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['session_evaluations']['Row'], 'id' | 'created_at'> & { id?: string; created_at?: string };
+        /**
+         * Written out rather than derived from Row, because every column on this
+         * table carries a DEFAULT and a 9-criteria evaluation deliberately does not
+         * write the 16 legacy criterion columns. Deriving the Insert from Row would
+         * make all of them required and force the caller to invent sixteen ratings
+         * it never collected.
+         */
+        Insert: {
+          id?: string;
+          teacher_id: string;
+          evaluator_id?: string | null;
+          evaluator_name?: string;
+          session_date: string;
+          tajweed_accuracy?: string;
+          pronunciation?: string;
+          correction_quality?: string;
+          listening_skills?: string;
+          punctuality?: string;
+          time_management?: string;
+          student_engagement?: string;
+          class_flow?: string;
+          professionalism?: string;
+          clarity?: string;
+          encouragement?: string;
+          parent_communication?: string;
+          lesson_preparation?: string;
+          explanation_quality?: string;
+          error_correction?: string;
+          follow_up?: string;
+          behavioral_observation?: string;
+          quick_notes?: string[];
+          custom_note?: string;
+          criteria?: Json;
+          overall_score?: number;
+          grade?: string;
+          created_at?: string;
+        };
         Update: Partial<Database['public']['Tables']['session_evaluations']['Row']>;
       };
       complaints: {

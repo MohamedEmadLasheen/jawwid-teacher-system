@@ -928,7 +928,26 @@
     "comment_classroom_improvement": "Needs improvement in classroom management.",
     "comment_parent_communication": "Excellent communication with parents.",
     "comment_attendance_improvement": "Attendance needs improvement.",
-    "comment_lesson_preparation": "Outstanding lesson preparation."
+    "comment_lesson_preparation": "Outstanding lesson preparation.",
+    "criteriaTitle": "Evaluation Criteria",
+    "selectTeacher": "Select a teacher",
+    "teacherRequired": "Select a teacher before saving the evaluation.",
+    "criterionComment": "Comment",
+    "criterionCommentPlaceholder": "Comment on this criterion (optional)...",
+    "generalComment": "General Comment",
+    "generalCommentHint": "About the lesson as a whole \u2014 separate from the per-criterion comments above.",
+    "generalCommentPlaceholder": "Overall notes about this lesson (optional)...",
+    "criterion": {
+      "cameraAppearanceLighting": "Camera, appearance, and lighting",
+      "studentEngagement": "Student engagement with the teacher",
+      "mistakeCorrectionQuality": "Quality of correcting the student's mistakes according to the student's level",
+      "interactiveEngagement": "Ability to engage the student throughout the lesson using appropriate interactive methods",
+      "recitationTajweed": "Quality of the teacher's Quran recitation and Tajweed rules",
+      "fushaCommitment": "Commitment to using Modern Standard Arabic (Fusha)",
+      "punctuality": "Punctuality",
+      "halaqahManagement": "Halaqah/class management",
+      "explanationClarity": "Ability to communicate information to the student in a way appropriate to their level"
+    }
   },
   "complaint": {
     "title": "Complaints",

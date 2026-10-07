@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type {
-  Teacher, SalaryRecord, SessionEvaluation, Complaint, ComplaintStatus,
+  Teacher, SalaryRecord, SessionEvaluation, SessionEvaluationDraft, Complaint, ComplaintStatus,
   ImprovementPlan, ImprovementPlanStatus, Deduction, Bonus,
   AdminRecommendation, RecommendationStatus, AdminNote, SalaryCurrency,
   BonusCategory, DeductionCategory,
@@ -34,7 +34,7 @@ interface TeacherState {
   softDeleteTeacher: (id: string) => Promise<void>;
   restoreTeacher: (id: string) => Promise<void>;
 
-  addEvaluation: (evaluation: Omit<SessionEvaluation, 'id' | 'createdAt'>) => Promise<void>;
+  addEvaluation: (evaluation: SessionEvaluationDraft) => Promise<void>;
   deleteEvaluation: (id: string) => Promise<void>;
 
   addComplaint: (complaint: Omit<Complaint, 'id' | 'createdAt' | 'actions'>) => Promise<void>;
