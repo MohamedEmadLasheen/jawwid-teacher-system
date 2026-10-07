@@ -143,7 +143,7 @@ for (const columnWidth of [40, 61, 96]) {
   for (const [label, minute] of [['12:00', 720], ['14:00', 840], ['18:00', 1080], ['19:00', 1140]]) {
     check(`N  cw=${columnWidth}: ${label} resolves to its exact column boundary`, minuteToX(minute, columnWidth), x(minute));
   }
-  check(`N  cw=${columnWidth}: timelineWidth spans the 24-column viewport`, timelineWidth(columnWidth), 24 * columnWidth);
+  check(`N  cw=${columnWidth}: timelineWidth spans the 32-column viewport`, timelineWidth(columnWidth), 32 * columnWidth);
 }
 
 // Future re-configuration: an arbitrary new window must need no code change.

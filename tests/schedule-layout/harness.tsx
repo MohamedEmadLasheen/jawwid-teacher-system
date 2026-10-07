@@ -71,11 +71,23 @@ const makeLesson = (id: string, startMinute: number, durationMinutes: number) =>
 
 // Working-window start, an interior half-hour, a 40-minute (fractional-width)
 // lesson, and one ending exactly on the window's end boundary.
+//
+// The L-20xx..L-2330 lessons sit AFTER the working window ends (19:00) and
+// after the old 20:00 grid boundary. They are here because the authoritative
+// workbook really does schedule that late (as late as 21:30), and both facts
+// have to hold at once: a lesson outside the shift still renders — working
+// hours shade the row background, they never hide a lesson — and a lesson
+// after 20:00 renders at all, which the old viewport made impossible.
 const lessons = [
   makeLesson('L-start', SHIFT_START, 30),       // 12:00-12:30 (window start)
   makeLesson('L-mid', 15 * 60 + 30, 30),        // 15:30-16:00
   makeLesson('L-40', 16 * 60, 40),              // 16:00-16:40
   makeLesson('L-end', 18 * 60 + 30, 30),        // 18:30-19:00 (window end)
+  makeLesson('L-2000', 20 * 60, 30),            // 20:00-20:30 (was invisible)
+  makeLesson('L-2030', 20 * 60 + 30, 30),       // 20:30-21:00 (was invisible)
+  makeLesson('L-2100', 21 * 60, 30),            // 21:00-21:30 (was invisible)
+  makeLesson('L-2130', 21 * 60 + 30, 30),       // 21:30-22:00 (was invisible)
+  makeLesson('L-2330', 23 * 60 + 30, 30),       // 23:30-24:00 (the midnight edge)
 ] as any[];
 
 const teacher = {

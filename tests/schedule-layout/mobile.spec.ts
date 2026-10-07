@@ -18,6 +18,9 @@ import { test, expect, type Page } from '@playwright/test';
  * Everything is measured from the rendered DOM, in both directions.
  */
 
+/** Lessons the harness fixture renders (4 daytime + 5 late-evening). */
+const LESSON_COUNT = 9;
+
 const VIEWPORTS = [
   { width: 320, height: 720, label: '320px', teacherColumnWidth: 88 },
   { width: 375, height: 812, label: '375px', teacherColumnWidth: 88 },
@@ -27,9 +30,15 @@ const VIEWPORTS = [
 
 async function openResponsive(page: Page, dir: 'ltr' | 'rtl') {
   await page.goto(`/tests/schedule-layout/index.html?dir=${dir}&responsive=1`);
-  await page.waitForSelector('[data-testid="ready"]', { state: 'attached' });
+  // The fixture renders nine lessons — four daytime plus five after the old
+  // 20:00 boundary. Waiting on the exact count is itself part of the contract:
+  // if a late lesson is filtered out again, this wait fails instead of the
+  // suite quietly measuring a shorter grid.
+  // LESSON_COUNT is passed in as an argument: the callback runs inside the
+  // page, where a Node-side binding does not exist.
   await page.waitForFunction(
-    () => document.querySelectorAll('[data-testid="row"] div.absolute.top-0.h-full.z-20').length === 4
+    (n) => document.querySelectorAll('[data-testid="row"] div.absolute.top-0.h-full.z-20').length === n,
+    LESSON_COUNT
   );
 }
 
@@ -39,8 +48,11 @@ async function readMetrics(page: Page) {
     const scroller = document.querySelector('[data-testid="scroller"]') as HTMLElement;
     const row = document.querySelector('[data-testid="row"]') as HTMLElement;
     const label = row.querySelector('.sticky') as HTMLElement;
+    // Column labels only — the terminal midnight marker shares the text shape
+    // but is a boundary, not a schedulable column.
+    const endEl = scroller.querySelector('[data-testid="timeline-end-label"]');
     const headerCells = Array.from(scroller.querySelectorAll('div'))
-      .filter((d) => d.children.length === 0 && /^\d{1,2}:\d{2} (AM|PM)$/.test(d.textContent?.trim() ?? ''));
+      .filter((d) => d !== endEl && d.children.length === 0 && /^\d{1,2}:\d{2} (AM|PM)$/.test(d.textContent?.trim() ?? ''));
     const lesson = row.querySelector('div.absolute.top-0.h-full.z-20') as HTMLElement;
     const card = lesson?.querySelector('button') as HTMLElement | null;
     const studentLine = card?.querySelector('p') as HTMLElement | null;
@@ -173,7 +185,8 @@ for (const dir of ['ltr', 'rtl'] as const) {
       expect(m.columnWidth).toBe(vp.width < 400 ? 80 : 84);
 
       // --- time axis ----------------------------------------------------
-      expect(m.headerCount).toBe(24);
+      // 32 half-hour columns: the axis now runs 08:00 → midnight.
+      expect(m.headerCount).toBe(32);
       expect(m.headerFontPx).toBeGreaterThanOrEqual(11);
       // No label may be clipped by its own column.
       expect(m.widestHeaderScrollWidth).toBeLessThanOrEqual(m.headerClientWidth + 1);

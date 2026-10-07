@@ -6,7 +6,8 @@ import { computeRowLayout } from './computeRowLayout.mjs';
 
 const GRID_START = 8 * 60;   // 08:00 — viewport start (schedulingConstants)
 const SLOT = 30;
-const COLS = (20 * 60 - GRID_START) / SLOT; // 24 columns (08:00-20:00)
+const GRID_END = 24 * 60;    // 24:00 — viewport end (schedulingConstants)
+const COLS = (GRID_END - GRID_START) / SLOT; // 32 columns (08:00-24:00)
 
 let pass = 0, fail = 0;
 const results = [];
@@ -124,10 +125,15 @@ check('merge: overlapping intervals union', fmt(mergeIntervals([iv(840, 960), iv
 check('merge: zero-length dropped', mergeIntervals([iv(900, 900)]), []);
 check('subtract: cut fully covering base', subtractIntervals([iv(840, 900)], [iv(800, 1000)]), []);
 check('subtract: disjoint cut leaves base', fmt(subtractIntervals([iv(840, 900)], [iv(1000, 1020)])), ['14:00-15:00']);
-check('clip: availability outside the 08:00-20:00 viewport is clipped',
+check('clip: availability outside the 08:00-24:00 viewport is clipped',
   fmt(computeWorkingWindow([iv(0, 600)])), ['08:00-10:00']);
-check('clip: availability past the viewport end is clipped',
-  fmt(computeWorkingWindow([iv(1140, 1380)])), ['19:00-20:00']);
+// The property is unchanged — availability beyond the viewport end is
+// clipped — but the probe has to actually exceed the end, which is now
+// midnight. 19:00-23:00 is INSIDE the new viewport and must survive intact.
+check('clip: availability past the viewport end (midnight) is clipped',
+  fmt(computeWorkingWindow([iv(1380, 1500)])), ['23:00-24:00']);
+check('clip: a 19:00-23:00 window is now fully inside the viewport',
+  fmt(computeWorkingWindow([iv(1140, 1380)])), ['19:00-23:00']);
 
 // Two availability slots on one day (hourly teacher with a split shift)
 check('split availability: both windows kept, lesson subtracted from the right one',
