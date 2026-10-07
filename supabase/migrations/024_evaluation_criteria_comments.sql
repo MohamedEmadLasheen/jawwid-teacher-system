@@ -45,7 +45,7 @@
 --     }
 --
 -- The nine keys are defined in ONE place in the application —
--- src/features/action-center/evaluationCriteria.ts — which is also
+-- src/lib/evaluationCriteria.ts — which is also
 -- what reads and writes this column. Keys are validated on read:
 -- an unknown key is ignored and a missing key falls back to the
 -- default rating, so a future criterion can be added without a
@@ -170,7 +170,7 @@ COMMENT ON COLUMN session_evaluations.criteria IS
   'PER-CRITERION comment and belongs to the criterion that contains it — it '
   'is never a comment about the evaluation as a whole (see custom_note). '
   'Criterion keys are defined in exactly one place: '
-  'src/features/action-center/evaluationCriteria.ts. Unknown keys are ignored '
+  'src/lib/evaluationCriteria.ts. Unknown keys are ignored '
   'on read and missing keys fall back to the default rating, so a criterion '
   'may be added without a migration. '
   'DISCRIMINATOR: criteria <> ''{}'' means a 9-criteria evaluation, whose 16 '
