@@ -15,6 +15,9 @@ import { test, expect, type Page } from '@playwright/test';
  * element where the header says this minute is?".
  */
 
+/** Lessons the harness fixture renders (4 daytime + 5 late-evening). */
+const LESSON_COUNT = 9;
+
 const COLUMN_WIDTHS = [40, 61, 96];
 const DIRECTIONS = ['ltr', 'rtl'] as const;
 
@@ -39,9 +42,12 @@ async function inlineStartOffsets(page: Page) {
       return rtl ? +(s.right - r.left).toFixed(3) : +(r.right - s.left).toFixed(3);
     };
 
+    // Column labels only — the terminal midnight marker is not a column.
+    const endEl = scroller.querySelector('[data-testid="timeline-end-label"]');
     const headerCells: Record<string, number> = {};
     const headerEnds: Record<string, number> = {};
     for (const d of Array.from(scroller.querySelectorAll('div'))) {
+      if (d === endEl) continue;
       const t = d.textContent?.trim() ?? '';
       if (d.children.length === 0 && /^\d{1,2}:\d{2} (AM|PM)$/.test(t)) {
         headerCells[t] = inlineStart(d)!;
@@ -117,9 +123,15 @@ async function openHarness(page: Page, dir: string, cw: number) {
   // default visibility check would never consider visible.
   await page.waitForSelector('[data-testid="ready"]', { state: 'attached' });
   await page.waitForSelector('[data-testid="row"] div.absolute.top-0.h-full.z-20');
-  // The fixture renders four lessons; wait for all of them before measuring.
+  // The fixture renders nine lessons — four daytime plus five after the old
+  // 20:00 boundary. Waiting on the exact count is itself part of the contract:
+  // if a late lesson is filtered out again, this wait fails instead of the
+  // suite quietly measuring a shorter grid.
+  // LESSON_COUNT is passed in as an argument: the callback runs inside the
+  // page, where a Node-side binding does not exist.
   await page.waitForFunction(
-    () => document.querySelectorAll('[data-testid="row"] div.absolute.top-0.h-full.z-20').length === 4
+    (n) => document.querySelectorAll('[data-testid="row"] div.absolute.top-0.h-full.z-20').length === n,
+    LESSON_COUNT
   );
 }
 
@@ -190,15 +202,18 @@ for (const dir of DIRECTIONS) {
     }
 
 
-    test('header renders 12-hour labels only, 8:00 AM to 7:30 PM', async ({ page }) => {
+    test('header renders 12-hour labels only, 8:00 AM to 11:30 PM (axis ends at midnight)', async ({ page }) => {
       await openHarness(page, dir, 96);
       const m = await inlineStartOffsets(page);
 
       const labels = Object.keys(m.headerCells);
-      expect(labels).toHaveLength(24);
+      expect(labels).toHaveLength(32);
       expect(labels).toEqual(expect.arrayContaining([
         '8:00 AM', '11:30 AM', '12:00 PM', '12:30 PM', '1:00 PM',
         '2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM', '6:00 PM', '7:00 PM', '7:30 PM',
+        // past the old 20:00 boundary
+        '8:00 PM', '8:30 PM', '9:00 PM', '9:30 PM',
+        '10:00 PM', '10:30 PM', '11:00 PM', '11:30 PM',
       ]));
 
       // The exact labels previously reported as wrong must not be rendered

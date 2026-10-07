@@ -189,8 +189,11 @@ test('change time: picker is derived from the timeline, current time marked', as
     })
   );
 
-  // 8 AM – 8 PM in 30-minute columns = 24 candidates, straight from the grid.
-  expect(options.length).toBe(24);
+  // 8 AM – midnight in 30-minute columns = 32 candidates, straight from the
+  // grid. The picker is derived from GRID_COLUMNS, so extending the viewport
+  // to midnight necessarily offers the late-evening slots too — which is the
+  // point: the workbook schedules lessons at 21:30.
+  expect(options.length).toBe(32);
   expect(options[0].start).toBe(8 * 60);
   expect(options[1].start - options[0].start).toBe(30);
 

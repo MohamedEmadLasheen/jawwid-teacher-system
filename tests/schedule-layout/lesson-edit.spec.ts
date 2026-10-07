@@ -1172,7 +1172,9 @@ test('weekly add: the start-time selector is searchable by either time spelling'
   await openWeeklyAdd(page);
   await page.locator('[data-testid="add-time"]').click();
   await expect(editSearch(page)).toBeVisible();
-  await expect(page.getByRole('option')).toHaveCount(24);
+  // 32 half-hour starts: the grid runs 08:00 -> midnight, and this picker is
+  // derived from GRID_COLUMNS, so it offers the late-evening slots too.
+  await expect(page.getByRole('option')).toHaveCount(32);
   // The label reads "9:00 AM"; "09:00" only matches via the hidden 24h text.
   await editSearch(page).fill('09:00');
   await expect(page.getByRole('option', { name: '9:00 AM', exact: true })).toHaveCount(1);
@@ -1272,12 +1274,20 @@ test('Start Time: a real wheel reaches the evening times, and one can be picked'
   const end = await listScroll(page);
   expect(end.scrollTop).toBe(end.maxScroll);
 
-  for (const t of ['6:00 PM', '6:30 PM', '7:00 PM', '7:30 PM']) {
+  // The tail of the list moved with the grid: the last four starts are now the
+  // late-evening ones, not 6:00-7:30 PM. The assertion is unchanged in kind —
+  // scrolling to the bottom must leave the FINAL options visible and clickable.
+  for (const t of ['10:00 PM', '10:30 PM', '11:00 PM', '11:30 PM']) {
     expect(await reachable(page, t), t).toMatchObject({ visible: true, hitTests: true });
   }
+  // The times this test was originally written for are still offered; they are
+  // simply mid-list now rather than at the end.
+  for (const t of ['6:00 PM', '6:30 PM', '7:00 PM', '7:30 PM']) {
+    expect((await reachable(page, t)).rendered, t).toBe(true);
+  }
 
-  await page.getByRole('option', { name: '7:30 PM', exact: true }).click();
-  await expect(page.locator('[data-testid="edit-time"]')).toContainText('7:30 PM');
+  await page.getByRole('option', { name: '11:30 PM', exact: true }).click();
+  await expect(page.locator('[data-testid="edit-time"]')).toContainText('11:30 PM');
   await expect(page.locator('[data-testid="lesson-edit"]')).toBeVisible();
 });
 

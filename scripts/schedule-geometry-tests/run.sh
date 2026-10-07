@@ -64,6 +64,7 @@ cp scripts/schedule-geometry-tests/searchtext.test.mjs "$OUT/"
 cp scripts/schedule-geometry-tests/filters.test.mjs "$OUT/"
 cp scripts/schedule-geometry-tests/studentadmin.test.mjs "$OUT/"
 cp scripts/schedule-geometry-tests/scheduleadmin.test.mjs "$OUT/"
+cp scripts/schedule-geometry-tests/midnight.test.mjs "$OUT/"
 
 status=0
 node "$OUT/timeline.test.mjs"   || status=1
@@ -87,6 +88,8 @@ echo
 node "$OUT/studentadmin.test.mjs" || status=1
 echo
 node "$OUT/scheduleadmin.test.mjs" || status=1
+echo
+node "$OUT/midnight.test.mjs" || status=1
 
 # Static policy check — reads the real .tsx sources, so it runs against the
 # repository rather than the bundled output directory.

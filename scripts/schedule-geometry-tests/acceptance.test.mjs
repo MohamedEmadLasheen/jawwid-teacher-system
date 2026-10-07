@@ -15,7 +15,8 @@ import { computeRowLayout } from './computeRowLayout.mjs';
 
 const GRID_START = 8 * 60;   // viewport start (schedulingConstants)
 const SLOT = 30;
-const COLS = (20 * 60 - GRID_START) / SLOT; // 24 columns (08:00-20:00)
+const GRID_END = 24 * 60;    // 24:00 — viewport end (schedulingConstants)
+const COLS = (GRID_END - GRID_START) / SLOT; // 32 columns (08:00-24:00)
 
 let pass = 0, fail = 0;
 const results = [];
@@ -167,8 +168,17 @@ console.log('='.repeat(78));
     minuteSpanToWidth(19 * 60, 19 * 60 + 30, 96), 96);
   // A lesson at the viewport's closing edge has nowhere to draw — that is the
   // viewport clamping, not the shift logic.
-  check('20:00 lesson sits on the viewport edge and has zero width',
-    minuteSpanToWidth(20 * 60, 20 * 60 + 30, 96), 0);
+  // REGRESSION (was: "20:00 lesson sits on the viewport edge and has zero
+  // width"). A 20:00 lesson is now INSIDE the viewport and must be a full
+  // column wide; zero width here is the old bug, where late lessons vanished.
+  check('20:00 lesson is inside the viewport and one column wide',
+    minuteSpanToWidth(20 * 60, 20 * 60 + 30, 96), 96);
+  check('21:30 lesson (the latest in the source schedule) is one column wide',
+    minuteSpanToWidth(21 * 60 + 30, 22 * 60, 96), 96);
+  check('23:30 lesson runs to midnight and keeps its full width',
+    minuteSpanToWidth(23 * 60 + 30, 24 * 60, 96), 96);
+  check('midnight is the viewport edge and has zero width beyond it',
+    minuteSpanToWidth(24 * 60, 24 * 60 + 30, 96), 0);
 
   // Part-time teacher: an 18:00-19:00 lesson is outside the window entirely.
   check('part-time: 18:30 lesson removes no capacity',

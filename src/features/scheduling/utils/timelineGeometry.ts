@@ -23,7 +23,7 @@ import { GRID_START_MINUTE, GRID_END_MINUTE, SLOT_MINUTES, GRID_COLUMNS } from '
  * cannot shift a lesson or a shift boundary across a timezone.
  */
 
-/** Total minutes the visible timeline spans (07:00 → 24:00 = 1020). */
+/** Total minutes the visible timeline spans (08:00 → 24:00 = 960). */
 export const TIMELINE_MINUTES = GRID_END_MINUTE - GRID_START_MINUTE;
 
 /** Full pixel width of the scrollable time axis (excludes the frozen label column). */
