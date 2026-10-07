@@ -248,3 +248,97 @@ for (const dir of DIRECTIONS) {
     });
   }
 }
+
+// ===========================================================================
+// REGRESSION: "11:30 PM" and "12:00 AM" must never intersect.
+//
+// The first terminal-marker implementation put the label at `bottom-0` inside
+// a box with no reserved space, so it sat on top of the final column's label.
+// It LOOKED clear on a phone (0.3px of slack) and overlapped by ~3px on
+// desktop, which is exactly the shape of bug a screenshot catches and a cell-
+// box assertion misses. These assertions measure the TEXT rectangles and
+// require a real empty intersection, at every supported width, in both
+// directions.
+// ===========================================================================
+const QA_WIDTHS = [320, 375, 390, 430, 768, 1280];
+
+/** Text rects of the final column label and the terminal boundary label. */
+async function labelRects(page: Page) {
+  return page.evaluate(() => {
+    const s = document.querySelector('[data-testid="scroller"]') as HTMLElement;
+    const end = s.querySelector('[data-testid="timeline-end-label"]') as HTMLElement | null;
+    if (!end) return null;
+    const cols = Array.from(s.querySelectorAll('div')).filter(
+      (d) => d !== end && d.children.length === 0 && /^\d{1,2}:\d{2} (AM|PM)$/.test(d.textContent?.trim() ?? '')
+    );
+    const last = cols[cols.length - 1] as HTMLElement;
+    // The CELL box is padded; the glyphs are what can visually collide, so
+    // measure the text itself via a Range.
+    const range = document.createRange();
+    range.selectNodeContents(last);
+    const t = range.getBoundingClientRect();
+    const e = end.getBoundingClientRect();
+    const overlapX = Math.max(0, Math.min(t.right, e.right) - Math.max(t.left, e.left));
+    const overlapY = Math.max(0, Math.min(t.bottom, e.bottom) - Math.max(t.top, e.top));
+    const axis = s.querySelector('.flex.shrink-0.relative') as HTMLElement;
+    return {
+      lastLabel: last.textContent!.trim(),
+      endLabel: end.textContent!.trim(),
+      columnCount: cols.length,
+      columnWidth: Math.round(last.getBoundingClientRect().width),
+      axisWidth: Math.round(axis.getBoundingClientRect().width),
+      overlapX: +overlapX.toFixed(2),
+      overlapY: +overlapY.toFixed(2),
+      intersects: overlapX > 0 && overlapY > 0,
+      endBelowLast: e.top >= t.bottom - 0.5,
+      docOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
+  });
+}
+
+for (const dir of DIRECTIONS) {
+  for (const width of QA_WIDTHS) {
+    test(`A-J. dir=${dir} @ ${width}px: 11:30 PM and 12:00 AM do not intersect`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto(`/tests/schedule-layout/index.html?dir=${dir}&responsive=1`);
+      await page.waitForSelector('[data-testid="ready"]', { state: 'attached' });
+      await page.waitForTimeout(250);
+
+      const m = await labelRects(page);
+      expect(m, 'the terminal label must exist').not.toBeNull();
+
+      // A. both labels exist
+      expect(m!.lastLabel).toBe('11:30 PM');
+      expect(m!.endLabel).toBe('12:00 AM');
+
+      // B. ZERO bounding-box intersection — the actual defect
+      expect(m!.intersects, `overlap ${m!.overlapX}x${m!.overlapY}px`).toBe(false);
+      expect(m!.overlapY).toBe(0);
+
+      // C/D. the terminal label sits on its own baseline, below the column
+      // label, in both directions
+      expect(m!.endBelowLast).toBe(true);
+
+      // K/L. the grid itself is untouched by the presentation fix
+      expect(m!.columnCount).toBe(32);
+      expect(m!.axisWidth).toBe(32 * m!.columnWidth);
+
+      // no page-level horizontal overflow
+      expect(m!.docOverflow).toBeLessThanOrEqual(1);
+    });
+  }
+}
+
+test('M/N. the terminal marker adds no schedulable column', async ({ page }) => {
+  await open(page, 'ltr');
+  const m = await measure(page);
+  const labels = Object.keys(m.headerCells);
+  // M. no 12:00 AM column start exists
+  expect(labels).not.toContain('12:00 AM');
+  expect(labels).toHaveLength(32);
+  // N. the boundary is anchored at GRID_END_MINUTE: the last column starts at
+  // 11:30 PM and the axis ends exactly one column later.
+  const sorted = labels.sort((a, b) => m.headerCells[a] - m.headerCells[b]);
+  expect(sorted.at(-1)).toBe('11:30 PM');
+  expect(m.endLabel).toBe('12:00 AM');
+});
