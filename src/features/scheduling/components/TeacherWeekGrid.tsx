@@ -5,8 +5,7 @@ import { useScheduleGrid } from '../hooks/useScheduleGrid';
 import { useScheduleMetrics } from '../hooks/useScheduleMetrics';
 import { useScheduleDragSensors } from '../hooks/useScheduleDragSensors';
 import { ScheduleGridRow } from './ScheduleGridRow';
-import { ScheduleTimeHeader } from './ScheduleTimeHeader';
-import { timelineWidth } from '../utils/timelineGeometry';
+import { ScheduleTimeHeader, scheduleContentWidth } from './ScheduleTimeHeader';
 import { DAYS_OF_WEEK, GRID_COLUMNS } from '../constants/schedulingConstants';
 import { DEFAULT_FILTERS, useScheduleUiStore, type ScheduleFilters } from '@/store/scheduleUiStore';
 import type { DayOfWeek } from '@/lib/types';
@@ -110,7 +109,9 @@ export function TeacherWeekGrid({ teacherId, onEmptyClick, onLessonClick, onProp
     return <p className="text-sm text-red-600 p-4">{message}</p>;
   }
 
-  const contentWidth = teacherColumnWidth + timelineWidth(columnWidth);
+  // One column wider than the axis: the header's terminal boundary cell
+  // lives past the last schedulable column. Rows stay axis-width.
+  const contentWidth = scheduleContentWidth(columnWidth, teacherColumnWidth);
 
   return (
     <div className="border rounded-lg overflow-hidden bg-white">
