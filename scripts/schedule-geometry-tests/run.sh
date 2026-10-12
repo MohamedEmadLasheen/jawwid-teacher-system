@@ -17,6 +17,7 @@ node_modules/esbuild/bin/esbuild \
   src/features/scheduling/utils/timelineGeometry.ts \
   src/features/scheduling/utils/computeRowLayout.ts \
   src/features/scheduling/utils/buildScheduleRoster.ts \
+  src/features/scheduling/utils/legacyAnchor.ts \
   src/features/scheduling/utils/deriveScheduleRows.ts \
   src/features/scheduling/utils/timeGrid.ts \
   src/features/scheduling/utils/lessonTimeOptions.ts \
@@ -57,6 +58,7 @@ node_modules/esbuild/bin/esbuild \
 cp scripts/schedule-geometry-tests/timeline.test.mjs "$OUT/"
 cp scripts/schedule-geometry-tests/acceptance.test.mjs "$OUT/"
 cp scripts/schedule-geometry-tests/roster.test.mjs "$OUT/"
+cp scripts/schedule-geometry-tests/legacyanchor.test.mjs "$OUT/"
 cp scripts/schedule-geometry-tests/viewport.test.mjs "$OUT/"
 cp scripts/schedule-geometry-tests/quickactions.test.mjs "$OUT/"
 cp scripts/schedule-geometry-tests/sametimeslot.test.mjs "$OUT/"
@@ -74,6 +76,9 @@ echo
 node "$OUT/acceptance.test.mjs" || status=1
 echo
 node "$OUT/roster.test.mjs"     || status=1
+echo
+# The legacy-anchor suite reads real .tsx sources too, so it needs REPO_ROOT.
+REPO_ROOT="$PWD" node "$OUT/legacyanchor.test.mjs" || status=1
 echo
 node "$OUT/viewport.test.mjs"   || status=1
 echo
