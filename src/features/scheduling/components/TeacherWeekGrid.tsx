@@ -7,6 +7,7 @@ import { useScheduleDragSensors } from '../hooks/useScheduleDragSensors';
 import { ScheduleGridRow } from './ScheduleGridRow';
 import { ScheduleTimeHeader, scheduleContentWidth } from './ScheduleTimeHeader';
 import { DAYS_OF_WEEK, GRID_COLUMNS } from '../constants/schedulingConstants';
+import { useInitialTimelineScroll } from '../hooks/useInitialTimelineScroll';
 import { DEFAULT_FILTERS, useScheduleUiStore, type ScheduleFilters } from '@/store/scheduleUiStore';
 import type { DayOfWeek } from '@/lib/types';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
@@ -42,6 +43,7 @@ export function TeacherWeekGrid({ teacherId, onEmptyClick, onLessonClick, onProp
   const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
   const { columnWidth, teacherColumnWidth, rowHeight, isCompact } = useScheduleMetrics(scrollRef, GRID_COLUMNS.length);
+  useInitialTimelineScroll(scrollRef, columnWidth);
   /**
    * The legend's filters, straight from the one store the Master Schedule
    * uses — so a chip means the same thing on both screens and there is no

@@ -13,10 +13,14 @@ import {
 } from './timelineGeometry.mjs';
 import { computeRowLayout } from './computeRowLayout.mjs';
 
-const GRID_START = 8 * 60;   // viewport start (schedulingConstants)
-const SLOT = 30;
-const GRID_END = 24 * 60;    // 24:00 — viewport end (schedulingConstants)
-const COLS = (GRID_END - GRID_START) / SLOT; // 32 columns (08:00-24:00)
+import { GRID_START_MINUTE, GRID_END_MINUTE, SLOT_MINUTES } from './schedulingConstants.mjs';
+
+// The axis comes from schedulingConstants, never a local copy: positions are
+// asserted relative to whatever the configured origin is.
+const GRID_START = GRID_START_MINUTE; // 00:00 — the axis spans the whole day
+const SLOT = SLOT_MINUTES;
+const GRID_END = GRID_END_MINUTE;     // 24:00
+const COLS = (GRID_END - GRID_START) / SLOT; // 48 columns (00:00-24:00)
 
 let pass = 0, fail = 0;
 const results = [];

@@ -6,13 +6,14 @@ import { Button } from '@/components/ui/button';
 import { useScheduleUiStore, hasActiveFilters } from '@/store/scheduleUiStore';
 import { useScheduleGrid } from '../hooks/useScheduleGrid';
 import { useScheduleMetrics } from '../hooks/useScheduleMetrics';
+import { useInitialTimelineScroll } from '../hooks/useInitialTimelineScroll';
 import { useScheduleDragSensors } from '../hooks/useScheduleDragSensors';
 import { useScheduleRoster } from '../hooks/useScheduleRoster';
 import { ScheduleGridRow } from './ScheduleGridRow';
 import { ScheduleTimeHeader, scheduleContentWidth } from './ScheduleTimeHeader';
 import { CurrentTimeIndicator } from './CurrentTimeIndicator';
 import { GRID_COLUMNS } from '../constants/schedulingConstants';
-import { minuteToDisplayLabel } from '../utils/timeGrid';
+import { rosterGroupWindowLabel } from '../utils/buildScheduleRoster';
 import type { LessonWithParticipants } from '@/services/scheduling/lessons.service';
 
 interface MasterScheduleGridProps {
@@ -42,6 +43,7 @@ export function MasterScheduleGrid({ onEmptyClick, onLessonClick, onProposeMove 
   const { selectedDay, filters, searchQuery, setSearchQuery, resetFilters } = useScheduleUiStore();
   const { rows, isLoading, error } = useScheduleGrid(selectedDay, filters, searchQuery);
   const { columnWidth, teacherColumnWidth, rowHeight, isCompact } = useScheduleMetrics(scrollRef, GRID_COLUMNS.length);
+  useInitialTimelineScroll(scrollRef, columnWidth);
   const { groups, templateIdsByTeacherId } = useScheduleRoster();
   const isFiltered = hasActiveFilters(filters) || searchQuery.trim().length > 0;
   const isToday = selectedDay === new Date().getDay();
@@ -57,7 +59,7 @@ export function MasterScheduleGrid({ onEmptyClick, onLessonClick, onProposeMove 
     const byTemplate = new Map(groups.map((g) => [g.templateId, g]));
 
     const out: Array<
-      | { kind: 'group'; key: string; name: string; startMinute: number; endMinute: number; count: number }
+      | { kind: 'group'; key: string; name: string; windowLabel: string | null; count: number }
       | { kind: 'row'; key: string; row: (typeof rows)[number] }
     > = [];
     let current: string | null = null;
@@ -69,12 +71,16 @@ export function MasterScheduleGrid({ onEmptyClick, onLessonClick, onProposeMove 
         // Counted over the VISIBLE rows, so the banner agrees with what is
         // drawn under it while a filter is active.
         const count = rows.filter((r) => groupOf(r.teacher.id) === templateId).length;
-        out.push({ kind: 'group', key: `g-${templateId}`, name: g.name, startMinute: g.startMinute, endMinute: g.endMinute, count });
+        out.push({
+          kind: 'group', key: `g-${templateId}`,
+          name: g.kind === 'hourly' ? t('scheduling.hourlyGroup') : g.name,
+          windowLabel: rosterGroupWindowLabel(g), count,
+        });
       }
       out.push({ kind: 'row', key: row.teacher.id, row });
     }
     return out;
-  }, [rows, groups, templateIdsByTeacherId]);
+  }, [rows, groups, templateIdsByTeacherId, t]);
 
   // Distance from the top of the scroll container to the top of the row list
   // (i.e. the sticky header's height). Measured rather than hardcoded so a
@@ -199,7 +205,7 @@ export function MasterScheduleGrid({ onEmptyClick, onLessonClick, onProposeMove 
                               </span>
                             </div>
                             <span className="text-[11px] text-muted-foreground whitespace-nowrap px-2">
-                              {minuteToDisplayLabel(item.startMinute)}–{minuteToDisplayLabel(item.endMinute)} · {item.count}
+                              {item.windowLabel ?? t('scheduling.hourlyGroupNoWindow')} · {item.count}
                             </span>
                           </div>
                         ) : (

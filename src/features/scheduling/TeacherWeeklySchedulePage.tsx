@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { useAcademyHealth } from './hooks/useAcademyHealth';
 import { useScheduleRoster } from './hooks/useScheduleRoster';
-import { minuteToDisplayLabel } from './utils/timeGrid';
+import { rosterGroupWindowLabel } from './utils/buildScheduleRoster';
 import { TeacherWeekGrid } from './components/TeacherWeekGrid';
 import { ColorLegend } from './components/ColorLegend';
 import { ScheduleRosterLegend } from './components/ScheduleRosterLegend';
@@ -70,12 +70,12 @@ export function TeacherWeeklySchedulePage() {
       key: group.templateId,
       label: (
         <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
-          {group.name} — {minuteToDisplayLabel(group.startMinute)}–{minuteToDisplayLabel(group.endMinute)}
+          {group.kind === 'hourly' ? t('scheduling.hourlyGroup') : group.name} — {rosterGroupWindowLabel(group) ?? t('scheduling.hourlyGroupNoWindow')}
         </span>
       ),
       options: group.teachers.map((tc) => ({ value: tc.id, label: tc.fullName })),
     })),
-    [groups]
+    [groups, t]
   );
 
   const [createTarget, setCreateTarget] = useState<{ teacherId: string; dayOfWeek: DayOfWeek; startMinute: number } | null>(null);

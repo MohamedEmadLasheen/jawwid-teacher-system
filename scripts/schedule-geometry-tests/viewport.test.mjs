@@ -9,7 +9,7 @@
  * which intervals qualify as "inside the working window with no lesson".
  */
 import { minuteToDisplayLabel, minuteToLabel } from './timeGrid.mjs';
-import { GRID_START_MINUTE, GRID_END_MINUTE, GRID_COLUMNS, SLOT_MINUTES } from './schedulingConstants.mjs';
+import { GRID_START_MINUTE, GRID_END_MINUTE, GRID_COLUMNS, SLOT_MINUTES, DEFAULT_VIEW_START_MINUTE } from './schedulingConstants.mjs';
 import { computeRowLayout } from './computeRowLayout.mjs';
 import { minuteToX, timelineWidth } from './timelineGeometry.mjs';
 
@@ -34,13 +34,18 @@ console.log('='.repeat(78));
 console.log('7 + 8 · TIMELINE RANGE = 8:00 AM -> 8:00 PM');
 console.log('='.repeat(78));
 
-check('7  viewport starts at 8:00 AM', GRID_START_MINUTE, 480);
+// The axis spans the WHOLE day so a stored lesson before 08:00 is drawable
+// (the operations workbook has 05:45 and 07:30 lessons). 08:00 survives as
+// where the grid OPENS — a view preference, not a bound.
+check('7  axis starts at 12:00 AM (whole day)', GRID_START_MINUTE, 0);
+check('7  the grid still opens at 8:00 AM', DEFAULT_VIEW_START_MINUTE, 480);
 check('8  viewport ends at midnight', GRID_END_MINUTE, 1440);
 // NEGATIVE REGRESSION: the old 20:00 boundary must be gone from the contract.
 check('   the old 20:00 (1200) boundary is gone', GRID_END_MINUTE === 1200, false);
 check('   granularity is still 30 minutes', SLOT_MINUTES, 30);
-check('   32 columns span the viewport', GRID_COLUMNS.length, 32);
-check('   first column is 8:00 AM', minuteToDisplayLabel(GRID_COLUMNS[0]), '8:00 AM');
+check('   48 columns span the day', GRID_COLUMNS.length, 48);
+check('   first column is 12:00 AM', minuteToDisplayLabel(GRID_COLUMNS[0]), '12:00 AM');
+check('   8:00 AM is a real column', GRID_COLUMNS.includes(480), true);
 check('   last column is 11:30 PM (midnight is the closing edge)',
   minuteToDisplayLabel(GRID_COLUMNS[GRID_COLUMNS.length - 1]), '11:30 PM');
 check('   closing edge renders as 12:00 AM (midnight, not noon)', minuteToDisplayLabel(GRID_END_MINUTE), '12:00 AM');
@@ -48,7 +53,9 @@ check('   closing edge renders as 12:00 AM (midnight, not noon)', minuteToDispla
 // The exact header sequence an admin should see.
 check('   full header label sequence',
   GRID_COLUMNS.map(minuteToDisplayLabel),
-  ['8:00 AM','8:30 AM','9:00 AM','9:30 AM','10:00 AM','10:30 AM','11:00 AM','11:30 AM',
+  ['12:00 AM','12:30 AM','1:00 AM','1:30 AM','2:00 AM','2:30 AM','3:00 AM','3:30 AM',
+   '4:00 AM','4:30 AM','5:00 AM','5:30 AM','6:00 AM','6:30 AM','7:00 AM','7:30 AM',
+   '8:00 AM','8:30 AM','9:00 AM','9:30 AM','10:00 AM','10:30 AM','11:00 AM','11:30 AM',
    '12:00 PM','12:30 PM','1:00 PM','1:30 PM','2:00 PM','2:30 PM','3:00 PM','3:30 PM',
    '4:00 PM','4:30 PM','5:00 PM','5:30 PM','6:00 PM','6:30 PM','7:00 PM','7:30 PM',
    '8:00 PM','8:30 PM','9:00 PM','9:30 PM','10:00 PM','10:30 PM','11:00 PM','11:30 PM']);
@@ -161,8 +168,8 @@ console.log('='.repeat(78));
   check('5/E  part-time can only flag within 14:00-18:00',
     part.freeIntervals.every((f) => f.startMinute >= 840 && f.endMinute <= 1080), true);
   check('5/E  part-time flags nothing at 12:00 (full-time-only hours)',
-    part.columnInWindow[(720 - 480) / 30], false);
-  check('4/F  full-time flags 12:00', full.columnInWindow[(720 - 480) / 30], true);
+    part.columnInWindow[(720 - GRID_START_MINUTE) / 30], false);
+  check('4/F  full-time flags 12:00', full.columnInWindow[(720 - GRID_START_MINUTE) / 30], true);
 }
 
 // G. A re-configured window immediately changes what can be flagged.
@@ -181,6 +188,14 @@ console.log('='.repeat(78));
   check('   no working window => no column marked in-window', layout.columnInWindow.some(Boolean), false);
 }
 
+// Before 08:00: a lesson the data model permits is now on the axis.
+{
+  for (const [start, dur, label] of [[345, 30, '05:45'], [450, 30, '07:30'], [0, 30, '00:00'], [1410, 30, '23:30']]) {
+    check(`   ${label} lesson starts inside the axis`, start >= GRID_START_MINUTE && start + dur <= GRID_END_MINUTE, true);
+    check(`   ${label} lesson is positioned at its exact minute`, minuteToX(start, 96), ((start - GRID_START_MINUTE) / SLOT_MINUTES) * 96);
+  }
+}
+
 console.log('='.repeat(78));
 console.log('4 · GEOMETRY STILL ALIGNS ON THE NEW VIEWPORT');
 console.log('='.repeat(78));
@@ -192,7 +207,8 @@ for (const cw of [40, 61, 96]) {
   }
   check(`4  cw=${cw}: zero header/geometry drift across all ${GRID_COLUMNS.length} columns`, drift, 0);
   check(`4  cw=${cw}: timelineWidth == ${GRID_COLUMNS.length} * cw`, timelineWidth(cw), GRID_COLUMNS.length * cw);
-  check(`4  cw=${cw}: 8:00 AM is the origin`, minuteToX(480, cw), 0);
+  check(`4  cw=${cw}: 12:00 AM is the origin`, minuteToX(0, cw), 0);
+  check(`4  cw=${cw}: 8:00 AM sits 16 columns in (where the grid opens)`, minuteToX(480, cw), 16 * cw);
   check(`4  cw=${cw}: midnight is the far edge`, minuteToX(1440, cw), GRID_COLUMNS.length * cw);
   check(`   cw=${cw}: 8:00 PM is now INSIDE the axis, not at the edge`,
     minuteToX(1200, cw) < GRID_COLUMNS.length * cw, true);

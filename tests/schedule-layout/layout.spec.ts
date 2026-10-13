@@ -202,13 +202,15 @@ for (const dir of DIRECTIONS) {
     }
 
 
-    test('header renders 12-hour labels only, 8:00 AM to 11:30 PM (axis ends at midnight)', async ({ page }) => {
+    test('header renders 12-hour labels only, 12:00 AM to 11:30 PM (axis spans the whole day)', async ({ page }) => {
       await openHarness(page, dir, 96);
       const m = await inlineStartOffsets(page);
 
       const labels = Object.keys(m.headerCells);
-      expect(labels).toHaveLength(32);
+      expect(labels).toHaveLength(48);
       expect(labels).toEqual(expect.arrayContaining([
+        // before the old 08:00 start (the workbook has 05:45 and 07:30 lessons)
+        '12:00 AM', '5:30 AM', '7:30 AM',
         '8:00 AM', '11:30 AM', '12:00 PM', '12:30 PM', '1:00 PM',
         '2:00 PM', '3:00 PM', '4:00 PM', '5:00 PM', '6:00 PM', '7:00 PM', '7:30 PM',
         // past the old 20:00 boundary
@@ -265,7 +267,7 @@ for (const dir of DIRECTIONS) {
           if (d.children.length === 0 && /^\d{1,2}:\d{2} (AM|PM)$/.test(t)) cells[t] = inlineStart(d);
         }
         if (!now) return { present: false as const };
-        const LABEL = 176, CW = 96, GRID_START = 8 * 60;
+        const LABEL = 176, CW = 96, GRID_START = 0;   // the axis spans the whole day
         const d = new Date();
         const mins = d.getHours() * 60 + d.getMinutes();
         return {
@@ -277,10 +279,10 @@ for (const dir of DIRECTIONS) {
         };
       });
 
-      // The marker only renders between 07:00 and midnight. Outside that it is
-      // legitimately absent, so assert alignment only when it is on screen.
+      // The axis spans the whole day, so the marker is always on it for today;
+      // it is absent only if the harness is not showing today.
       if (!m.present) {
-        test.skip(true, 'current time is outside the 07:00-24:00 grid window');
+        test.skip(true, 'the harness is not showing today');
         return;
       }
       // Measured against the harness scroller, whose inline-start is the

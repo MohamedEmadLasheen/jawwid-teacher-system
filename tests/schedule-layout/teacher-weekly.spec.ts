@@ -65,6 +65,27 @@ const daysWithLessons = (page: Page) =>
 const state = (page: Page) => page.locator('[data-testid="filter-state"]');
 
 for (const dir of ['ltr', 'rtl'] as const) {
+  test(`teacher weekly grid (${dir}) opens at 08:00 on the whole-day axis`, async ({ page }) => {
+    await open(page, dir);
+    const m = await page.evaluate(() => {
+      const s = document.querySelector('div.overflow-auto') as HTMLElement;
+      const labels = Array.from(s.querySelectorAll('div')).filter(
+        (d) => d.children.length === 0 && /^\d{1,2}:\d{2} (AM|PM)$/.test(d.textContent?.trim() ?? '')
+          // the closing-midnight label is a header cell, not an axis column
+          && !d.closest('[data-testid="timeline-end-label"]'));
+      return {
+        offset: Math.abs(s.scrollLeft), max: s.scrollWidth - s.clientWidth,
+        columns: labels.length, cw: labels[0].getBoundingClientRect().width,
+        first: labels[0].textContent?.trim(),
+      };
+    });
+    expect(m.columns).toBe(48);
+    expect(m.first).toBe('12:00 AM');
+    expect(m.offset).toBeCloseTo(Math.min(16 * m.cw, m.max), 0);
+  });
+}
+
+for (const dir of ['ltr', 'rtl'] as const) {
   test.describe(`teacher weekly legend (${dir})`, () => {
     test('the real page renders, and both legends are interactive', async ({ page }) => {
       const f = await open(page, dir);

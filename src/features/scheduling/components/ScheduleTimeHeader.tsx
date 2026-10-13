@@ -84,9 +84,10 @@ export function ScheduleTimeHeader({ columnWidth, teacherColumnWidth, isCompact 
 
         Because it sits OUTSIDE the axis box, it adds nothing to
         timelineWidth(): lesson positions, row widths and every geometry
-        calculation are untouched, GRID_COLUMNS stays 32, and the time picker —
-        derived from GRID_COLUMNS — still ends at 11:30 PM. The schedule body
-        still ends at 32 × columnWidth; only the header reaches past it.
+        calculation are untouched, GRID_COLUMNS keeps its 48 columns, and the
+        time picker — derived from GRID_COLUMNS — still ends at 11:30 PM. The
+        schedule body still ends at GRID_COLUMNS.length × columnWidth; only the
+        header reaches past it.
 
         Flex order, not a physical offset, is what places it after the final
         column, so dir="rtl" mirrors the whole row and the boundary appears at
