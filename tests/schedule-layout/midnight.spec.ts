@@ -89,16 +89,16 @@ async function measure(page: Page) {
 
 for (const dir of DIRECTIONS) {
   test.describe(`dir=${dir}`, () => {
-    test('A. the time axis runs to midnight — 32 columns, last label 11:30 PM', async ({ page }) => {
+    test('A. the time axis spans the whole day — 48 columns, last label 11:30 PM', async ({ page }) => {
       await open(page, dir);
       const m = await measure(page);
       expect(m.dir).toBe(dir);
 
       const labels = Object.keys(m.headerCells);
-      expect(labels).toHaveLength(32);
+      expect(labels).toHaveLength(48);
       expect(labels).toContain('11:30 PM');
       // The old boundary is no longer the end of the axis: 8:00 PM is column
-      // 25 of 32, so seven columns follow it (8:30 PM .. 11:30 PM).
+      // 41 of 48, so seven columns follow it (8:30 PM .. 11:30 PM).
       const after = labels.filter((l) => m.headerCells[l] > m.headerCells['8:00 PM']);
       expect(after).toHaveLength(7);
       expect(after.sort((a, b) => m.headerCells[a] - m.headerCells[b])).toEqual([
@@ -106,7 +106,10 @@ for (const dir of DIRECTIONS) {
       ]);
       // Midnight must read as AM. A "12:00 PM" end would be noon — the exact
       // mistake the request called out.
-      expect(labels).not.toContain('12:00 AM');   // not a COLUMN; see the terminal-boundary test
+      // The only 12:00 AM COLUMN is the start of the day (00:00); the closing
+      // midnight is the terminal boundary, not a column (see that test).
+      expect(labels.filter((l) => l === '12:00 AM')).toHaveLength(1);
+      expect(m.headerCells['12:00 AM']).toBe(Math.min(...Object.values(m.headerCells)));
       expect(labels.filter((l) => l === '12:00 PM')).toHaveLength(1); // noon, mid-axis
     });
 
@@ -117,10 +120,11 @@ for (const dir of DIRECTIONS) {
       // B. The endpoint is rendered, and reads midnight — not noon.
       expect(m.endLabel).toBe('12:00 AM');
 
-      // C. It is NOT a column: the schedulable columns are still exactly 32,
-      // the last of them 11:30 PM. There is no 12:00 AM → 12:30 AM slot.
+      // C. It is NOT a column: the schedulable columns are exactly 48 (00:00
+      // .. 23:30), the last of them 11:30 PM. There is no closing 12:00 AM →
+      // 12:30 AM slot after it.
       const labels = Object.keys(m.headerCells);
-      expect(labels).toHaveLength(32);
+      expect(labels).toHaveLength(48);
       const last = labels.sort((a, b) => m.headerCells[a] - m.headerCells[b]).at(-1);
       expect(last).toBe('11:30 PM');
 
@@ -132,7 +136,7 @@ for (const dir of DIRECTIONS) {
       expect(m.endLabelStart! + m.endLabelWidth!).toBeGreaterThan(m.headerCells['11:30 PM']);
 
       // And it must not widen the scroll content: the anchor is zero-width, so
-      // the axis is still exactly 32 columns wide.
+      // the axis is still exactly 48 columns wide.
       expect(m.docScrollWidth).toBeLessThanOrEqual(m.docClientWidth + 1);
     });
 
@@ -194,11 +198,13 @@ for (const dir of DIRECTIONS) {
       // The 40-minute lesson stays 40/30 of a column — not snapped to two.
       expect(at('4:00 PM')!.width).toBeCloseTo(128, 1);
       expect(at('6:30 PM')!.width).toBeCloseTo(96, 1);
-      // 08:00 is still the first column on the axis. (Offsets are measured
-      // from the scroller's inline-start edge, which includes the frozen
-      // label column, so the origin is that column's width, not 0.)
+      // 00:00 is the first column on the axis and 08:00 sits 16 columns in.
+      // (Offsets are measured from the scroller's inline-start edge, which
+      // includes the frozen label column, so the origin is that column's
+      // width, not 0.)
       const minOffset = Math.min(...Object.values(m.headerCells));
-      expect(m.headerCells['8:00 AM']).toBeCloseTo(minOffset, 1);
+      expect(m.headerCells['12:00 AM']).toBeCloseTo(minOffset, 1);
+      expect(m.headerCells['8:00 AM']).toBeCloseTo(minOffset + 16 * 96, 1);
     });
 
     test('J. sticky header survives the longer axis and the page does not overflow', async ({ page }) => {
@@ -333,9 +339,9 @@ for (const dir of DIRECTIONS) {
       expect(m!.terminalWidth).toBe(m!.columnWidth);
 
       // 6/7. the schedulable axis is untouched by the header's extra cell
-      expect(m!.columnCount).toBe(32);
-      // 15. lesson geometry unchanged: the body is still 32 columns wide
-      expect(m!.bodyAxisWidth).toBe(32 * m!.columnWidth);
+      expect(m!.columnCount).toBe(48);
+      // 15. lesson geometry unchanged: the body is exactly 48 columns wide
+      expect(m!.bodyAxisWidth).toBe(48 * m!.columnWidth);
 
       // 9. it can never be clicked as a slot
       expect(m!.pointerEvents).toBe('none');
@@ -351,20 +357,22 @@ test('the terminal cell is not a schedulable column', async ({ page }) => {
   const m = await measure(page);
   const labels = Object.keys(m.headerCells);
 
-  // 7. no 12:00 AM among the schedulable columns
-  expect(labels).not.toContain('12:00 AM');
-  expect(labels).toHaveLength(32);
+  // 7. the closing 12:00 AM is not among the schedulable columns: the only
+  // 12:00 AM column is 00:00, the first one.
+  expect(labels.filter((l) => l === '12:00 AM')).toHaveLength(1);
+  expect(m.headerCells['12:00 AM']).toBe(Math.min(...Object.values(m.headerCells)));
+  expect(labels).toHaveLength(48);
 
   // 3. 11:30 PM is still the final real slot
   const sorted = labels.sort((a, b) => m.headerCells[a] - m.headerCells[b]);
   expect(sorted.at(-1)).toBe('11:30 PM');
 
-  // 10. the body offers exactly 32 clickable slots per row — no 33rd.
+  // 10. the body offers exactly 48 clickable slots per row — no 49th.
   // Scoped to the background slot layer: a lesson card is also a <button>, so
   // counting every button in the row would include the lessons too.
   const slots = await page.evaluate(() => {
     const bg = document.querySelector('[data-testid="row"] .absolute.inset-0.flex')!;
     return bg.querySelectorAll('button').length;
   });
-  expect(slots).toBe(32);
+  expect(slots).toBe(48);
 });

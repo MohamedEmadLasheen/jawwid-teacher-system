@@ -95,6 +95,25 @@ export async function fetchLessonsForDay(
   }));
 }
 
+/**
+ * Ids of every teacher holding at least one booked (DEFAULT_GRID_LIFECYCLES)
+ * lesson, on any day. This is what puts a teacher with no shift assignment on
+ * the Schedule's Hourly group (see buildScheduleRoster): without it their
+ * lessons were fetched by the grid but had no row to be drawn in.
+ * Paginated for the same reason as fetchLessonsForDay.
+ */
+export async function fetchScheduledTeacherIds(): Promise<Set<string>> {
+  const rows = await fetchAllRows<Pick<Row, 'id' | 'teacher_id'>>((from, to) =>
+    supabase
+      .from('lessons')
+      .select('id, teacher_id')
+      .in('lifecycle_status', DEFAULT_GRID_LIFECYCLES)
+      .order('id', { ascending: true })
+      .range(from, to)
+  );
+  return new Set(rows.map((row) => row.teacher_id));
+}
+
 export async function fetchLessonParticipants(): Promise<LessonParticipant[]> {
   const rows = await fetchAllRows<ParticipantRow>((from, to) =>
     supabase.from('lesson_participants').select('*').order('id', { ascending: true }).range(from, to)

@@ -1,0 +1,700 @@
+{
+  "schema_version": 1,
+  "description": "Authoritative mapping from the operations schedule workbook's teacher spellings (column A) to Teacher System teacher ids. Edit only with evidence; the importer re-validates every CONFIRMED entry against the database on each run and treats a failing entry as UNRESOLVED.",
+  "classification_rule": "Owner rule 2026-10-13: the 14 teachers in shift_roster_teacher_ids are the only shift-based/part-time teachers; every other confirmed teacher is hourly. The importer refuses to run if the live shift roster differs from this list.",
+  "bases": {
+    "EXISTING_SCHEDULE": "roster teacher whose existing active schedule reproduces the sheet row (>= 3 exact lesson matches)",
+    "HISTORY_ESTABLISHED": "the only plausible record, and >= 3 of its lessons are reproduced exactly by the sheet row",
+    "HISTORY_ESTABLISHED_OVER_DUPLICATE": "duplicate records exist; >= 3 lessons of the chosen record are reproduced exactly and no other candidate has any",
+    "SINGLE_PLAUSIBLE_RECORD": "exactly one Teacher System record plausibly carries this name"
+  },
+  "shift_roster_teacher_ids": [
+    "0b9d761d-520d-46b5-9889-eb24225be3e8",
+    "14d7a6d9-749b-44a0-9a52-1a76611066cb",
+    "1be38a96-e963-4fce-84a8-7fecd0857195",
+    "291905ec-b1b5-4506-8b8e-3edb4e319357",
+    "31f8b40b-c0ab-4765-a444-df95585fbc54",
+    "3fd381c5-c34b-46cf-b28f-a55cf4634142",
+    "51042bab-879f-469b-b738-ea4f35072e23",
+    "686c57da-78d7-4a9d-abf4-b35c1b8e8faa",
+    "703abfe6-3007-49d8-ac22-c68033f855bc",
+    "9a8210de-a691-44bf-8b6e-c2f15380986a",
+    "c8c51712-35b1-4b09-ba3f-fbb9bca78405",
+    "cba57876-b992-4050-95f8-07972b1c8572",
+    "e814f138-9940-4f86-b78b-2e4e2908cfa9",
+    "e93d453e-5282-4dc9-9e33-f3a77a0efd8a"
+  ],
+  "teachers": [
+    {
+      "sheet_spellings": [
+        "دعاء زكريا"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "14d7a6d9-749b-44a0-9a52-1a76611066cb",
+      "basis": "EXISTING_SCHEDULE",
+      "candidates": [
+        "14d7a6d9-749b-44a0-9a52-1a76611066cb",
+        "c7b9645b-4753-4436-bfbc-9198ff74d7ca"
+      ],
+      "evidence": "Roster teacher. Her active schedule reproduces this row (59 exact lesson matches). Core duplicate c7b9645b has no lessons."
+    },
+    {
+      "sheet_spellings": [
+        "منه رمضان"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "e814f138-9940-4f86-b78b-2e4e2908cfa9",
+      "basis": "EXISTING_SCHEDULE",
+      "candidates": [
+        "e814f138-9940-4f86-b78b-2e4e2908cfa9",
+        "bdc4de53-732e-4112-8c74-c0c9ca3754a8"
+      ],
+      "evidence": "Roster teacher; 47 exact matches. Core duplicate bdc4de53 has no lessons."
+    },
+    {
+      "sheet_spellings": [
+        "هند"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "e93d453e-5282-4dc9-9e33-f3a77a0efd8a",
+      "basis": "EXISTING_SCHEDULE",
+      "candidates": [
+        "e93d453e-5282-4dc9-9e33-f3a77a0efd8a",
+        "8f4f2e4b-f2a2-4c38-b027-fe308ef019f0",
+        "645b0588-4520-4f43-aeb3-7824f2603b90",
+        "b9802a91-b3cc-444a-9150-5d7b3d431504"
+      ],
+      "evidence": "Roster teacher; 48 exact matches. Not b9802a91 (Hend Mohammed (اعاجم)), excluded from the roster by migration 022."
+    },
+    {
+      "sheet_spellings": [
+        "محمد حسين"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "1be38a96-e963-4fce-84a8-7fecd0857195",
+      "basis": "EXISTING_SCHEDULE",
+      "candidates": [
+        "1be38a96-e963-4fce-84a8-7fecd0857195",
+        "67c3125b-8449-4ede-8dea-d39892e491be"
+      ],
+      "evidence": "Roster teacher; 43 exact matches. Core duplicate 67c3125b has no lessons."
+    },
+    {
+      "sheet_spellings": [
+        "غاده رجب",
+        "غادة رجب"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "9a8210de-a691-44bf-8b6e-c2f15380986a",
+      "basis": "EXISTING_SCHEDULE",
+      "candidates": [
+        "9a8210de-a691-44bf-8b6e-c2f15380986a",
+        "833b4a15-a222-458d-bda8-6ea2fa7fea48"
+      ],
+      "evidence": "Roster teacher; 40 exact matches."
+    },
+    {
+      "sheet_spellings": [
+        "ياسمين",
+        "باسمين"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "686c57da-78d7-4a9d-abf4-b35c1b8e8faa",
+      "basis": "EXISTING_SCHEDULE",
+      "candidates": [
+        "686c57da-78d7-4a9d-abf4-b35c1b8e8faa",
+        "7a8c5bc1-4e39-4781-949e-df216b5ca3f3"
+      ],
+      "evidence": "Roster teacher; 51 exact matches (باسمين is a typo of ياسمين on the same row position)."
+    },
+    {
+      "sheet_spellings": [
+        "أروي أحمد",
+        "أروى أحمد"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "31f8b40b-c0ab-4765-a444-df95585fbc54",
+      "basis": "EXISTING_SCHEDULE",
+      "candidates": [
+        "31f8b40b-c0ab-4765-a444-df95585fbc54",
+        "52982e9f-105f-4826-b4a8-a9de29c70422"
+      ],
+      "evidence": "Roster teacher; 41 exact matches."
+    },
+    {
+      "sheet_spellings": [
+        "أشرف",
+        "اشرف"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "51042bab-879f-469b-b738-ea4f35072e23",
+      "basis": "EXISTING_SCHEDULE",
+      "candidates": [
+        "51042bab-879f-469b-b738-ea4f35072e23",
+        "f903eb6b-c983-4766-b45e-d23a8c334e4f"
+      ],
+      "evidence": "Roster teacher; 35 exact matches."
+    },
+    {
+      "sheet_spellings": [
+        "رقيه رمضان"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "3fd381c5-c34b-46cf-b28f-a55cf4634142",
+      "basis": "EXISTING_SCHEDULE",
+      "candidates": [
+        "3fd381c5-c34b-46cf-b28f-a55cf4634142",
+        "6a161054-8bd4-4a5e-98bd-98110721224c"
+      ],
+      "evidence": "Roster teacher; 26 exact matches."
+    },
+    {
+      "sheet_spellings": [
+        "اسماء مجدي",
+        "اسماء مجدى"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "cba57876-b992-4050-95f8-07972b1c8572",
+      "basis": "EXISTING_SCHEDULE",
+      "candidates": [
+        "cba57876-b992-4050-95f8-07972b1c8572"
+      ],
+      "evidence": "Roster teacher; 27 exact matches."
+    },
+    {
+      "sheet_spellings": [
+        "أية",
+        "اية"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "0b9d761d-520d-46b5-9889-eb24225be3e8",
+      "basis": "EXISTING_SCHEDULE",
+      "candidates": [
+        "0b9d761d-520d-46b5-9889-eb24225be3e8",
+        "6393b738-0f4d-4b71-92c7-a907b8089571"
+      ],
+      "evidence": "Roster teacher; 29 exact matches."
+    },
+    {
+      "sheet_spellings": [
+        "زينب حازم"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "291905ec-b1b5-4506-8b8e-3edb4e319357",
+      "basis": "EXISTING_SCHEDULE",
+      "candidates": [
+        "291905ec-b1b5-4506-8b8e-3edb4e319357"
+      ],
+      "evidence": "Roster teacher; 22 exact matches."
+    },
+    {
+      "sheet_spellings": [
+        "منة ابراهيم",
+        "منة إبراهيم",
+        "منه ابراهيم"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "703abfe6-3007-49d8-ac22-c68033f855bc",
+      "basis": "EXISTING_SCHEDULE",
+      "candidates": [
+        "703abfe6-3007-49d8-ac22-c68033f855bc",
+        "23768048-b838-4b07-98b3-8412e6bf4a38"
+      ],
+      "evidence": "Roster teacher; 20 exact matches."
+    },
+    {
+      "sheet_spellings": [
+        "ياسمين اسعد",
+        "ياسمين أسعد"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "c8c51712-35b1-4b09-ba3f-fbb9bca78405",
+      "basis": "EXISTING_SCHEDULE",
+      "candidates": [
+        "c8c51712-35b1-4b09-ba3f-fbb9bca78405",
+        "ca2e0a54-88da-4a14-bfdb-8736e84a6801"
+      ],
+      "evidence": "Roster teacher; 8 exact matches."
+    },
+    {
+      "sheet_spellings": [
+        "آمال منير"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "96037725-57ec-4642-b15c-8f1682e71e07",
+      "basis": "HISTORY_ESTABLISHED",
+      "candidates": [
+        "96037725-57ec-4642-b15c-8f1682e71e07"
+      ],
+      "evidence": "Only record named Amal Monir; 11 of her lessons reproduced exactly by this row."
+    },
+    {
+      "sheet_spellings": [
+        "هناء منير"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "a6e46763-8de9-44dc-a1c4-24ad322b2aef",
+      "basis": "HISTORY_ESTABLISHED",
+      "candidates": [
+        "a6e46763-8de9-44dc-a1c4-24ad322b2aef"
+      ],
+      "evidence": "Only record named Hanaa Monir; 12 exact matches."
+    },
+    {
+      "sheet_spellings": [
+        "محمد عنان"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "89337c99-a1de-4149-8862-2b463570b7fe",
+      "basis": "HISTORY_ESTABLISHED",
+      "candidates": [
+        "89337c99-a1de-4149-8862-2b463570b7fe"
+      ],
+      "evidence": "Only record named Mohamed Anan; 11 exact matches."
+    },
+    {
+      "sheet_spellings": [
+        "نادية علي",
+        "نادية على",
+        "نادية"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "462848a7-f5ec-4ffe-9684-2fff16ded207",
+      "basis": "HISTORY_ESTABLISHED",
+      "candidates": [
+        "462848a7-f5ec-4ffe-9684-2fff16ded207"
+      ],
+      "evidence": "Only record named Nadia; 20 exact matches across the three spellings."
+    },
+    {
+      "sheet_spellings": [
+        "شريف شاكر"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "c0bb6827-27a7-40a7-abd4-ffd33f7dbe46",
+      "basis": "HISTORY_ESTABLISHED",
+      "candidates": [
+        "c0bb6827-27a7-40a7-abd4-ffd33f7dbe46"
+      ],
+      "evidence": "Only record named Sherif Shaker (Shrien Shaker ff2a8723 is a different first name); 4 exact matches."
+    },
+    {
+      "sheet_spellings": [
+        "يارا"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "2aa2ae8f-90e3-42a5-985d-652013e10acc",
+      "basis": "HISTORY_ESTABLISHED",
+      "candidates": [
+        "2aa2ae8f-90e3-42a5-985d-652013e10acc"
+      ],
+      "evidence": "Only record named Yara; 4 exact matches."
+    },
+    {
+      "sheet_spellings": [
+        "عبدالله احمد"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "1aa996f5-2776-4ba4-b8c0-1b15d3195f5f",
+      "basis": "HISTORY_ESTABLISHED",
+      "candidates": [
+        "1aa996f5-2776-4ba4-b8c0-1b15d3195f5f"
+      ],
+      "evidence": "Only record named Abdullah Ahmed; 3 exact matches."
+    },
+    {
+      "sheet_spellings": [
+        "داليا"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "42a7228c-5768-422b-a9c6-8465a1fcee23",
+      "basis": "HISTORY_ESTABLISHED_OVER_DUPLICATE",
+      "candidates": [
+        "42a7228c-5768-422b-a9c6-8465a1fcee23",
+        "4885e138-f179-44b9-9c89-d80ba5364845"
+      ],
+      "evidence": "Two records for Dalia Metwally. 7 lessons of 42a7228c are reproduced exactly by this row; the Core-synced 4885e138 has never held a lesson."
+    },
+    {
+      "sheet_spellings": [
+        "نشوى"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "ef0af868-e469-4edc-9bd6-2711eec050b8",
+      "basis": "HISTORY_ESTABLISHED_OVER_DUPLICATE",
+      "candidates": [
+        "ef0af868-e469-4edc-9bd6-2711eec050b8",
+        "9756d7fb-038e-4d59-ba65-34965c8adde1"
+      ],
+      "evidence": "Two records for Nashwa. 6 exact matches on ef0af868; Core-synced 9756d7fb has never held a lesson."
+    },
+    {
+      "sheet_spellings": [
+        "شهد صبحي"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "e5849fd6-0671-41a2-b1f8-368ae6ed3d40",
+      "basis": "HISTORY_ESTABLISHED_OVER_DUPLICATE",
+      "candidates": [
+        "e5849fd6-0671-41a2-b1f8-368ae6ed3d40",
+        "d6fcb7ba-640b-479e-9246-21352b38251d"
+      ],
+      "evidence": "Two records for Shahd Sobhy. 4 exact matches on e5849fd6; Core-synced d6fcb7ba has never held a lesson."
+    },
+    {
+      "sheet_spellings": [
+        "عبدالله جاد"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "40530509-0d30-4937-bc40-6b4902975132",
+      "basis": "SINGLE_PLAUSIBLE_RECORD",
+      "candidates": [
+        "40530509-0d30-4937-bc40-6b4902975132"
+      ],
+      "evidence": "Only record whose name matches (Abdullah Gad). No lesson history."
+    },
+    {
+      "sheet_spellings": [
+        "عبدالرحمن حسين"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "b88e7d46-e250-4d33-9e91-985cad9ebb16",
+      "basis": "SINGLE_PLAUSIBLE_RECORD",
+      "candidates": [
+        "b88e7d46-e250-4d33-9e91-985cad9ebb16"
+      ],
+      "evidence": "Only record whose name matches (Abderhaman Hussien). No lesson history."
+    },
+    {
+      "sheet_spellings": [
+        "اسماء صلاح"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "1270291c-88ac-4642-8de5-fa4bda701c45",
+      "basis": "SINGLE_PLAUSIBLE_RECORD",
+      "candidates": [
+        "1270291c-88ac-4642-8de5-fa4bda701c45"
+      ],
+      "evidence": "Only record whose name matches (Asmaa Salah Science). No lesson history."
+    },
+    {
+      "sheet_spellings": [
+        "عبير (ساينس)"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "caf3f269-76b3-4d6a-bd22-8f68bfb68957",
+      "basis": "SINGLE_PLAUSIBLE_RECORD",
+      "candidates": [
+        "caf3f269-76b3-4d6a-bd22-8f68bfb68957"
+      ],
+      "evidence": "Only record whose name and subject match (Abeer (Science))."
+    },
+    {
+      "sheet_spellings": [
+        "محمد وهبه",
+        "محمد وهبة"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "5a6f9a48-f5b7-425f-aa91-9e59b1d156c9",
+      "basis": "SINGLE_PLAUSIBLE_RECORD",
+      "candidates": [
+        "5a6f9a48-f5b7-425f-aa91-9e59b1d156c9"
+      ],
+      "evidence": "Only record whose name matches (Mohamed Wahba); 1 exact lesson match."
+    },
+    {
+      "sheet_spellings": [
+        "أماني محمد",
+        "اماني محمد",
+        "أماني",
+        "اماني"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "8672557a-b2e9-4a73-9150-7b96134c5bca",
+      "basis": "SINGLE_PLAUSIBLE_RECORD",
+      "candidates": [
+        "8672557a-b2e9-4a73-9150-7b96134c5bca"
+      ],
+      "evidence": "Only Amany in the Teacher System; \"أماني\" and \"أماني محمد\" occupy the same row position on different days."
+    },
+    {
+      "sheet_spellings": [
+        "سيده عربي"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "a0f98f96-1fd2-4d81-8a3d-79adc336d5ef",
+      "basis": "SINGLE_PLAUSIBLE_RECORD",
+      "candidates": [
+        "a0f98f96-1fd2-4d81-8a3d-79adc336d5ef"
+      ],
+      "evidence": "Only record named Sayeda (Core-synced Ustatha Sayeda Sayed)."
+    },
+    {
+      "sheet_spellings": [
+        "مريم عمرو"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "37220724-3217-435d-92c5-d236e75eeb68",
+      "basis": "SINGLE_PLAUSIBLE_RECORD",
+      "candidates": [
+        "37220724-3217-435d-92c5-d236e75eeb68"
+      ],
+      "evidence": "Only record named Mariam Amr (Core-synced)."
+    },
+    {
+      "sheet_spellings": [
+        "هاجر عادل"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "5bcc0079-ab5d-4a5b-aca9-1f9263f6f7d1",
+      "basis": "SINGLE_PLAUSIBLE_RECORD",
+      "candidates": [
+        "5bcc0079-ab5d-4a5b-aca9-1f9263f6f7d1"
+      ],
+      "evidence": "Only record named Hager Adel (Core-synced)."
+    },
+    {
+      "sheet_spellings": [
+        "روان خميس",
+        "روان خميس (ماث)"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "1b0f9877-c6d8-4fa4-91a1-0827d6cdd4ff",
+      "basis": "SINGLE_PLAUSIBLE_RECORD",
+      "candidates": [
+        "1b0f9877-c6d8-4fa4-91a1-0827d6cdd4ff"
+      ],
+      "evidence": "Only record named Rewan Khamis (Core-synced)."
+    },
+    {
+      "sheet_spellings": [
+        "زينب علي انجليزي",
+        "زينب علي انجليزي ."
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "8eca1c87-af94-407d-830e-ed7e76118dec",
+      "basis": "SINGLE_PLAUSIBLE_RECORD",
+      "candidates": [
+        "8eca1c87-af94-407d-830e-ed7e76118dec"
+      ],
+      "evidence": "Only record named Zeinab Ali."
+    },
+    {
+      "sheet_spellings": [
+        "دعاء طلعت"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "861b8e83-5cc5-4341-9dbd-8c0e312575fe",
+      "basis": "SINGLE_PLAUSIBLE_RECORD",
+      "candidates": [
+        "861b8e83-5cc5-4341-9dbd-8c0e312575fe"
+      ],
+      "evidence": "Only record named Doaa Talaat. No lessons in this workbook."
+    },
+    {
+      "sheet_spellings": [
+        "ايمان ( ساينس )"
+      ],
+      "status": "CONFIRMED",
+      "teacher_id": "9f4bb9e4-9e21-4c3b-be37-b23ce8f232ce",
+      "basis": "SINGLE_PLAUSIBLE_RECORD",
+      "candidates": [
+        "9f4bb9e4-9e21-4c3b-be37-b23ce8f232ce"
+      ],
+      "evidence": "Only record named Eman Science. No lessons in this workbook."
+    },
+    {
+      "sheet_spellings": [
+        "فاطمه",
+        "فاطمة",
+        "فاطمه English",
+        "فاطمة (English)",
+        "فاطمه لغه انجليزيه"
+      ],
+      "status": "UNRESOLVED",
+      "teacher_id": null,
+      "candidates": [
+        "7e05d42e-9c83-4c58-864d-c7477aa7d5ea",
+        "fe46063e-a6b0-4d2c-af2e-2fe5f319ffa2",
+        "3f178ffc-3a98-4f6f-9b36-ce17f6469a98",
+        "d4afc044-0dcc-4d3c-9692-af8b1ba50c7a"
+      ],
+      "decision_required": "Two Teacher System records are both named \"Fatma English\" (7e05d42e, fe46063e), plus Core-synced 3f178ffc and d4afc044. State which record this sheet row is."
+    },
+    {
+      "sheet_spellings": [
+        "فاطمه انجليزي جديده",
+        "فاطمة انجليزي جديده"
+      ],
+      "status": "UNRESOLVED",
+      "teacher_id": null,
+      "candidates": [
+        "7e05d42e-9c83-4c58-864d-c7477aa7d5ea",
+        "fe46063e-a6b0-4d2c-af2e-2fe5f319ffa2",
+        "3f178ffc-3a98-4f6f-9b36-ce17f6469a98",
+        "d4afc044-0dcc-4d3c-9692-af8b1ba50c7a"
+      ],
+      "decision_required": "\"New English Fatma\" is a separate sheet row from فاطمه. State which of the four Fatma records she is, or that her record does not exist yet."
+    },
+    {
+      "sheet_spellings": [
+        "غاده انجليزي",
+        "غاده انجليزى",
+        "ا غاده لغه انجليزيه",
+        "غاده"
+      ],
+      "status": "UNRESOLVED",
+      "teacher_id": null,
+      "candidates": [],
+      "decision_required": "No Teacher System record exists for an English-teaching Ghada (she is not Ghada Ragab, who has her own row). A teacher record must be created through the normal flow first."
+    },
+    {
+      "sheet_spellings": [
+        "دينار"
+      ],
+      "status": "UNRESOLVED",
+      "teacher_id": null,
+      "candidates": [
+        "416ba2d6-4b1b-4d2c-a52f-c2b70fadad7c",
+        "2962ea2d-042f-45f5-a544-5668fd75768d"
+      ],
+      "decision_required": "Denar Mahmud 416ba2d6 and Core-synced Ustatha Dinar mahmud 2962ea2d; lesson history is split (2 matches, and 2 to other teachers). State which record to use."
+    },
+    {
+      "sheet_spellings": [
+        "محمد نايل"
+      ],
+      "status": "UNRESOLVED",
+      "teacher_id": null,
+      "candidates": [
+        "f69e6150-a44b-4bc4-8ae2-a5928d99a29c",
+        "381f0f4b-c204-488d-a9d2-0aa85cc1631d"
+      ],
+      "decision_required": "Mohammed Nayel f69e6150 and Core-synced Ustath Mohamed Nayel 381f0f4b; no lesson history distinguishes them."
+    },
+    {
+      "sheet_spellings": [
+        "اسماء جهيدي"
+      ],
+      "status": "UNRESOLVED",
+      "teacher_id": null,
+      "candidates": [
+        "ad283788-8588-433c-8320-578292bf3d4a",
+        "c97ef31a-f587-4309-8a1c-a7f26aa5ee8f"
+      ],
+      "decision_required": "Asmaa guhaydi Math ad283788 and Core-synced Ustatha Asmaa Gohidy c97ef31a; no lesson history distinguishes them."
+    },
+    {
+      "sheet_spellings": [
+        "رحاب جمعة"
+      ],
+      "status": "UNRESOLVED",
+      "teacher_id": null,
+      "candidates": [
+        "0f51f6f6-af0c-4dff-9188-9dd2eb7ad483",
+        "7449d198-85c1-40aa-b3a0-e6c612afb7f9"
+      ],
+      "decision_required": "Rehab Gomaa 0f51f6f6 and Core-synced Ustath Rehab Gomaa 7449d198; only 1 matching lesson, below the 3 required."
+    },
+    {
+      "sheet_spellings": [
+        "شهد مرزوق"
+      ],
+      "status": "UNRESOLVED",
+      "teacher_id": null,
+      "candidates": [
+        "43f71daa-1630-44b0-9015-d20970b215c5",
+        "571cae25-618b-420e-9e0d-7cb986e0d595"
+      ],
+      "decision_required": "Shahd Marzouq 43f71daa and Core-synced Ustatha Shahd Marzouk 571cae25; only 1 matching lesson, below the 3 required."
+    },
+    {
+      "sheet_spellings": [
+        "زينب انجليزي"
+      ],
+      "status": "UNRESOLVED",
+      "teacher_id": null,
+      "candidates": [
+        "8eca1c87-af94-407d-830e-ed7e76118dec",
+        "77301314-021a-4872-b237-eb0b22c54b5d"
+      ],
+      "decision_required": "\"Zainab (English)\" without a surname: Zeinab Ali 8eca1c87 and Zainab Tourky 77301314 are both plausible."
+    },
+    {
+      "sheet_spellings": [
+        "زينب ماث"
+      ],
+      "status": "UNRESOLVED",
+      "teacher_id": null,
+      "candidates": [
+        "3e93d9d8-9329-4c9a-86ee-a0cae13d6b99",
+        "77301314-021a-4872-b237-eb0b22c54b5d"
+      ],
+      "decision_required": "\"Zainab (Math)\": Zainab math 3e93d9d8 and Zainab Tourky 77301314 are both plausible."
+    },
+    {
+      "sheet_spellings": [
+        "منار عاطف"
+      ],
+      "status": "UNRESOLVED",
+      "teacher_id": null,
+      "candidates": [
+        "b80aee52-23b6-4f4c-920e-d4afc2073b74",
+        "f143f7ad-3b6c-48cd-8682-b7ae739fb2a3"
+      ],
+      "decision_required": "Manar Atef b80aee52 and Core-synced f143f7ad. No lessons in this workbook."
+    },
+    {
+      "sheet_spellings": [
+        "احمد عبدالمنعم",
+        "أحمد عبد المنعم"
+      ],
+      "status": "UNRESOLVED",
+      "teacher_id": null,
+      "candidates": [
+        "70e94ebf-9807-465a-8934-7d1675df3f6e",
+        "9febe368-6b05-4430-af17-29ca9c115618"
+      ],
+      "decision_required": "Ahmed Abdel-Monem 70e94ebf and Core-synced 9febe368. No lessons in this workbook."
+    },
+    {
+      "sheet_spellings": [
+        "سلمى مدحت",
+        "سلمي مدحت"
+      ],
+      "status": "UNRESOLVED",
+      "teacher_id": null,
+      "candidates": [],
+      "decision_required": "No Teacher System record. No lessons in this workbook."
+    },
+    {
+      "sheet_spellings": [
+        "ساره محمد ( ماث )",
+        "سارة محمد ( ماث )"
+      ],
+      "status": "UNRESOLVED",
+      "teacher_id": null,
+      "candidates": [],
+      "decision_required": "No Teacher System record. No lessons in this workbook."
+    },
+    {
+      "sheet_spellings": [
+        "ولاء جغرافيا",
+        "ولاء جفرافيا"
+      ],
+      "status": "UNRESOLVED",
+      "teacher_id": null,
+      "candidates": [],
+      "decision_required": "No Teacher System record (Walaa Elbasuny teaches English). No lessons in this workbook."
+    },
+    {
+      "sheet_spellings": [
+        "دعاء عبدالتواب"
+      ],
+      "status": "UNRESOLVED",
+      "teacher_id": null,
+      "candidates": [],
+      "decision_required": "No Teacher System record. No lessons in this workbook."
+    }
+  ]
+}

@@ -9,7 +9,7 @@ import {
 import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/searchable-select';
 import { useDayOptions } from '../hooks/useDayOptions';
 import { LessonDurationInput } from './LessonDurationInput';
-import { DAYS_OF_WEEK, GRID_COLUMNS } from '../constants/schedulingConstants';
+import { DAYS_OF_WEEK, DEFAULT_VIEW_START_MINUTE, GRID_COLUMNS } from '../constants/schedulingConstants';
 import { minuteToDisplayLabel, minuteToLabel } from '../utils/timeGrid';
 import {
   isOccurrenceCancelled, isOccurrenceRescheduled, occurrenceOverride,
@@ -75,7 +75,7 @@ export function StudentWeeklyScheduleList({
   const [draft, setDraft] = useState<NewLessonDraft>({
     teacherId: teachers[0]?.id ?? '',
     dayOfWeek: 0,
-    startMinute: GRID_COLUMNS[0],
+    startMinute: DEFAULT_VIEW_START_MINUTE,
     durationMinutes: 30,
     durationText: '30',
     durationValid: true,

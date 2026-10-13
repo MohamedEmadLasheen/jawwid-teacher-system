@@ -1,5 +1,9 @@
 # Legacy Schedule Import (Phase 2.5)
 
+> **Superseded for writes by [`grid/`](grid/README.md)** (`grid_import.py plan | apply | verify`):
+> the verified, idempotent importer that actually writes lessons. This
+> dry-run report tool is kept for reference.
+
 One-off tool that parses Jawwid Academy's real Google-Sheets-style scheduling
 workbook and produces a **dry-run report only**. It never writes to the
 database — you review the report, then explicitly approve before anyone

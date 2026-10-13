@@ -807,6 +807,8 @@
     "filterSelectedCount": "{{count}} selected",
     "dayColumn": "Day",
     "teacherColumn": "Teacher",
+    "hourlyGroup": "Hourly",
+    "hourlyGroupNoWindow": "no recorded working hours",
     "freeCapacity": "Free time (no student)",
     "outsideShift": "Outside shift",
     "outsideShiftOnly": "Outside shift only",

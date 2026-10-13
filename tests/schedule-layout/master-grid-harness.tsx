@@ -31,12 +31,15 @@ import type { DayOfWeek } from '@/lib/types';
  *
  *   ?dir=ltr|rtl    direction, applied to <html> as the app does
  *   ?rows=N         teacher rows to generate (default 12, enough to scroll)
+ *   ?hourly=1       add one hourly teacher (no shift assignment, no
+ *                   availability) with lessons at 05:45 and 14:10 (50 min)
  *
  * Fixtures only — no production data, no network.
  */
 const params = new URLSearchParams(window.location.search);
 const DIR = (params.get('dir') === 'rtl' ? 'rtl' : 'ltr') as 'ltr' | 'rtl';
 const ROWS = Number(params.get('rows') ?? 12);
+const HOURLY = params.get('hourly') === '1';
 i18n.changeLanguage(DIR === 'rtl' ? 'ar' : 'en');
 document.documentElement.dir = DIR;
 document.documentElement.lang = DIR === 'rtl' ? 'ar' : 'en';
@@ -62,6 +65,12 @@ const teachers = Array.from({ length: ROWS }, (_, i) => ({
   teacherType: 'shift', branchId: null, maxWeeklyHours: null,
   createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
 })) as any[];
+
+const HOURLY_TEACHER = {
+  ...teachers[0], id: 'H1', fullName: 'Hourly Teacher', teacherType: 'hourly',
+};
+const HOURLY_EARLY_START = 5 * 60 + 45;   // before the old 08:00 axis start
+const HOURLY_ODD_START = 14 * 60 + 10;    // off the 30-minute grid, 50 minutes long
 
 const shiftTemplates = [{
   id: 'TPL-1', name: 'Full-time', startMinute: SHIFT_START, endMinute: SHIFT_END,
@@ -108,6 +117,14 @@ const lessons = teachers.flatMap((t, i) => [
   makeLesson(`L-subject-${i}`, t.id, SUBJECT_START, 'S1'),
   makeLesson(`L-other-${i}`, t.id, OCCUPIED_START, 'S2'),
 ]);
+if (HOURLY) {
+  lessons.push(
+    makeLesson('L-hourly-early', 'H1', HOURLY_EARLY_START, 'S1'),
+    { ...makeLesson('L-hourly-odd', 'H1', HOURLY_ODD_START, 'S2'), durationMinutes: 50, endMinute: HOURLY_ODD_START + 50 },
+  );
+}
+// Teachers holding a booked lesson — the Hourly group's membership source.
+const scheduledTeacherIds = new Set(lessons.map((l) => l.teacherId));
 
 /**
  * The value useIsMobile returned on the very FIRST render, captured once.
@@ -196,10 +213,11 @@ queryClient.setQueryData(schedulingKeys.studentParents(), []);
 queryClient.setQueryData(schedulingKeys.shiftTemplates(), shiftTemplates);
 queryClient.setQueryData(schedulingKeys.teacherShiftAssignments(undefined), shiftAssignments);
 queryClient.setQueryData(schedulingKeys.grid(DAY), lessons);
+queryClient.setQueryData(schedulingKeys.scheduledTeachers(), scheduledTeacherIds);
 queryClient.setQueryData(schedulingKeys.availabilityForDay(DAY), availability);
 queryClient.setQueryData(schedulingKeys.exceptionsForDate(nextDateForDayOfWeek(DAY)), []);
 
-useTeacherStore.setState({ teachers } as any);
+useTeacherStore.setState({ teachers: HOURLY ? [...teachers, HOURLY_TEACHER] : teachers } as any);
 useSupervisorStore.setState({ supervisors: [] } as any);
 useScheduleUiStore.setState({ selectedDay: DAY });
 

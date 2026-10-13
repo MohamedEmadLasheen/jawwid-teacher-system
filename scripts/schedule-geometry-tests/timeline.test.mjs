@@ -4,10 +4,14 @@ import {
 } from './timelineGeometry.mjs';
 import { computeRowLayout } from './computeRowLayout.mjs';
 
-const GRID_START = 8 * 60;   // 08:00 — viewport start (schedulingConstants)
-const SLOT = 30;
-const GRID_END = 24 * 60;    // 24:00 — viewport end (schedulingConstants)
-const COLS = (GRID_END - GRID_START) / SLOT; // 32 columns (08:00-24:00)
+import { GRID_START_MINUTE, GRID_END_MINUTE, SLOT_MINUTES } from './schedulingConstants.mjs';
+
+// The axis comes from schedulingConstants, never a local copy: positions are
+// asserted relative to whatever the configured origin is.
+const GRID_START = GRID_START_MINUTE; // 00:00 — the axis spans the whole day
+const SLOT = SLOT_MINUTES;
+const GRID_END = GRID_END_MINUTE;     // 24:00
+const COLS = (GRID_END - GRID_START) / SLOT; // 48 columns (00:00-24:00)
 
 let pass = 0, fail = 0;
 const results = [];
@@ -125,8 +129,10 @@ check('merge: overlapping intervals union', fmt(mergeIntervals([iv(840, 960), iv
 check('merge: zero-length dropped', mergeIntervals([iv(900, 900)]), []);
 check('subtract: cut fully covering base', subtractIntervals([iv(840, 900)], [iv(800, 1000)]), []);
 check('subtract: disjoint cut leaves base', fmt(subtractIntervals([iv(840, 900)], [iv(1000, 1020)])), ['14:00-15:00']);
-check('clip: availability outside the 08:00-24:00 viewport is clipped',
-  fmt(computeWorkingWindow([iv(0, 600)])), ['08:00-10:00']);
+// The axis now spans the whole day, so early-morning availability is kept
+// rather than clipped at 08:00 (it used to be: the axis started at 08:00).
+check('clip: early-morning availability is inside the whole-day axis, not clipped',
+  fmt(computeWorkingWindow([iv(0, 600)])), ['00:00-10:00']);
 // The property is unchanged — availability beyond the viewport end is
 // clipped — but the probe has to actually exceed the end, which is now
 // midnight. 19:00-23:00 is INSIDE the new viewport and must survive intact.

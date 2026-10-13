@@ -1230,9 +1230,9 @@ test('weekly add: the start-time selector is searchable by either time spelling'
   await openWeeklyAdd(page);
   await page.locator('[data-testid="add-time"]').click();
   await expect(editSearch(page)).toBeVisible();
-  // 32 half-hour starts: the grid runs 08:00 -> midnight, and this picker is
-  // derived from GRID_COLUMNS, so it offers the late-evening slots too.
-  await expect(page.getByRole('option')).toHaveCount(32);
+  // 48 half-hour starts: the axis spans the whole day, and this picker is
+  // derived from GRID_COLUMNS, so it offers the early and late slots too.
+  await expect(page.getByRole('option')).toHaveCount(48);
   // The label reads "9:00 AM"; "09:00" only matches via the hidden 24h text.
   await editSearch(page).fill('09:00');
   await expect(page.getByRole('option', { name: '9:00 AM', exact: true })).toHaveCount(1);

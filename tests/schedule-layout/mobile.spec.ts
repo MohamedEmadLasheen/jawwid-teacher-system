@@ -185,8 +185,8 @@ for (const dir of ['ltr', 'rtl'] as const) {
       expect(m.columnWidth).toBe(vp.width < 400 ? 80 : 84);
 
       // --- time axis ----------------------------------------------------
-      // 32 half-hour columns: the axis now runs 08:00 → midnight.
-      expect(m.headerCount).toBe(32);
+      // 48 half-hour columns: the axis spans the whole day, 00:00 → midnight.
+      expect(m.headerCount).toBe(48);
       expect(m.headerFontPx).toBeGreaterThanOrEqual(11);
       // No label may be clipped by its own column.
       expect(m.widestHeaderScrollWidth).toBeLessThanOrEqual(m.headerClientWidth + 1);

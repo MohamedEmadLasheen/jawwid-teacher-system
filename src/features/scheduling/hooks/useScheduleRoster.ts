@@ -1,5 +1,8 @@
 import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useTeacherStore } from '@/store/teacherStore';
+import * as lessonsSvc from '@/services/scheduling/lessons.service';
+import { schedulingKeys } from '../api/queryKeys';
 import { useShiftTemplates, useTeacherShiftAssignments } from './useShiftTemplates';
 import { buildScheduleRoster, type ScheduleRosterGroup } from '../utils/buildScheduleRoster';
 
@@ -25,15 +28,23 @@ export type { ScheduleRosterGroup };
  * Built from the existing shift-template hooks rather than a new query, so
  * there is still exactly one availability data path. The grouping itself
  * lives in buildScheduleRoster so it is testable without React.
+ *
+ * Teachers with no shift assignment but with booked lessons form a final
+ * Hourly group with no working window; membership is read from the lessons
+ * themselves (fetchScheduledTeacherIds), so no teacher is listed by hand.
  */
 export function useScheduleRoster() {
   const { teachers } = useTeacherStore();
   const templatesQuery = useShiftTemplates();
   const assignmentsQuery = useTeacherShiftAssignments();
+  const scheduledQuery = useQuery({
+    queryKey: schedulingKeys.scheduledTeachers(),
+    queryFn: lessonsSvc.fetchScheduledTeacherIds,
+  });
 
   const groups = useMemo(
-    () => buildScheduleRoster(templatesQuery.data ?? [], assignmentsQuery.data ?? [], teachers),
-    [templatesQuery.data, assignmentsQuery.data, teachers]
+    () => buildScheduleRoster(templatesQuery.data ?? [], assignmentsQuery.data ?? [], teachers, scheduledQuery.data),
+    [templatesQuery.data, assignmentsQuery.data, teachers, scheduledQuery.data]
   );
 
   /** Flat roster in group order — the complete set of Schedule teachers. */
@@ -69,7 +80,7 @@ export function useScheduleRoster() {
     rosterTeachers,
     rosterTeacherIds,
     templateIdsByTeacherId,
-    isLoading: templatesQuery.isLoading || assignmentsQuery.isLoading,
-    error: templatesQuery.error || assignmentsQuery.error,
+    isLoading: templatesQuery.isLoading || assignmentsQuery.isLoading || scheduledQuery.isLoading,
+    error: templatesQuery.error || assignmentsQuery.error || scheduledQuery.error,
   };
 }

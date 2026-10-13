@@ -52,8 +52,9 @@ console.log('MIDNIGHT EXTENSION — grid contract');
 console.log('='.repeat(78));
 
 check('A  grid ends at midnight (1440)', GRID_END_MINUTE, 1440);
-check('A  grid starts at 08:00 (480)', GRID_START_MINUTE, 480);
-check('A  32 half-hour columns span 08:00-24:00', GRID_COLUMNS.length, 32);
+// The axis now starts at 00:00 (whole day); see viewport.test.mjs.
+check('A  grid starts at 00:00 (0)', GRID_START_MINUTE, 0);
+check('A  48 half-hour columns span 00:00-24:00', GRID_COLUMNS.length, 48);
 check('A  the closing edge reads 12:00 AM, not 12:00 PM',
   minuteToDisplayLabel(GRID_END_MINUTE), '12:00 AM');
 
@@ -114,7 +115,7 @@ for (const [start, dur, name] of [[480, 30, '08:00'], [720, 60, '12:00'], [930, 
   check(`K  ${name} lesson width unchanged`,
     minuteSpanToWidth(start, start + dur, 96), (dur / SLOT_MINUTES) * 96);
 }
-check('L  08:00 still sits at the axis origin', minuteToX(480, 96), 0);
+check('L  08:00 sits 16 columns from the 00:00 origin', minuteToX(480, 96), 16 * 96);
 check('K  a 40-min lesson is still 40/30 of a column, not snapped',
   minuteSpanToWidth(930, 970, 96), 128);
 
@@ -145,9 +146,13 @@ check('C  1440 is not a schedulable column', GRID_COLUMNS.includes(1440), false)
 check('C  the last schedulable column is 23:30', GRID_COLUMNS[GRID_COLUMNS.length - 1], 1410);
 check('C  the last slot is 23:30 -> 24:00',
   GRID_COLUMNS[GRID_COLUMNS.length - 1] + SLOT_MINUTES, GRID_END_MINUTE);
-check('C  column count is unchanged by the terminal marker', GRID_COLUMNS.length, 32);
-check('C  the axis width is exactly 32 columns (the marker adds none)',
-  timelineWidth(96), 32 * 96);
+check('C  column count is unchanged by the terminal marker', GRID_COLUMNS.length, 48);
+check('C  the axis width is exactly 48 columns (the marker adds none)',
+  timelineWidth(96), 48 * 96);
+// The start of a day is the other half of the day boundary: 00:00 is the
+// first schedulable column, so a lesson stored at start_minute 0 is drawable.
+check('C  the first schedulable column is 00:00', GRID_COLUMNS[0], 0);
+check('C  a 00:00 lesson sits at the axis origin', minuteToX(0, 96), 0);
 check('C  no column starts at or after midnight',
   GRID_COLUMNS.filter((m) => m >= GRID_END_MINUTE).length, 0);
 

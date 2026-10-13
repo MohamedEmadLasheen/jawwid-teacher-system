@@ -1,6 +1,7 @@
+import { useTranslation } from 'react-i18next';
 import { useScheduleRoster } from '../hooks/useScheduleRoster';
 import { useScheduleUiStore } from '@/store/scheduleUiStore';
-import { minuteToDisplayLabel } from '../utils/timeGrid';
+import { rosterGroupWindowLabel } from '../utils/buildScheduleRoster';
 import { LegendFilterChip } from './LegendFilterChip';
 
 interface ScheduleRosterLegendProps {
@@ -30,6 +31,7 @@ interface ScheduleRosterLegendProps {
  * selecting none means "no shift-group restriction", not "nothing".
  */
 export function ScheduleRosterLegend({ interactive = false }: ScheduleRosterLegendProps) {
+  const { t } = useTranslation();
   const { groups } = useScheduleRoster();
   const { filters, toggleFilterValue } = useScheduleUiStore();
   if (groups.length === 0) return null;
@@ -48,9 +50,9 @@ export function ScheduleRosterLegend({ interactive = false }: ScheduleRosterLege
             className="text-xs rounded-full px-2.5 py-1 min-h-7"
             restingClassName="border-border bg-muted/40"
           >
-            <span className="font-medium">{group.name}</span>
+            <span className="font-medium">{group.kind === 'hourly' ? t('scheduling.hourlyGroup') : group.name}</span>
             <span className={active ? 'text-primary/80' : 'text-muted-foreground'}>
-              {minuteToDisplayLabel(group.startMinute)}–{minuteToDisplayLabel(group.endMinute)}
+              {rosterGroupWindowLabel(group) ?? t('scheduling.hourlyGroupNoWindow')}
             </span>
             <span className="inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-primary/10 text-primary font-semibold">
               {group.teachers.length}
