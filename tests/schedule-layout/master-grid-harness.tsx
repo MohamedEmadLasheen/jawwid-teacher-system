@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '@/index.css';
@@ -30,20 +30,39 @@ import type { DayOfWeek } from '@/lib/types';
  * page's routing. This one exists for exactly those.
  *
  *   ?dir=ltr|rtl    direction, applied to <html> as the app does
+ *   ?dir=app        leave <html> as the page loaded it and let the app's own
+ *                   i18n module and a DirectionSetter-style effect set the
+ *                   direction from the saved language, exactly as App.tsx does
  *   ?rows=N         teacher rows to generate (default 12, enough to scroll)
  *   ?hourly=1       add one hourly teacher (no shift assignment, no
  *                   availability) with lessons at 05:45 and 14:10 (50 min),
  *                   and one recorded in schedule_hourly_roster with no lessons
+ *   ?loadDelay=ms   the day's lessons arrive only after ms — the grid mounts
+ *                   while its query is still loading, as on a real page load
  *
  * Fixtures only — no production data, no network.
  */
 const params = new URLSearchParams(window.location.search);
+const APP_DIR = params.get('dir') === 'app';
 const DIR = (params.get('dir') === 'rtl' ? 'rtl' : 'ltr') as 'ltr' | 'rtl';
 const ROWS = Number(params.get('rows') ?? 12);
 const HOURLY = params.get('hourly') === '1';
-i18n.changeLanguage(DIR === 'rtl' ? 'ar' : 'en');
-document.documentElement.dir = DIR;
-document.documentElement.lang = DIR === 'rtl' ? 'ar' : 'en';
+const LOAD_DELAY = Number(params.get('loadDelay') ?? 0);
+if (!APP_DIR) {
+  i18n.changeLanguage(DIR === 'rtl' ? 'ar' : 'en');
+  document.documentElement.dir = DIR;
+  document.documentElement.lang = DIR === 'rtl' ? 'ar' : 'en';
+}
+
+/** Mirrors App.tsx's DirectionSetter: direction from the language, in an effect. */
+function AppDirection() {
+  useEffect(() => {
+    const lang = i18n.language || 'ar';
+    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+    document.documentElement.lang = lang;
+  }, []);
+  return null;
+}
 
 const DAY = 0 as DayOfWeek;
 const SHIFT_START = 14 * 60;
@@ -153,6 +172,7 @@ function Harness() {
 
   return (
     <div style={{ padding: 8 }}>
+      {APP_DIR && <AppDirection />}
       {/* Exactly MasterSchedulePage's wiring. */}
       <MasterScheduleGrid
         onEmptyClick={() => {}}
@@ -216,7 +236,14 @@ queryClient.setQueryData(schedulingKeys.parents(), []);
 queryClient.setQueryData(schedulingKeys.studentParents(), []);
 queryClient.setQueryData(schedulingKeys.shiftTemplates(), shiftTemplates);
 queryClient.setQueryData(schedulingKeys.teacherShiftAssignments(undefined), shiftAssignments);
-queryClient.setQueryData(schedulingKeys.grid(DAY), lessons);
+if (LOAD_DELAY > 0) {
+  // Hold the real query pending (the stub answers far later than this), then
+  // deliver the rows: the grid's first render happens in the loading state.
+  (window as unknown as { __supabaseStub: { tableDelayMs: number } }).__supabaseStub.tableDelayMs = 60_000;
+  setTimeout(() => queryClient.setQueryData(schedulingKeys.grid(DAY), lessons), LOAD_DELAY);
+} else {
+  queryClient.setQueryData(schedulingKeys.grid(DAY), lessons);
+}
 queryClient.setQueryData(schedulingKeys.scheduledTeachers(), scheduledTeacherIds);
 queryClient.setQueryData(schedulingKeys.hourlyRoster(), new Set(HOURLY ? ['H2'] : []));
 queryClient.setQueryData(schedulingKeys.availabilityForDay(DAY), availability);
