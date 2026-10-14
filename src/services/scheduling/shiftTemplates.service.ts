@@ -31,6 +31,24 @@ function toTeacherShiftAssignment(row: AssignmentRow): TeacherShiftAssignment {
   };
 }
 
+/**
+ * Teachers recorded as belonging on the Schedule's Hourly group
+ * (schedule_hourly_roster, migration 026) — membership only, no hours.
+ *
+ * A database that has not had migration 026 yet has no such table; that is
+ * read as "no explicit members" so the code and the migration can ship in
+ * either order. Any other error is surfaced.
+ */
+export async function fetchHourlyRosterTeacherIds(): Promise<Set<string>> {
+  const { data, error } = await supabase.from('schedule_hourly_roster').select('teacher_id');
+  if (error) {
+    const code = (error as { code?: string }).code;
+    if (code === 'PGRST205' || code === '42P01') return new Set();
+    throw error;
+  }
+  return new Set((data ?? []).map((row) => row.teacher_id));
+}
+
 export async function fetchShiftTemplates(): Promise<ShiftTemplate[]> {
   const { data, error } = await supabase
     .from('shift_templates')

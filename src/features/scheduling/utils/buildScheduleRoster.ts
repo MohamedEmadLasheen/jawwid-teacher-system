@@ -95,10 +95,12 @@ export interface ScheduleRosterDiagnostics {
  * An ORDINARY soft-deleted teacher -- deleted through the normal path, which
  * leaves status alone -- is still dropped. Only a deliberate anchor displays.
  *
- * THE HOURLY GROUP. A teacher who holds no active shift assignment but does
- * hold booked (trial/active) lessons — `scheduledTeacherIds` — is placed in a
- * final "Hourly" group. Without it those lessons were fetched but never drawn,
- * because rows exist only for roster members. The group carries no working
+ * THE HOURLY GROUP. A teacher who holds no active shift assignment but is an
+ * hourly candidate — `hourlyCandidateIds`: they hold a booked (trial/active)
+ * lesson, or are recorded in schedule_hourly_roster — is placed in a final
+ * "Hourly" group. Without it those lessons were fetched but never drawn,
+ * because rows exist only for roster members, and an hourly teacher whose
+ * lessons were not booked yet did not appear at all. The group carries no working
  * window (startMinute/endMinute are null): nothing records an hourly teacher's
  * hours, so the row gets no shading, no free-capacity band and no
  * outside-shift flag — the same inert treatment computeWorkingWindow already
@@ -109,9 +111,9 @@ export function buildScheduleRoster(
   templates: ShiftTemplate[],
   assignments: TeacherShiftAssignment[],
   teachers: Teacher[],
-  scheduledTeacherIds: ReadonlySet<string> = new Set()
+  hourlyCandidateIds: ReadonlySet<string> = new Set()
 ): ScheduleRosterGroup[] {
-  return buildScheduleRosterWithDiagnostics(templates, assignments, teachers, scheduledTeacherIds).groups;
+  return buildScheduleRosterWithDiagnostics(templates, assignments, teachers, hourlyCandidateIds).groups;
 }
 
 /**
@@ -124,7 +126,7 @@ export function buildScheduleRosterWithDiagnostics(
   templates: ShiftTemplate[],
   assignments: TeacherShiftAssignment[],
   teachers: Teacher[],
-  scheduledTeacherIds: ReadonlySet<string> = new Set()
+  hourlyCandidateIds: ReadonlySet<string> = new Set()
 ): ScheduleRosterDiagnostics {
   // EVERY teacher, so a preserved assignment can be resolved. What may be
   // DISPLAYED is decided per member below, not by omitting rows from the map:
@@ -134,9 +136,9 @@ export function buildScheduleRosterWithDiagnostics(
   const shift = buildShiftGroups(templates, assignments, teacherById);
   const onShiftGroup = new Set(shift.groups.flatMap((g) => g.teachers.map((t) => t.id)));
 
-  // Hourly: booked lessons, no shift group. A soft-deleted teacher is not
+  // Hourly: hourly candidates on no shift group. A soft-deleted teacher is not
   // shown here (an anchor only displays through the shift it anchors).
-  const hourlyMembers = [...scheduledTeacherIds]
+  const hourlyMembers = [...hourlyCandidateIds]
     .filter((id) => !onShiftGroup.has(id))
     .map((id) => teacherById.get(id))
     .filter((t): t is Teacher => t !== undefined && !t.isDeleted)

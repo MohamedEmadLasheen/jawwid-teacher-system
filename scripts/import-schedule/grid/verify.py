@@ -57,9 +57,12 @@ def verify(pre: dict, post: dict, plan: dict) -> dict:
         for rid, row in before.items():
             if rid not in after:
                 problems.append(f'B {table} {rid}: row disappeared')
-            elif after[rid] != row:
+            else:
+                # Compared on the columns the pre-import snapshot recorded, so a
+                # later snapshot that reads more columns cannot read as a change.
                 diff = sorted(k for k in row if row.get(k) != after[rid].get(k))
-                problems.append(f'B {table} {rid}: changed columns {diff}')
+                if diff:
+                    problems.append(f'B {table} {rid}: changed columns {diff}')
         if table != 'lessons':
             for rid in after.keys() - before.keys():
                 problems.append(f'B {table} {rid}: unexpected new row')

@@ -196,7 +196,15 @@ console.log('='.repeat(78));
   check('O  the Hourly group has its own stable id', withHourly[2].templateId, HOURLY_GROUP_ID);
   check('P  hourly members are the scheduled, non-roster, non-deleted teachers (by name)',
     withHourly[2].teachers.map((t) => t.fullName), ['Amal Monir', 'Mohamed Anan']);
-  check('P  a teacher with no booked lesson is not listed', withHourly[2].teachers.some((t) => t.id === 'h-idle'), false);
+  check('P  a teacher who is not an hourly candidate is not listed', withHourly[2].teachers.some((t) => t.id === 'h-idle'), false);
+  // An hourly teacher recorded in schedule_hourly_roster is a candidate even
+  // with no booked lesson (useScheduleRoster unions the two sources).
+  const rostered = buildScheduleRoster([FULL_TPL, PART_TPL], ASSIGNMENTS, all, new Set([...scheduled, 'h-idle']));
+  check('P  a teacher on the hourly roster with no booked lesson IS listed',
+    rostered[2].teachers.map((t) => t.fullName), ['Amal Monir', 'Idle Hourly', 'Mohamed Anan']);
+  check('P  listing a roster (shift) teacher as hourly never moves them out of their shift group',
+    buildScheduleRoster([FULL_TPL, PART_TPL], ASSIGNMENTS, all, new Set(['1be38a96-e963-4fce-84a8-7fecd0857195']))
+      .map((g) => g.kind), ['shift', 'shift']);
   check('P  a soft-deleted teacher is not listed', withHourly[2].teachers.some((t) => t.id === 'h-del'), false);
   check('Q  a roster teacher with lessons stays ONLY in their shift group',
     withHourly.filter((g) => g.teachers.some((t) => t.id === '1be38a96-e963-4fce-84a8-7fecd0857195')).map((g) => g.name), ['Full-time']);

@@ -25,6 +25,8 @@ export const schedulingKeys = {
     [...schedulingKeys.all, 'gridExtraLifecycles', dayOfWeek, [...statuses].sort().join(',')] as const,
   /** Teachers with any booked lesson — the Hourly roster group's membership source. */
   scheduledTeachers: () => [...schedulingKeys.all, 'scheduledTeachers'] as const,
+  /** Explicit Hourly-group members (schedule_hourly_roster). */
+  hourlyRoster: () => [...schedulingKeys.all, 'hourlyRoster'] as const,
   availabilityForDay: (dayOfWeek: number) => [...schedulingKeys.all, 'availabilityForDay', dayOfWeek] as const,
   exceptionsForDate: (occurrenceDate: string) => [...schedulingKeys.all, 'exceptionsForDate', occurrenceDate] as const,
   health: () => [...schedulingKeys.all, 'health'] as const,

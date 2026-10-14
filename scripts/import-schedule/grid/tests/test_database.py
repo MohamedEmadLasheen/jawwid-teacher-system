@@ -18,7 +18,9 @@ ENV = {k[len('GRID_TEST_'):]: v for k, v in os.environ.items() if k.startswith('
 
 
 @unittest.skipUnless(ENV.get('PGHOST'), 'GRID_TEST_PGHOST not set')
-class GeneratedImport(unittest.TestCase):
+class DbCase(unittest.TestCase):
+    """Shared fixtures: a local, test-only database with synthetic rows."""
+
     @classmethod
     def setUpClass(cls):
         if ENV['PGHOST'] not in ('127.0.0.1', 'localhost', '::1'):
@@ -30,6 +32,7 @@ class GeneratedImport(unittest.TestCase):
 
     def setUp(self):
         self.db.execute("TRUNCATE public.lessons CASCADE; DELETE FROM public.teacher_shift_assignments; "
+                        "DELETE FROM public.schedule_hourly_roster; "
                         "DELETE FROM public.shift_templates WHERE name LIKE 'TEST %'; "
                         "DELETE FROM public.students WHERE full_name LIKE 'TEST %'; DELETE FROM public.teachers WHERE full_name LIKE 'TEST %';")
         self.t1, self.t2 = self.teacher('TEST teacher one'), self.teacher('TEST teacher two')
@@ -77,6 +80,9 @@ class GeneratedImport(unittest.TestCase):
     def count(self, table):
         return self.db.query(f'SELECT count(*) AS n FROM public.{table}')[0]['n']
 
+
+
+class GeneratedImport(DbCase):
     # --- exact values ---------------------------------------------------
     def test_nonstandard_early_midnight_and_last_slot_times_persist_exactly(self):
         items = [self.item('C3', self.t2, 6, 14 * 60 + 10, 50, [self.s2]),   # 14:10, 50 min
@@ -155,3 +161,56 @@ class GeneratedImport(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+@unittest.skipUnless(ENV.get('PGHOST'), 'GRID_TEST_PGHOST not set')
+class HourlyRosterProposal(DbCase):
+    """The proposal SQL for schedule_hourly_roster (migration 026)."""
+
+    def run_sql(self, sql):
+        path = os.path.join(os.environ.get('TMPDIR', '/tmp'), f'grid-roster-{uuid.uuid4()}.sql')
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(sql)
+        try:
+            self.db.execute_file(path)
+        finally:
+            os.remove(path)
+
+    def rows(self, *teachers):
+        return [{'teacher_id': t, 'source': "TEST workbook 'x'"} for t in teachers]
+
+    def setUp(self):
+        super().setUp()
+        self.db.execute('DELETE FROM public.schedule_hourly_roster;')
+
+    def members(self):
+        return sorted(r['teacher_id'] for r in self.db.query('SELECT teacher_id FROM public.schedule_hourly_roster'))
+
+    def test_adds_hourly_teachers_once_and_a_rerun_adds_nothing(self):
+        from grid.proposals import hourly_roster_sql
+        sql = hourly_roster_sql(self.rows(self.t2), 'p')
+        self.run_sql(sql)
+        self.run_sql(sql)
+        self.assertEqual(self.members(), [self.t2])
+        self.assertEqual(self.db.query('SELECT source FROM public.schedule_hourly_roster')[0]['source'], "TEST workbook 'x'")
+
+    def test_refuses_a_shift_roster_teacher_and_writes_nothing(self):
+        from grid.proposals import hourly_roster_sql
+        with self.assertRaises(DbError) as ctx:
+            self.run_sql(hourly_roster_sql(self.rows(self.t2, self.t1), 'p'))   # t1 holds a shift assignment
+        self.assertIn('is on a shift roster', str(ctx.exception))
+        self.assertEqual(self.members(), [])
+
+    def test_refuses_to_run_before_migration_026(self):
+        from grid.proposals import hourly_roster_sql
+        self.db.execute('ALTER TABLE public.schedule_hourly_roster RENAME TO schedule_hourly_roster_hidden;')
+        try:
+            with self.assertRaises(DbError) as ctx:
+                self.run_sql(hourly_roster_sql(self.rows(self.t2), 'p'))
+            self.assertIn('migration 026', str(ctx.exception))
+        finally:
+            self.db.execute('ALTER TABLE public.schedule_hourly_roster_hidden RENAME TO schedule_hourly_roster;')
+
+    def test_anon_cannot_read_membership(self):
+        with self.assertRaises(DbError):
+            self.db.execute('SET ROLE anon; SELECT * FROM public.schedule_hourly_roster;')

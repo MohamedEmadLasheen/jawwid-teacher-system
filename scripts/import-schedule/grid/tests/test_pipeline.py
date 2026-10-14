@@ -261,3 +261,102 @@ class MalformedSource(Case):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ReadingsDecisionsAndDiagnostics(Case):
+    def test_record_backed_reading_of_waw_words(self):
+        from grid.identity import preferred_reading
+        known = {'ريان', 'ادم', 'محمد', 'وائل', 'وديمه', 'سعيد'}
+        self.assertEqual(preferred_reading('ريان وادم', known), ('ريان', 'ادم'))
+        self.assertEqual(preferred_reading('وديمه وسعيد', known), ('وديمه', 'سعيد'))   # first word never split
+        self.assertEqual(preferred_reading('خالد ومحمد وائل', known), ('خالد', 'محمد وائل'))
+        self.assertIsNone(preferred_reading('ريان وادم', known | {'وادم'}))         # both readings recorded: undecidable
+        self.assertIsNone(preferred_reading('ريان وزكي', known))                    # neither recorded: undecidable
+
+    def test_an_approved_owner_decision_resolves_an_ambiguous_name(self):
+        t = self.b.teacher('T')
+        s1 = self.b.student('سارة احمد'); self.b.student('سارة احمد')
+        content = {'سبت': [('ت', {'C': 'سارة احمد'})]}
+        decided = {'resolutions': [{'teacher_id': t, 'name': 'سارة احمد', 'student_id': s1, 'approved_by': 'owner'}]}
+        unapproved = {'resolutions': [{'teacher_id': t, 'name': 'سارة احمد', 'student_id': s1}]}
+        for decisions, want in ((decided, ('IMPORT', 'OWNER_DECISION')), (unapproved, ('PENDING', 'UNRESOLVED'))):
+            path = make_workbook(os.path.join(self.tmp.name, 'd.xlsx'), content)
+            parsed = parse_workbook(path)
+            snap = Snapshot.from_dict(self.b.snapshot())
+            res = reconcile(parsed, TeacherMap(teacher_map([confirmed(['ت'], t)])), snap, teacher_evidence(parsed.lessons, snap), decisions)
+            o = res['outcomes'][0]
+            self.assertEqual((o.status, o.student_basis), want)
+
+    def test_a_decision_pointing_at_a_deleted_student_is_refused(self):
+        t = self.b.teacher('T')
+        s1 = self.b.student('سارة احمد', deleted=True); self.b.student('سارة احمد'); self.b.student('سارة احمد')
+        path = make_workbook(os.path.join(self.tmp.name, 'd.xlsx'), {'سبت': [('ت', {'C': 'سارة احمد'})]})
+        parsed = parse_workbook(path)
+        snap = Snapshot.from_dict(self.b.snapshot())
+        res = reconcile(parsed, TeacherMap(teacher_map([confirmed(['ت'], t)])), snap, teacher_evidence(parsed.lessons, snap),
+                        {'resolutions': [{'teacher_id': t, 'name': 'سارة احمد', 'student_id': s1, 'approved_by': 'owner'}]})
+        self.assertEqual(res['outcomes'][0].status, 'PENDING')
+
+    def test_root_cause_and_presence_on_another_teacher(self):
+        t, other = self.b.teacher('T'), self.b.teacher('Other')
+        s = self.b.student('طالب سابع تجربة')
+        self.b.student('طالب سابع تجربة')            # make the name ambiguous so the cell stays pending
+        self.b.lesson(other, 6, 600, 30, [s])          # the same students already booked with another teacher
+        _, _, out = self.run_pipeline({'سبت': [('ت', {col_for(600): 'طالب سابع تجربة'})]}, [confirmed(['ت'], t)])
+        o = out[('سبت', f'{col_for(600)}3')]
+        self.assertEqual(o.root_causes, ['STUDENT_IDENTITY'])
+        self.assertEqual([p['kind'] for p in o.db_presence], ['OTHER_TEACHER'])
+
+
+class Proposals(Case):
+    def build(self, content, entries, roster, supervisors, fills=None):
+        from grid.proposals import build
+        path = make_workbook(os.path.join(self.tmp.name, 'p.xlsx'), content)
+        if fills:
+            import openpyxl
+            from openpyxl.styles import PatternFill
+            wb = openpyxl.load_workbook(path)
+            for (sheet, ref), colour in fills.items():
+                wb[sheet][ref].fill = PatternFill('solid', fgColor='FF' + colour)
+            wb.save(path)
+        parsed = parse_workbook(path)
+        raw = self.b.snapshot()
+        raw['supervisors'] = supervisors
+        snap = Snapshot.from_dict(raw)
+        tmap = TeacherMap(teacher_map(entries, roster))
+        ev = teacher_evidence(parsed.lessons, snap)
+        res = reconcile(parsed, tmap, snap, ev, {'resolutions': []})
+        return build(parsed, tmap, raw, ev, {'resolutions': []}, res['outcomes']), res
+
+    def test_name_and_responsible_admin_single_out_one_record_and_simulation_counts_it(self):
+        t = self.b.teacher('T')
+        dina, zainab = 'sup-dina', 'sup-zainab'
+        s1 = self.b.student('سارة احمد'); s2 = self.b.student('سارة احمد')
+        self.b.students[0]['supervisor_id'] = dina
+        self.b.students[1]['supervisor_id'] = zainab
+        props, _ = self.build({'سبت': [('ت', {'C': 'سارة احمد'})]}, [confirmed(['ت'], t)], [],
+                              [{'id': dina, 'name': 'Dina'}, {'id': zainab, 'name': 'Zainab'}], {('سبت ', 'C3'): 'E06666'})
+        self.assertEqual([(r['student_id'], r['basis']) for r in props['student_resolutions']], [(s1, 'NAME_AND_RESPONSIBLE_ADMIN')])
+        self.assertEqual(props['simulation']['import_if_resolutions_approved'], ['سبت!C3'])
+
+    def test_missing_names_become_new_student_proposals_with_the_cell_admin(self):
+        t = self.b.teacher('T')
+        props, _ = self.build({'سبت': [('ت', {'C': 'طالب جديد تماما'})]}, [confirmed(['ت'], t)], [],
+                              [{'id': 'sup-rehab', 'name': 'Rehab'}], {('سبت ', 'C3'): 'C9DAF8'})
+        self.assertEqual([(r['full_name'], r['supervisor_id']) for r in props['new_students']], [('طالب جديد تماما', 'sup-rehab')])
+        self.assertEqual(props['simulation']['import_if_resolutions_and_new_students_approved'], ['سبت!C3'])
+        self.assertEqual(props['simulation']['import_if_resolutions_approved'], [])
+
+    def test_hourly_roster_lists_every_confirmed_non_roster_teacher_even_without_lessons(self):
+        r = self.b.teacher('Roster', roster=True); h = self.b.teacher('Hourly No Lessons')
+        for m in (600, 630, 660):
+            self.b.lesson(r, 0, m, 30, [self.b.student(f'طالب {m} تجربة')], status='ended')
+        props, _ = self.build({}, [confirmed(['ر'], r, 'EXISTING_SCHEDULE'), confirmed(['ه'], h)], [r], [])
+        self.assertEqual([(x['teacher_id'], x['has_booked_lessons']) for x in props['hourly_roster']], [(h, False)])
+
+    def test_verify_compares_only_the_columns_the_pre_snapshot_recorded(self):
+        from grid.verify import verify
+        pre = {'lessons': [], 'teachers': [], 'shift_assignments': [], 'shift_templates': [], 'teacher_availability': [],
+               'students': [{'id': 'a', 'full_name': 'x'}], 'counts': {'lessons': 0, 'lesson_participants': 0}}
+        post = dict(pre, students=[{'id': 'a', 'full_name': 'x', 'supervisor_id': 's'}])
+        self.assertEqual(verify(pre, post, {'items': [], 'outcomes': [], 'source_lesson_cells': 0})['problems'], [])

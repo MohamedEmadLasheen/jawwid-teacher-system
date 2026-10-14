@@ -29,6 +29,7 @@ from grid.workbook import parse_workbook           # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_MAP = os.path.join(HERE, 'grid', 'teacher_identity_map.json')
+DEFAULT_DECISIONS = os.path.join(HERE, 'grid', 'student_identity_decisions.json')
 
 
 def sha256_file(path: str) -> str:
@@ -61,10 +62,11 @@ def cmd_plan(args):
     raw = dbmod.take_snapshot(target_from(args))
     snap = snapshot_obj(raw)
     tmap = TeacherMap.load(args.map)
+    decisions = json.load(open(args.decisions, encoding='utf-8'))
     evidence = teacher_evidence(parsed.lessons, snap)
-    result = reconcile(parsed, tmap, snap, evidence)
+    result = reconcile(parsed, tmap, snap, evidence, decisions)
     items = plan_items(result['outcomes'])
-    plan_id = hashlib.sha256('|'.join([parsed.sha256, raw['fingerprint'], sha256_file(args.map),
+    plan_id = hashlib.sha256('|'.join([parsed.sha256, raw['fingerprint'], sha256_file(args.map), sha256_file(args.decisions),
                                        json.dumps(items, sort_keys=True)]).encode()).hexdigest()[:16]
     sql = generate_sql(items, raw['fingerprint'], plan_id)
     classification = teacher_classification(parsed, tmap, snap, evidence, result['outcomes'])
@@ -74,7 +76,8 @@ def cmd_plan(args):
     plan = {
         'plan_id': plan_id, 'created_at': dt.datetime.now(dt.timezone.utc).isoformat(),
         'target': args.target, 'workbook': os.path.basename(args.workbook), 'workbook_sha256': parsed.sha256,
-        'teacher_map_sha256': sha256_file(args.map), 'fingerprint': raw['fingerprint'],
+        'teacher_map_sha256': sha256_file(args.map), 'student_decisions_sha256': sha256_file(args.decisions),
+        'fingerprint': raw['fingerprint'],
         'import_sql_sha256': hashlib.sha256(sql.encode()).hexdigest(),
         'source_lesson_cells': len(parsed.lessons), 'non_lesson_cells': len(parsed.non_lessons),
         'map_problems': result['map_problems'], 'items': items,
@@ -91,6 +94,42 @@ def cmd_plan(args):
     counts = {s: sum(1 for o in result['outcomes'] if o.status == s) for s in ('ALREADY_PRESENT', 'IMPORT', 'PENDING', 'REJECTED')}
     print(json.dumps({'plan_id': plan_id, 'out': args.out, **counts, 'total': len(result['outcomes']),
                       'lessons_to_insert': len(items), 'map_problems': len(result['map_problems'])}, ensure_ascii=False))
+
+
+def cmd_propose(args):
+    """Read-only. Uses the plan in --out (same snapshot), writes <out>/proposals/."""
+    from grid.proposals import build, hourly_roster_sql
+    from grid.reconcile import Outcome
+    plan = json.load(open(os.path.join(args.out, 'plan.json'), encoding='utf-8'))
+    raw = json.load(open(os.path.join(args.out, 'snapshot-pre.json'), encoding='utf-8'))
+    parsed = parse_workbook(args.workbook)
+    if parsed.sha256 != plan['workbook_sha256']:
+        sys.exit('workbook differs from the one the plan was made from')
+    tmap = TeacherMap.load(args.map)
+    snap = snapshot_obj(raw)
+    evidence = teacher_evidence(parsed.lessons, snap)
+    tmap.validate_against(snap, evidence)
+    decisions = json.load(open(args.decisions, encoding='utf-8'))
+    outcomes = [Outcome(**o) for o in plan['outcomes']]
+    props = build(parsed, tmap, raw, evidence, decisions, outcomes)
+    out = os.path.join(args.out, 'proposals')
+    os.makedirs(out, mode=0o700, exist_ok=True)
+    write_private(os.path.join(out, 'proposals.json'), json.dumps(props, ensure_ascii=False, indent=1))
+    write_private(os.path.join(out, 'hourly-roster.sql'), hourly_roster_sql(props['hourly_roster'], plan['plan_id']))
+    from grid.fullreport import write as write_full
+    full = write_full(os.path.join(out, 'full-reconciliation.xlsx'), parsed, tmap, raw, plan, props)
+    os.chmod(os.path.join(out, 'full-reconciliation.xlsx'), 0o600)
+    print(json.dumps(full, ensure_ascii=False, indent=1))
+    sim = props['simulation']
+    print(json.dumps({
+        'hourly_roster_teachers': len(props['hourly_roster']),
+        'hourly_roster_without_booked_lessons': sum(1 for r in props['hourly_roster'] if not r['has_booked_lessons']),
+        'student_resolutions_proposed': len(props['student_resolutions']),
+        'new_students_proposed': len(props['new_students']),
+        'cells_needing_segmentation_decision': len(props['cells_needing_segmentation_decision']),
+        'lessons_importable_if_resolutions_approved': len(sim['import_if_resolutions_approved']),
+        'lessons_importable_if_resolutions_and_new_students_approved': len(sim['import_if_resolutions_and_new_students_approved']),
+    }, ensure_ascii=False, indent=1))
 
 
 def verify_backup(path: str):
@@ -146,19 +185,20 @@ def cmd_verify(args):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest='cmd', required=True)
-    for name in ('plan', 'apply', 'verify'):
+    for name in ('plan', 'apply', 'verify', 'propose'):
         p = sub.add_parser(name)
         p.add_argument('--out', required=True, help='plan directory (keep it under scripts/import-schedule/dry-run/, which is git-ignored)')
         p.add_argument('--target', choices=['linked', 'psql'], required=True)
         p.add_argument('--workdir', help='supabase-linked directory for --target linked')
-        if name == 'plan':
+        if name in ('plan', 'propose'):
             p.add_argument('--workbook', required=True)
             p.add_argument('--map', default=DEFAULT_MAP)
+            p.add_argument('--decisions', default=DEFAULT_DECISIONS)
         if name == 'apply':
             p.add_argument('--confirm', required=True, help='the plan id printed by `plan`')
             p.add_argument('--backup', help='verified backup directory (required for --target linked)')
     args = ap.parse_args()
-    {'plan': cmd_plan, 'apply': cmd_apply, 'verify': cmd_verify}[args.cmd](args)
+    {'plan': cmd_plan, 'apply': cmd_apply, 'verify': cmd_verify, 'propose': cmd_propose}[args.cmd](args)
 
 
 if __name__ == '__main__':

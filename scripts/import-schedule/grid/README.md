@@ -15,13 +15,16 @@ Jawwid Core is not read or written by this tool.
 |---|---|
 | `workbook.py` | Parse and validate the workbook; reconstruct each column's time; flag every cell that cannot be read unambiguously |
 | `teacher_identity_map.json` | **The only place teacher identities are decided.** Sheet spelling(s) → teacher id, with the basis and evidence; plus the 14-teacher shift roster baseline |
+| `student_identity_decisions.json` | **Owner-approved student decisions.** "Under teacher T, the name as written N is student S" — keyed by teacher and name, never by cell. Only entries with `approved_by` are used; each is re-checked against the database |
+| `proposals.py` | Record-level proposals that need authorization (hourly roster membership, student resolutions, new student records), with an in-memory simulation of what approving each would add |
+| `fullreport.py` | Source → database → interface reconciliation (every teacher, every student-name occurrence, all lesson cells; visibility under the deployed code and under PR #29) |
 | `identity.py` | Load and re-validate the map; resolve students conservatively; compute lesson-history evidence |
 | `reconcile.py` | One outcome per source cell; overlap, reschedule and duplicate detection |
 | `sqlgen.py` | The single INSERT-only, atomic import block |
 | `db.py` | Read-only snapshots; the production (`supabase --linked`) and `psql` targets |
 | `verify.py` | Post-import proof against the persisted database |
 | `report.py` | Reconciliation workbook, summary and teacher classification report |
-| `../grid_import.py` | CLI: `plan`, `apply`, `verify` |
+| `../grid_import.py` | CLI: `plan`, `apply`, `verify`, `propose` |
 
 ## Outcomes
 
@@ -36,6 +39,12 @@ Every source lesson cell gets exactly one:
 
 Blank and whitespace-only cells (including empty merged blocks) are reported
 as non-lesson cells and are not counted.
+
+Every PENDING cell also carries `root_causes` (teacher identity, student record
+missing, student identity, source data, unsupported time, conflict) and
+`db_presence`: whether the database already holds the same students at that day
+and start on another teacher or with another duration (reported, never acted
+on).
 
 ## Rules the tool enforces
 
@@ -62,6 +71,31 @@ as non-lesson cells and are not counted.
   a fixed point: re-planning after an import yields no new writes.
 * **Existing appointments** are matched by content, never by cell coordinate
   (the 2026-10-06 import's `source_cell` values refer to an older layout).
+
+## Proposals (never written by the tool)
+
+```bash
+python3 scripts/import-schedule/grid_import.py propose --target linked --workdir <linked-dir> \
+  --workbook "<Schedule Sheet.xlsx>" --out scripts/import-schedule/dry-run/<run>   # after `plan` into the same <run>
+```
+
+writes `<run>/proposals/`: `proposals.json`, `hourly-roster.sql` and
+`full-reconciliation.xlsx`.
+
+* **Hourly roster** — every confirmed hourly teacher, recorded in
+  `schedule_hourly_roster` (migration 026) so they appear in the Hourly group
+  before any lesson is booked. Membership only: no hours. `hourly-roster.sql`
+  is INSERT-only and refuses a deleted teacher, a shift-roster teacher, or a
+  database without migration 026.
+* **Student resolutions** — `NAME_AND_RESPONSIBLE_ADMIN` (one same-named
+  record also has the responsible Admin the cell colour denotes) and
+  `SOLE_RECORD_NEEDS_CONFIRMATION` (a bare first name with exactly one record).
+  Approve by copying entries, with `approved_by`, into
+  `student_identity_decisions.json`, then re-plan.
+* **New students** — names with no record, from cells with an unambiguous
+  reading (a word "وX" is read as "and X" only when the recorded names say so)
+  and no note or time annotation; responsible Admin from the cell colour.
+  Creating them is a separate, authorized write.
 
 ## Provenance and idempotency
 

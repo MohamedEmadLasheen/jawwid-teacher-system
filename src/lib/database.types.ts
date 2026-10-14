@@ -432,6 +432,16 @@ export interface Database {
         Insert: Omit<Database['public']['Tables']['teacher_shift_assignments']['Row'], 'id' | 'created_at' | 'updated_at'> & { id?: string; created_at?: string; updated_at?: string };
         Update: Partial<Database['public']['Tables']['teacher_shift_assignments']['Row']>;
       };
+      schedule_hourly_roster: {
+        Row: {
+          teacher_id: string;
+          source: string;
+          added_at: string;
+          added_by: string | null;
+        };
+        Insert: Omit<Database['public']['Tables']['schedule_hourly_roster']['Row'], 'added_at' | 'source' | 'added_by'> & { added_at?: string; source?: string; added_by?: string | null };
+        Update: Partial<Database['public']['Tables']['schedule_hourly_roster']['Row']>;
+      };
       lessons: {
         Row: {
           id: string;
