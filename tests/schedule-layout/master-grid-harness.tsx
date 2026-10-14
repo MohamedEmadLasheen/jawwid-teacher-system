@@ -32,7 +32,8 @@ import type { DayOfWeek } from '@/lib/types';
  *   ?dir=ltr|rtl    direction, applied to <html> as the app does
  *   ?rows=N         teacher rows to generate (default 12, enough to scroll)
  *   ?hourly=1       add one hourly teacher (no shift assignment, no
- *                   availability) with lessons at 05:45 and 14:10 (50 min)
+ *                   availability) with lessons at 05:45 and 14:10 (50 min),
+ *                   and one recorded in schedule_hourly_roster with no lessons
  *
  * Fixtures only — no production data, no network.
  */
@@ -68,6 +69,9 @@ const teachers = Array.from({ length: ROWS }, (_, i) => ({
 
 const HOURLY_TEACHER = {
   ...teachers[0], id: 'H1', fullName: 'Hourly Teacher', teacherType: 'hourly',
+};
+const HOURLY_IDLE_TEACHER = {
+  ...teachers[0], id: 'H2', fullName: 'Hourly Rostered Teacher', teacherType: 'hourly',
 };
 const HOURLY_EARLY_START = 5 * 60 + 45;   // before the old 08:00 axis start
 const HOURLY_ODD_START = 14 * 60 + 10;    // off the 30-minute grid, 50 minutes long
@@ -214,10 +218,11 @@ queryClient.setQueryData(schedulingKeys.shiftTemplates(), shiftTemplates);
 queryClient.setQueryData(schedulingKeys.teacherShiftAssignments(undefined), shiftAssignments);
 queryClient.setQueryData(schedulingKeys.grid(DAY), lessons);
 queryClient.setQueryData(schedulingKeys.scheduledTeachers(), scheduledTeacherIds);
+queryClient.setQueryData(schedulingKeys.hourlyRoster(), new Set(HOURLY ? ['H2'] : []));
 queryClient.setQueryData(schedulingKeys.availabilityForDay(DAY), availability);
 queryClient.setQueryData(schedulingKeys.exceptionsForDate(nextDateForDayOfWeek(DAY)), []);
 
-useTeacherStore.setState({ teachers: HOURLY ? [...teachers, HOURLY_TEACHER] : teachers } as any);
+useTeacherStore.setState({ teachers: HOURLY ? [...teachers, HOURLY_TEACHER, HOURLY_IDLE_TEACHER] : teachers } as any);
 useSupervisorStore.setState({ supervisors: [] } as any);
 useScheduleUiStore.setState({ selectedDay: DAY });
 

@@ -37,6 +37,8 @@ DECISIONS = {
     'STUDENT_MISSING': 'At least one named student has no Teacher System record. Create the student through the normal enrolment flow (or identify the existing record), then re-run.',
     'STUDENT_AMBIGUOUS': 'Several student records fit and no evidence singles one out. Identify the record.',
     'STUDENT_UNCERTAIN': 'The name is a bare first name shared by several students, with no history with this teacher. Identify the record.',
+    'STUDENT_DECISION_INVALID': 'An approved student decision points at a missing or deleted record. Correct student_identity_decisions.json.',
+    'STUDENT_UNRESOLVED_OTHER': 'The students in this cell could not be resolved. See the details.',
     'EXISTING_LESSON_DIFFERS': 'The teacher already has a different lesson overlapping this time. Decide which is correct; the existing appointment is kept until then.',
     'POSSIBLE_RESCHEDULE': 'The same teacher already teaches this student on this day at a different time, and that lesson is not in the workbook. Decide whether the lesson moved; the existing appointment is kept until then.',
     'STUDENT_DOUBLE_BOOKED': 'A student in this cell already has an overlapping lesson with another teacher. Decide which is correct.',
@@ -72,6 +74,8 @@ class Outcome:
     existing_note: str = ''
     related_lesson_ids: list = field(default_factory=list)
     source_key: str = ''                            # value written to lessons.source_cell
+    root_causes: list = field(default_factory=list)  # ROOT_CAUSES codes, for PENDING cells
+    db_presence: list = field(default_factory=list)  # what the database holds for this cell, whatever the teacher
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -87,9 +91,24 @@ def _overlap(a0, a1, b0, b1):
     return a0 < b1 and b0 < a1
 
 
-def reconcile(parsed, tmap: TeacherMap, snap: Snapshot, evidence: dict) -> dict:
+# The owner's categories for why a source lesson is not (yet) on the schedule.
+ROOT_CAUSES = [
+    ('TEACHER_IDENTITY', 'Teacher identity missing or ambiguous', {'NO_TEACHER_IN_ROW', 'TEACHER_UNMAPPED', 'TEACHER_UNRESOLVED'}),
+    ('STUDENT_RECORD_MISSING', 'Student record missing from the Teacher System', {'STUDENT_MISSING'}),
+    ('STUDENT_IDENTITY', 'Student identity ambiguous', {'STUDENT_AMBIGUOUS', 'STUDENT_UNCERTAIN', 'STUDENT_DECISION_INVALID', 'STUDENT_UNRESOLVED_OTHER'}),
+    ('SOURCE_DATA', 'Missing, malformed or conflicting source data (cell note / time annotation)', {'CELL_NOTE', 'TIME_ANNOTATION'}),
+    ('UNSUPPORTED_TIME', 'Time the data model cannot hold as written (after midnight / ambiguous header gap)', {'NEXT_DAY_HEADER', 'HEADER_GAP'}),
+    ('CONFLICT', 'Potential reschedule or conflicting appointment', {'EXISTING_LESSON_DIFFERS', 'POSSIBLE_RESCHEDULE', 'STUDENT_DOUBLE_BOOKED', 'SOURCE_OVERLAP'}),
+]
+
+
+def root_causes(reasons: list) -> list:
+    return [code for code, _, members in ROOT_CAUSES if members & set(reasons)]
+
+
+def reconcile(parsed, tmap: TeacherMap, snap: Snapshot, evidence: dict, decisions: dict | None = None) -> dict:
     map_problems = tmap.validate_against(snap, evidence)
-    resolver = StudentResolver(snap)
+    resolver = StudentResolver(snap, decisions)
     booked = snap.booked()
     booked_by_teacher_day = defaultdict(list)
     for l in booked:
@@ -167,6 +186,12 @@ def reconcile(parsed, tmap: TeacherMap, snap: Snapshot, evidence: dict) -> dict:
                     o.pend('STUDENT_AMBIGUOUS', issue)
                 if 'bare first name' in issue:
                     o.pend('STUDENT_UNCERTAIN', issue)
+                if 'approved decision' in issue:
+                    o.pend('STUDENT_DECISION_INVALID', issue)
+        # Fail closed: a cell whose students did not resolve can never be written,
+        # whatever wording the resolver used for the reason.
+        if tr.teacher_id and not o.student_ids and not any(r.startswith('STUDENT') for r in o.reasons):
+            o.pend('STUDENT_UNRESOLVED_OTHER', '; '.join(sr.issues) or sr.basis)
 
         # 3. Overlaps with the existing schedule (never resolved here).
         if tr.teacher_id and c.start_minute is not None and c.start_minute < 1440:
@@ -213,6 +238,25 @@ def reconcile(parsed, tmap: TeacherMap, snap: Snapshot, evidence: dict) -> dict:
         if not o.status:
             o.status = 'PENDING' if o.reasons else 'IMPORT'
         o.reasons.sort(key=list(DECISIONS).index)
+        o.root_causes = root_causes(o.reasons)
+
+    # 5b. What the database already holds for each pending cell, whatever the
+    # teacher: the same students at the same day and start (on another
+    # teacher, or with another duration). Reported only — never acted on.
+    by_slot = defaultdict(list)
+    for l in booked:
+        by_slot[(l['day_of_week'], l['start_minute'])].append(l)
+    for o in outcomes:
+        if o.status != 'PENDING' or o.start_minute is None:
+            continue
+        for l in by_slot.get((o.day_of_week, o.start_minute), []):
+            if not cell_matches_names(o.text_raw, participant_names(snap, l)):
+                continue
+            same_teacher = l['teacher_id'] == o.teacher_id
+            kind = ('SAME_TEACHER_OTHER_DURATION' if same_teacher else 'OTHER_TEACHER') if l['duration_minutes'] != o.duration_minutes \
+                else ('SAME_TEACHER' if same_teacher else 'OTHER_TEACHER')
+            o.db_presence.append({'kind': kind, 'lesson_id': l['id'], 'teacher_id': l['teacher_id'],
+                                  'duration_minutes': l['duration_minutes']})
 
     # 6. Active lessons from the 2026-10-06 import that no cell reproduces. Each
     # is either CHANGED_IN_WORKBOOK (a cell for the same teacher, day and

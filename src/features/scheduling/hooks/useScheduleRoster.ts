@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useTeacherStore } from '@/store/teacherStore';
 import * as lessonsSvc from '@/services/scheduling/lessons.service';
+import { fetchHourlyRosterTeacherIds } from '@/services/scheduling/shiftTemplates.service';
 import { schedulingKeys } from '../api/queryKeys';
 import { useShiftTemplates, useTeacherShiftAssignments } from './useShiftTemplates';
 import { buildScheduleRoster, type ScheduleRosterGroup } from '../utils/buildScheduleRoster';
@@ -29,9 +30,11 @@ export type { ScheduleRosterGroup };
  * there is still exactly one availability data path. The grouping itself
  * lives in buildScheduleRoster so it is testable without React.
  *
- * Teachers with no shift assignment but with booked lessons form a final
- * Hourly group with no working window; membership is read from the lessons
- * themselves (fetchScheduledTeacherIds), so no teacher is listed by hand.
+ * Teachers with no shift assignment form a final Hourly group with no
+ * working window. Membership is data, never a list in the UI: a teacher is in
+ * it if they hold a booked lesson (fetchScheduledTeacherIds) OR are recorded
+ * in schedule_hourly_roster (an hourly teacher on the schedule whose lessons
+ * are not booked yet must not vanish from it).
  */
 export function useScheduleRoster() {
   const { teachers } = useTeacherStore();
@@ -41,10 +44,19 @@ export function useScheduleRoster() {
     queryKey: schedulingKeys.scheduledTeachers(),
     queryFn: lessonsSvc.fetchScheduledTeacherIds,
   });
+  const hourlyRosterQuery = useQuery({
+    queryKey: schedulingKeys.hourlyRoster(),
+    queryFn: fetchHourlyRosterTeacherIds,
+  });
+
+  const hourlyCandidateIds = useMemo(
+    () => new Set([...(scheduledQuery.data ?? []), ...(hourlyRosterQuery.data ?? [])]),
+    [scheduledQuery.data, hourlyRosterQuery.data]
+  );
 
   const groups = useMemo(
-    () => buildScheduleRoster(templatesQuery.data ?? [], assignmentsQuery.data ?? [], teachers, scheduledQuery.data),
-    [templatesQuery.data, assignmentsQuery.data, teachers, scheduledQuery.data]
+    () => buildScheduleRoster(templatesQuery.data ?? [], assignmentsQuery.data ?? [], teachers, hourlyCandidateIds),
+    [templatesQuery.data, assignmentsQuery.data, teachers, hourlyCandidateIds]
   );
 
   /** Flat roster in group order — the complete set of Schedule teachers. */
@@ -80,7 +92,7 @@ export function useScheduleRoster() {
     rosterTeachers,
     rosterTeacherIds,
     templateIdsByTeacherId,
-    isLoading: templatesQuery.isLoading || assignmentsQuery.isLoading || scheduledQuery.isLoading,
-    error: templatesQuery.error || assignmentsQuery.error || scheduledQuery.error,
+    isLoading: templatesQuery.isLoading || assignmentsQuery.isLoading || scheduledQuery.isLoading || hourlyRosterQuery.isLoading,
+    error: templatesQuery.error || assignmentsQuery.error || scheduledQuery.error || hourlyRosterQuery.error,
   };
 }

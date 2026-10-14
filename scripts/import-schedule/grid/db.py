@@ -34,7 +34,8 @@ SELECT md5(coalesce(string_agg(
 
 SNAPSHOT_QUERIES = {
     'teachers': "SELECT id, full_name, teacher_type, status, is_deleted, created_at::text FROM public.teachers ORDER BY id",
-    'students': "SELECT id, full_name, status, is_deleted, created_at::text FROM public.students ORDER BY id",
+    'students': "SELECT id, full_name, status, is_deleted, supervisor_id, created_at::text FROM public.students ORDER BY id",
+    'supervisors': "SELECT id, name, color_hex, status FROM public.supervisors ORDER BY id",
     'lessons': """SELECT l.id, l.teacher_id, l.day_of_week, l.start_minute, l.duration_minutes, l.end_minute,
                          l.lifecycle_status, l.effective_from::text, l.effective_until::text, l.original_teacher_id,
                          l.same_day_since::text, l.same_time_since::text, l.timezone, l.course_id, l.branch_id,

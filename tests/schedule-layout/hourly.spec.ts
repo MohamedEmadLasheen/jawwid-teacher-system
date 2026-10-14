@@ -65,6 +65,21 @@ for (const dir of ['ltr', 'rtl'] as const) {
       expect(m.slotCount).toBe(48);
     });
 
+    test('a teacher recorded on the hourly roster appears even with no booked lesson', async ({ page }) => {
+      await open(page, dir);
+      const row = await page.evaluate(() => {
+        const label = Array.from(document.querySelectorAll('p')).find((p) => p.textContent === 'Hourly Rostered Teacher');
+        if (!label) return null;
+        const r = label.closest('div.flex.h-full')!;
+        return {
+          lessons: r.querySelectorAll('div.absolute.top-0.h-full.z-20').length,
+          hatched: Array.from(r.querySelectorAll('button')).filter((b) => b.className.includes('bg-gray-200/70')).length,
+          freeBands: r.querySelectorAll('div.bg-red-100\\/80').length,
+        };
+      });
+      expect(row).toEqual({ lessons: 0, hatched: 0, freeBands: 0 });
+    });
+
     test('hourly lessons sit at their exact source minute and duration', async ({ page }) => {
       await open(page, dir);
       const m = await measure(page);

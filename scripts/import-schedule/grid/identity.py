@@ -80,6 +80,37 @@ def segmentations(text: str) -> list[tuple[str, ...]]:
     return sorted(readings)
 
 
+def preferred_reading(text: str, known_first_names: set) -> tuple | None:
+    """The one reading of a group cell that recorded names support, or None.
+
+    A word "وX" after the first word is read as "and X" when X is a known first
+    name and "وX" is not; kept whole when "وX" is a known first name and X is
+    not. If any such word fits both ways or neither, the cell is undecidable
+    and None is returned — the caller keeps it for a person to segment.
+    """
+    toks = ws(text).replace('&', ' & ').split()
+    parts, cur = [], []
+    for i, t in enumerate(toks):
+        if t in ('&', 'و'):
+            if cur:
+                parts.append(' '.join(cur)); cur = []
+        elif t.startswith('و') and len(t) > 1 and i > 0:
+            as_and, as_name = t[1:] in known_first_names, t in known_first_names
+            if as_and == as_name:
+                return None
+            if as_and:
+                if cur:
+                    parts.append(' '.join(cur))
+                cur = [t[1:]]
+            else:
+                cur.append(t)
+        else:
+            cur.append(t)
+    if cur:
+        parts.append(' '.join(cur))
+    return tuple(parts) if parts else None
+
+
 # --------------------------------------------------------------------------
 # Database snapshot view
 # --------------------------------------------------------------------------
@@ -275,8 +306,15 @@ class StudentResolver:
     Everything else is unresolved and the lesson stays pending.
     """
 
-    def __init__(self, snap: Snapshot):
+    def __init__(self, snap: Snapshot, decisions: dict | None = None):
         self.snap = snap
+        # Owner-approved resolutions from student_identity_decisions.json, keyed
+        # by (teacher id, name exactly as written) — never by sheet cell, so a
+        # decision survives the next version of the workbook.
+        self.decisions = {}
+        for d in (decisions or {}).get('resolutions', []):
+            if d.get('approved_by') and d.get('student_id'):
+                self.decisions[(d['teacher_id'], ws(d['name']))] = d['student_id']
         self.valid = {sid: s for sid, s in snap.students.items()
                       if not s['is_deleted'] and not is_malformed_student_name(s['full_name'])}
         self.by_exact = defaultdict(list)
@@ -293,6 +331,12 @@ class StudentResolver:
                 self.taught[l['teacher_id']].add(p['student_id'])
 
     def _part(self, part: str, teacher_id: str | None):
+        decided = self.decisions.get((teacher_id, part))
+        if decided is not None:
+            s = self.snap.students.get(decided)
+            if s is None or s['is_deleted']:
+                return None, None, f'"{part}": the approved decision points at a missing or deleted student record'
+            return [decided], 'OWNER_DECISION', None
         exact = self.by_exact.get(part, [])
         variants = self.by_key.get(orthographic_key(part), [])
         pool = sorted(set(exact) | set(variants))
@@ -340,5 +384,5 @@ class StudentResolver:
         if len(readings) > 1:
             return StudentResolution(None, 'AMBIGUOUS', issues + [f'STUDENT_AMBIGUOUS: {len(readings)} different readings of the cell each resolve to existing students'])
         ids, bases = next(iter(readings.items()))
-        order = ['VARIANT_SOLE_RECORD_HISTORY', 'EXACT_UNIQUE_NAME', 'HISTORY_DISAMBIGUATED', 'HISTORY']
+        order = ['VARIANT_SOLE_RECORD_HISTORY', 'EXACT_UNIQUE_NAME', 'HISTORY_DISAMBIGUATED', 'OWNER_DECISION', 'HISTORY']
         return StudentResolution(list(ids), min(bases, key=order.index), issues)

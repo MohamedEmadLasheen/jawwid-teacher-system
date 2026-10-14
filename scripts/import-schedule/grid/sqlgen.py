@@ -42,6 +42,8 @@ def plan_items(outcomes) -> list[dict]:
             continue
         if not (0 <= o.start_minute <= 1439 and o.duration_minutes > 0 and o.start_minute + o.duration_minutes <= 1440):
             raise ValueError(f'{o.sheet}!{o.cell}: time outside the data model reached the plan')
+        if not o.teacher_id or not o.student_ids:
+            raise ValueError(f'{o.sheet}!{o.cell}: an IMPORT without a confirmed teacher and resolved students reached the plan')
         items.append({
             'source_sheet': o.sheet, 'source_cell': o.source_key, 'teacher_id': o.teacher_id,
             'day_of_week': o.day_of_week, 'start_minute': o.start_minute, 'duration_minutes': o.duration_minutes,
