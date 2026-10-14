@@ -120,6 +120,19 @@ def cmd_propose(args):
     full = write_full(os.path.join(out, 'full-reconciliation.xlsx'), parsed, tmap, raw, plan, props)
     os.chmod(os.path.join(out, 'full-reconciliation.xlsx'), 0o600)
     print(json.dumps(full, ensure_ascii=False, indent=1))
+    from grid.decisions import audit, write as write_decisions
+    aud = audit(parsed, tmap, raw, evidence, plan, props)
+    cases = write_decisions(os.path.join(out, 'decisions.xlsx'), parsed, tmap, raw, plan, props, aud, args.deployed_code)
+    os.chmod(os.path.join(out, 'decisions.xlsx'), 0o600)
+    write_private(os.path.join(out, 'audit.json'), json.dumps({k: v for k, v in aud.items() if k != 'strict_outcomes'}, ensure_ascii=False, indent=1))
+    print(json.dumps({'cases': cases,
+                      'student_matches_pass': sum(1 for r in aud['resolution_audit'] if r['verdict'] == 'PASS'),
+                      'student_matches_fail': sum(1 for r in aud['resolution_audit'] if r['verdict'] == 'FAIL'),
+                      'new_students_eligible': sum(1 for r in aud['new_student_audit'] if r['verdict'] == 'ELIGIBLE'),
+                      'new_students_pending': sum(1 for r in aud['new_student_audit'] if r['verdict'] == 'PENDING'),
+                      'strict_import_with_passing_matches': len(aud['strict_import_with_passing_resolutions']),
+                      'strict_import_with_matches_and_eligible_students': len(aud['strict_import_with_resolutions_and_eligible_students'])},
+                     ensure_ascii=False, indent=1))
     sim = props['simulation']
     print(json.dumps({
         'hourly_roster_teachers': len(props['hourly_roster']),
@@ -194,6 +207,8 @@ def main():
             p.add_argument('--workbook', required=True)
             p.add_argument('--map', default=DEFAULT_MAP)
             p.add_argument('--decisions', default=DEFAULT_DECISIONS)
+        if name == 'propose':
+            p.add_argument('--deployed-code', default='main with PR #29 (2896d5e), deployed 2026-10-13 20:09 UTC')
         if name == 'apply':
             p.add_argument('--confirm', required=True, help='the plan id printed by `plan`')
             p.add_argument('--backup', help='verified backup directory (required for --target linked)')

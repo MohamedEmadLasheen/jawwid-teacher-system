@@ -28,13 +28,15 @@ hm = lambda m: '' if m is None else f'{(m // 60) % 24:02d}:{m % 60:02d}' + (' (+
 
 
 def visibility(snap: Snapshot, lesson: dict, hourly_roster: set = frozenset()) -> tuple[bool, bool]:
+    """(drawn by the code before PR #29, drawn by the code deployed since
+    2026-10-13 20:09 UTC). PR #29 was merged and deployed then."""
     t = snap.teachers.get(lesson['teacher_id'])
     if t is None or lesson['lifecycle_status'] not in ('trial', 'active'):
         return False, False
     on_shift = lesson['teacher_id'] in snap.roster_teacher_ids()
-    deployed = on_shift and not t['is_deleted'] and lesson['start_minute'] + lesson['duration_minutes'] > 480
-    pr = not t['is_deleted']           # shift group, or Hourly group (it holds a booked lesson)
-    return deployed, pr
+    before = on_shift and not t['is_deleted'] and lesson['start_minute'] + lesson['duration_minutes'] > 480
+    now = not t['is_deleted']           # shift group, or Hourly group (it holds a booked lesson)
+    return before, now
 
 
 def _sheet(wb, title, header, rows, widths=()):
@@ -172,8 +174,8 @@ def write(path, parsed, tmap, raw, plan, props) -> dict:
     for row in [('Source lesson cells', len(outcomes)),
                 ('In database and correct (already present + imported)', sum(1 for o in outcomes if o['status'] in ('ALREADY_PRESENT', 'IMPORT'))),
                 ('Pending', sum(1 for o in outcomes if o['status'] == 'PENDING')),
-                ('Booked lessons hidden by the DEPLOYED code', len(hidden)),
-                ('Booked lessons hidden after PR #29', sum(1 for h in hidden if h[-1] == 'no')),
+                ('Booked lessons hidden by the code before PR #29', len(hidden)),
+                ('Booked lessons hidden by the code deployed now (PR #29)', sum(1 for h in hidden if h[-1] == 'no')),
                 ('', ''), ('Pending by primary root cause', '')] + \
             [(dict((c, d) for c, d, _ in ROOT_CAUSES)[k], v) for k, v in rc.most_common()]:
         s.append(list(row))
@@ -181,16 +183,16 @@ def write(path, parsed, tmap, raw, plan, props) -> dict:
 
     _sheet(wb, 'Lessons (1141)', ['source cell', 'day', 'teacher (sheet)', 'header', 'start', 'duration', 'cell text', 'outcome',
                                    'root causes', 'reasons', 'DB teacher', 'classification', 'students', 'in database',
-                                   'lesson id', 'visible: deployed', 'visible: PR #29', 'database presence (other teacher / duration)',
+                                   'lesson id', 'visible: before PR #29', 'visible: deployed now (PR #29)', 'database presence (other teacher / duration)',
                                    'decision required', 'proposal effect', 'details'], lesson_rows,
            [14, 10, 18, 7, 8, 6, 26, 14, 26, 30, 22, 14, 30, 10, 38, 8, 8, 40, 60, 40, 80])
     _sheet(wb, 'Students', ['name as written', 'source cell', 'teacher', 'status', 'student id', 'evidence / reason', 'candidate records', 'proposal'],
            student_rows, [22, 14, 22, 30, 38, 40, 60, 50])
     _sheet(wb, 'Teachers', ['sheet spellings', 'cells', 'business class', 'identity', 'DB teacher', 'teacher id', 'basis', 'booked now',
-                            'already present', 'imported', 'pending', 'visible: deployed', 'visible: PR #29', 'visible: PR + hourly roster',
+                            'already present', 'imported', 'pending', 'visible: before PR #29', 'visible: deployed now (PR #29)', 'visible: PR + hourly roster',
                             'evidence / decision required'], teacher_rows, [40, 6, 18, 12, 24, 38, 30, 8, 8, 8, 8, 26, 26, 26, 90])
     _sheet(wb, 'In DB, not on screen', ['lesson id', 'teacher', 'day', 'start', 'duration', 'students', 'source_sheet', 'source_cell',
-                                        'why hidden (deployed)', 'visible after PR #29'], hidden, [38, 22, 10, 8, 6, 40, 10, 18, 30, 10])
+                                        'why hidden before PR #29', 'visible now (PR #29 deployed)'], hidden, [38, 22, 10, 8, 6, 40, 10, 18, 30, 10])
     _sheet(wb, 'Missing from DB', ['source cell', 'day', 'teacher (sheet)', 'start', 'duration', 'cell text', 'root causes', 'decision required', 'proposal effect'],
            [[r[0], r[1], r[2], r[4], r[5], r[6], r[8], r[18], r[19]] for r in lesson_rows if r[7] == 'PENDING' and r[13] == 'NO'],
            [14, 10, 18, 8, 6, 26, 26, 60, 40])

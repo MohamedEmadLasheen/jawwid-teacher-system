@@ -360,3 +360,41 @@ class Proposals(Case):
                'students': [{'id': 'a', 'full_name': 'x'}], 'counts': {'lessons': 0, 'lesson_participants': 0}}
         post = dict(pre, students=[{'id': 'a', 'full_name': 'x', 'supervisor_id': 's'}])
         self.assertEqual(verify(pre, post, {'items': [], 'outcomes': [], 'source_lesson_cells': 0})['problems'], [])
+
+
+class StrictAudit(Proposals):
+    def audit(self, content, entries, supervisors, fills):
+        from grid.decisions import audit
+        props, res = self.build(content, entries, [], supervisors, fills)
+        path = os.path.join(self.tmp.name, 'p.xlsx')
+        parsed = parse_workbook(path)
+        raw = self.b.snapshot(); raw['supervisors'] = supervisors
+        snap = Snapshot.from_dict(raw)
+        tmap = TeacherMap(teacher_map(entries, []))
+        plan = {'outcomes': [o.to_dict() for o in res['outcomes']]}
+        return audit(parsed, tmap, raw, teacher_evidence(parsed.lessons, snap), plan, props)
+
+    def test_admin_match_fails_when_another_same_named_record_was_taught_by_this_teacher(self):
+        t = self.b.teacher('T')
+        s1 = self.b.student('سارة احمد'); s2 = self.b.student('سارة احمد'); self.b.student('سارة احمد')
+        self.b.students[0]['supervisor_id'] = 'sup-dina'
+        self.b.lesson(t, 3, 600, 30, [s2], status='ended')                 # history with the OTHER record
+        self.b.students[1]['full_name'] = 'سارة  احمد'                     # still the same name, so still a candidate
+        aud = self.audit({'سبت': [('ت', {'C': 'سارة احمد'})]}, [confirmed(['ت'], t)],
+                         [{'id': 'sup-dina', 'name': 'Dina'}], {('سبت ', 'C3'): 'E06666'})
+        verdicts = {(r['student_id'], r['verdict']) for r in aud['resolution_audit']}
+        self.assertNotIn((s1, 'PASS'), verdicts)
+
+    def test_first_name_only_new_student_is_never_eligible(self):
+        t = self.b.teacher('T')
+        aud = self.audit({'سبت': [('ت', {'C': 'زكريا'})]}, [confirmed(['ت'], t)],
+                         [{'id': 'sup-rehab', 'name': 'Rehab'}], {('سبت ', 'C3'): 'C9DAF8'})
+        self.assertEqual([(r['full_name'], r['verdict']) for r in aud['new_student_audit']], [('زكريا', 'PENDING')])
+        self.assertEqual(aud['strict_import_with_resolutions_and_eligible_students'], [])
+
+    def test_full_name_with_admin_colour_is_eligible_and_counted(self):
+        t = self.b.teacher('T')
+        aud = self.audit({'سبت': [('ت', {'C': 'زكريا خالد'})]}, [confirmed(['ت'], t)],
+                         [{'id': 'sup-rehab', 'name': 'Rehab'}], {('سبت ', 'C3'): 'C9DAF8'})
+        self.assertEqual([r['verdict'] for r in aud['new_student_audit']], ['ELIGIBLE'])
+        self.assertEqual(aud['strict_import_with_resolutions_and_eligible_students'], ['سبت!C3'])
