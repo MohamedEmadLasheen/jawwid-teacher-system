@@ -50,7 +50,10 @@ CREATE POLICY "schedule_hourly_roster_insert" ON public.schedule_hourly_roster
 CREATE POLICY "schedule_hourly_roster_delete" ON public.schedule_hourly_roster
   FOR DELETE USING (public.is_admin_level());
 
+-- Supabase's default privileges grant every privilege on a new public table
+-- to anon and authenticated; narrow them to exactly what the policies allow.
 REVOKE ALL ON public.schedule_hourly_roster FROM anon;
+REVOKE ALL ON public.schedule_hourly_roster FROM authenticated;
 GRANT SELECT, INSERT, DELETE ON public.schedule_hourly_roster TO authenticated;
 
 COMMIT;
