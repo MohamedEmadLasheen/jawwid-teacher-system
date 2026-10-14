@@ -49,6 +49,29 @@ async function measure(page: Page) {
   });
 }
 
+// A real page load: index.html ships <html dir="rtl">, the saved language is
+// English, and the app sets the direction itself. The grid must still open at
+// 08:00 — a direction corrected only after the grid mounted used to flip the
+// scroll origin under it and leave it at 00:00 (found on production 2026-10-14).
+test('page load with a saved English language opens the grid at 08:00 (LTR)', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('jtis_lang', 'en');
+    // As index.html's <html dir="rtl">: in place once parsing ends, before any
+    // module script runs (the init script itself runs before <html> exists).
+    document.addEventListener('readystatechange', () => {
+      if (document.readyState === 'interactive') document.documentElement.setAttribute('dir', 'rtl');
+    });
+  });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('/tests/schedule-layout/master-grid.html?dir=app&hourly=1&rows=3');
+  await page.waitForSelector('[data-testid="ready"]', { state: 'attached' });
+  await page.waitForFunction(() => Array.from(document.querySelectorAll('p')).some((p) => p.textContent === 'Hourly Teacher'));
+  await page.waitForTimeout(300);
+  expect(await page.evaluate(() => document.documentElement.dir)).toBe('ltr');
+  const m = await measure(page);
+  expect(m.scrollOffset).toBeCloseTo(Math.min(16 * m.columnWidth, m.maxScroll), 0);
+});
+
 for (const dir of ['ltr', 'rtl'] as const) {
   test.describe(`hourly group (${dir})`, () => {
     test('an hourly teacher with no shift gets a row in the Hourly group, with no invented hours', async ({ page }) => {
@@ -96,6 +119,16 @@ for (const dir of ['ltr', 'rtl'] as const) {
 
     test('the grid opens at 08:00, not at the start of the axis', async ({ page }) => {
       await open(page, dir);
+      const m = await measure(page);
+      expect(m.scrollOffset).toBeCloseTo(Math.min(16 * m.columnWidth, m.maxScroll), 0);
+    });
+
+    test('opens at 08:00 when the grid mounts while its lessons are still loading (a real page load)', async ({ page }) => {
+      await page.setViewportSize({ width: 1280, height: 900 });
+      await page.goto(`/tests/schedule-layout/master-grid.html?dir=${dir}&hourly=1&rows=3&loadDelay=800`);
+      await page.waitForSelector('[data-testid="ready"]', { state: 'attached' });
+      await page.waitForFunction(() => Array.from(document.querySelectorAll('p')).some((p) => p.textContent === 'Hourly Teacher'));
+      await page.waitForTimeout(300);
       const m = await measure(page);
       expect(m.scrollOffset).toBeCloseTo(Math.min(16 * m.columnWidth, m.maxScroll), 0);
     });
