@@ -148,6 +148,29 @@ Restore both into a disposable `public.ecr.aws/supabase/postgres` container
 content hashes with production, record the result in `<dir>/RESTORE.md`, then
 `shasum -a 256 * > SHA256SUMS`. Keep the directory mode 700.
 
+## Release of PR #29 (Hourly group, whole-day timeline, migration 026)
+
+Order — each step is safe on its own, and the code tolerates 026 being absent:
+
+1. Back up and prove the restore (see **Backup**); record per-table content
+   hashes of production as the pre-release baseline.
+2. `plan` + `propose` against production (read-only); review `hourly-roster.sql`.
+3. Apply `supabase/migrations/026_schedule_hourly_roster.sql`, then run
+   `026_verify.sql` and check every EXPECT.
+4. Apply `<run>/proposals/hourly-roster.sql` (INSERT-only, atomic; refuses a
+   deleted or shift-roster teacher; `ON CONFLICT DO NOTHING`, so a re-run adds nothing).
+5. Re-hash production: every pre-existing table identical, `schedule_hourly_roster`
+   holding exactly the proposed teachers.
+6. Merge the PR to `main`; the "Deploy to VPS" workflow builds and flips the
+   `current` release symlink. Confirm the run succeeded and the served bundle
+   is the new build.
+
+Recovery: the site rolls back instantly by repointing `current` at the previous
+release (see `DEPLOY.md`); the code still works with the table present. The
+membership rows are removed with `DELETE FROM public.schedule_hourly_roster`
+and the table with `026_rollback.sql` — neither touches lessons, teachers,
+students or shift assignments.
+
 ## Recovery
 
 A batch is identified by its provenance suffix and plan. To withdraw one batch
